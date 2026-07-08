@@ -84,28 +84,30 @@ import { createDodoWebhookHandler } from "@dodopayments/convex"
 http.route({
   path: "/dodopayments-webhook",
   method: "POST",
-  handler: createDodoWebhookHandler({
-    onPaymentSucceeded: async (ctx, payload) => {
-      console.log("🎉 Payment Succeeded! Upgrading user...");
-      
-      const customerId = payload.data.customer.customer_id;
-      if (customerId) {
-        await ctx.runMutation(internal.users.upgradeToPro, {
-          dodoCustomerId: customerId,
-        });
-      }
-    },
-    onSubscriptionActive: async (ctx, payload) => {
-      console.log("🎉 Subscription Activated! Upgrading user...");
-      
-      const customerId = payload.data.customer.customer_id;
-      if (customerId) {
-        await ctx.runMutation(internal.users.upgradeToPro, {
-          dodoCustomerId: customerId,
-        });
-      }
-    },
-  }),
+  handler: process.env.DODO_PAYMENTS_WEBHOOK_SECRET 
+    ? createDodoWebhookHandler({
+        onPaymentSucceeded: async (ctx, payload) => {
+          console.log("🎉 Payment Succeeded! Upgrading user...");
+          
+          const customerId = payload.data.customer.customer_id;
+          if (customerId) {
+            await ctx.runMutation(internal.users.upgradeToPro, {
+              dodoCustomerId: customerId,
+            });
+          }
+        },
+        onSubscriptionActive: async (ctx, payload) => {
+          console.log("🎉 Subscription Activated! Upgrading user...");
+          
+          const customerId = payload.data.customer.customer_id;
+          if (customerId) {
+            await ctx.runMutation(internal.users.upgradeToPro, {
+              dodoCustomerId: customerId,
+            });
+          }
+        },
+      })
+    : httpAction(async () => new Response(JSON.stringify({ error: "Webhook not configured" }), { status: 503, headers: { "Content-Type": "application/json" } })),
 })
 
 // CORS configuration for custom API endpoints. Origins read from `SITE_URL` +
@@ -151,10 +153,16 @@ cors.route({
  * Handles comma-separated lists (proxies add IPs to the list).
  */
 function getClientIp(request: Request): string {
+  // Check trusted proxies first (Cloudflare, Vercel, etc.)
+  const realIp = request.headers.get("x-real-ip") || request.headers.get("cf-connecting-ip")
+  if (realIp) {
+    return realIp.trim()
+  }
+
+  // Fallback to x-forwarded-for leftmost IP
   const forwardedFor = request.headers.get("x-forwarded-for")
   if (forwardedFor) {
-    const ips = forwardedFor.split(",")
-    return ips[ips.length - 1].trim()
+    return forwardedFor.split(",")[0].trim()
   }
   return "unknown"
 }
