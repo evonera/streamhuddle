@@ -117,6 +117,7 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+/* FREE THEMES */
 .theme-gryffindor {
   --background: oklch(0.2 0.05 15);
   --foreground: oklch(0.95 0 0);
@@ -137,7 +138,6 @@
   --ring: oklch(0.7 0.15 80);
 }
 
-/* FREE THEMES */
 .theme-dracula {
   --background: oklch(0.25 0.02 260);
   --foreground: oklch(0.95 0 0);

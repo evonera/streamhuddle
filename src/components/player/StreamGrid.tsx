@@ -55,10 +55,11 @@ export function StreamGrid({
 
 
 
-  const laidOut = chunkIntoRows(
-    streams.map((stream) => ({ stream, rowSize: getColumnsForCount(streams.length) })),
-    getColumnsForCount(streams.length)
-  ).flatMap(row => row);
+  const cols = getColumnsForCount(streams.length);
+  const rows = chunkIntoRows(streams, cols);
+  const laidOut = rows.flatMap(row => 
+    row.map(stream => ({ stream, rowSize: row.length }))
+  );
 
   const handleRemove = (id: string, type: "stream" | "chat") => {
     const removed = streams.find((s) => s.id === id && s.type === type);
