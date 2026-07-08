@@ -1,6 +1,7 @@
 import { query, mutation } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
 import { safeGetAuthenticatedUser } from "./auth";
+import { authComponent } from "./auth";
 
 export const getAllCreators = query({
   args: {
@@ -166,28 +167,20 @@ export const incrementStreamListViews = mutation({
 export const getDiscoverStreamLists = query({
   args: {},
   handler: async (ctx) => {
-    // Collect all layouts, sort by views descending, take top 20
-    const layouts = await ctx.db.query("layouts").collect();
-    
-    // Sort manually since we don't have an index on views
-    layouts.sort((a, b) => (b.views || 0) - (a.views || 0));
-    
-    // Take top 20
-    const topLayouts = layouts.slice(0, 20);
+    // Collect top 20 layouts by views descending
+    const topLayouts = await ctx.db
+      .query("layouts")
+      .withIndex("by_views")
+      .order("desc")
+      .take(20);
     
     // Fetch user avatars and creator data
     const result = await Promise.all(topLayouts.map(async (layout) => {
-      let authorName = "Anonymous";
+      let authorName = "User " + layout.authId.slice(0, 4);
       
-      const user = await ctx.db
-        .query("users")
-        .withIndex("authId", q => q.eq("authId", layout.authId))
-        .first();
-      
-      if (user) {
-        authorName = "User " + layout.authId.slice(0, 4);
-      } else {
-        authorName = "User " + layout.authId.slice(0, 4);
+      const authUser = await authComponent.getAnyUserById(ctx, layout.authId);
+      if (authUser && authUser.name) {
+        authorName = authUser.name;
       }
 
       // Fetch creator usernames for the preview

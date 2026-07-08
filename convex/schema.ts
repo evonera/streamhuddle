@@ -83,5 +83,7 @@ export default defineSchema({
       creatorId: v.id("creators"),
       type: v.optional(v.union(v.literal("stream"), v.literal("chat"))) // 👈 Optional fallback
     }))
-  }).index("by_user", ["authId"]),
+  })
+    .index("by_user", ["authId"])
+    .index("by_views", ["views"]),
 })

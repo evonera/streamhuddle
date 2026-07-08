@@ -11,7 +11,7 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import Home01Icon from "@hugeicons/core-free-icons/Home01Icon"
 import { buttonVariants } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, MessageSquare, LayoutTemplate, Search, Share, MonitorPlay, Maximize } from 'lucide-react'
+import { PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, MessageSquare, Search, Share, MonitorPlay, Maximize } from 'lucide-react'
 import { toast } from 'sonner'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
@@ -61,6 +61,7 @@ export function RosterLayout({ initialListId }: { initialListId?: string }) {
   
   const userLayouts = useQuery(api.roster.getUserLayouts)
   const saveLayoutMutation = useMutation(api.roster.saveLayout)
+  const incrementViewsMutation = useMutation(api.roster.incrementStreamListViews)
   const sharedListQuery = useQuery(api.roster.getStreamListById, initialListId ? { id: initialListId as any } : "skip")
 
   // Auto-load shared list
@@ -69,7 +70,6 @@ export function RosterLayout({ initialListId }: { initialListId?: string }) {
       const loadedStreams = sharedListQuery.streams.map(s => {
         const creator = creatorsQuery.find(c => c._id === s.creatorId)
         if (!creator) return null
-        return {
         return {
           id: creator._id,
           platform: creator.platform as any,
@@ -80,6 +80,7 @@ export function RosterLayout({ initialListId }: { initialListId?: string }) {
       }).filter(Boolean) as StreamData[]
       setActiveLayoutName(sharedListQuery.name)
       setActiveStreams(loadedStreams)
+      incrementViewsMutation({ id: initialListId as any }).catch(console.error)
     }
   }, [sharedListQuery, creatorsQuery])
 
@@ -233,9 +234,7 @@ export function RosterLayout({ initialListId }: { initialListId?: string }) {
                     <MessageSquare size={14} /> Chat
                   </button>
                 </div>
-              </div>
                 {creator.isLive ? (
-                  <div className="flex flex-col items-end">
                   <div className="absolute top-2 right-2 flex flex-col items-end">
                     <div className="flex items-center gap-1 text-red-500 font-bold text-[10px] uppercase animate-pulse">
                       <div className="w-1.5 h-1.5 rounded-full bg-red-500"></div> Live
@@ -330,6 +329,7 @@ export function RosterLayout({ initialListId }: { initialListId?: string }) {
                         platform: creator.platform as any,
                         channel: creator.platform === "custom" && creator.platformId ? creator.platformId : creator.username,
                         displayName: creator.username,
+                        type: s.type || "stream",
                       }
                     }).filter(Boolean) as StreamData[]
                     setActiveLayoutName(layout.name)
@@ -350,7 +350,6 @@ export function RosterLayout({ initialListId }: { initialListId?: string }) {
               </SelectContent>
             </Select>
             
-            <div className="h-4 w-px bg-border mx-1"></div>
             <div className="h-4 w-px bg-border mx-1"></div>
             <button
               onClick={() => setTheaterMode(true)}
@@ -373,6 +372,7 @@ export function RosterLayout({ initialListId }: { initialListId?: string }) {
               </>
             )}
           </div>
+        </div>
         )}
         
         {/* The Grid */}

@@ -26,13 +26,7 @@ function chunkIntoRows<T>(items: T[], cols: number): T[][] {
   return rows;
 }
 
-type GridCell = { kind: "stream"; stream: StreamData } | { kind: "chat" };
-
-function layoutCells(cells: GridCell[]) {
-  const cols = getColumnsForCount(cells.length);
-  const rows = chunkIntoRows(cells, cols);
-  return rows.flatMap((row) => row.map((cell) => ({ cell, rowSize: row.length })));
-}
+// Grid cells layout logic
 
 export function StreamGrid({ 
   streams,
@@ -59,7 +53,7 @@ export function StreamGrid({
     }
   }, [streams, focusedId]);
 
-  const activeChatStream = streams.find(s => s.id === activeChatId) || streams[0];
+
 
   const laidOut = chunkIntoRows(
     streams.map((stream) => ({ stream, rowSize: getColumnsForCount(streams.length) })),
@@ -167,12 +161,12 @@ export function StreamGrid({
               const isMuted = !isFocused && !manuallyUnmuted.has(stream.id);
               
               // Always use stream.id to preserve FLIP animation for Kick!
-              const reactKey = stream.id;
+              const streamKey = stream.id;
 
               return (
                 <motion.div
                   layout
-                  key={reactKey}
+                  key={streamKey}
                   style={style}
                   onClick={() => {
                     setFocusedId(stream.id);
