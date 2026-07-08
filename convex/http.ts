@@ -153,8 +153,8 @@ cors.route({
 function getClientIp(request: Request): string {
   const forwardedFor = request.headers.get("x-forwarded-for")
   if (forwardedFor) {
-    // x-forwarded-for can be "client, proxy1, proxy2" - get the first (client) IP
-    return forwardedFor.split(",")[0].trim()
+    const ips = forwardedFor.split(",")
+    return ips[ips.length - 1].trim()
   }
   return "unknown"
 }
