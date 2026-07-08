@@ -154,7 +154,7 @@ cors.route({
  */
 function getClientIp(request: Request): string {
   // Check trusted proxies first (Cloudflare, Vercel, etc.)
-  const realIp = request.headers.get("x-real-ip") || request.headers.get("cf-connecting-ip")
+  const realIp = request.headers.get("cf-connecting-ip") || request.headers.get("x-real-ip")
   if (realIp) {
     return realIp.trim()
   }
