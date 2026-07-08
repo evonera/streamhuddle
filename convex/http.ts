@@ -153,16 +153,17 @@ cors.route({
  * Handles comma-separated lists (proxies add IPs to the list).
  */
 function getClientIp(request: Request): string {
-  // Check trusted proxies first (Cloudflare, Vercel, etc.)
-  const realIp = request.headers.get("cf-connecting-ip") || request.headers.get("x-real-ip")
-  if (realIp) {
-    return realIp.trim()
+  // Check trusted proxies (Cloudflare, Vercel, etc.) only if explicitly configured
+  if (process.env.TRUSTED_PROXY === "true") {
+    const realIp = request.headers.get("cf-connecting-ip") || request.headers.get("x-real-ip")
+    if (realIp) return realIp.trim()
   }
 
-  // Fallback to x-forwarded-for leftmost IP
+  // Fallback to x-forwarded-for rightmost IP (Convex appends client IP here)
   const forwardedFor = request.headers.get("x-forwarded-for")
   if (forwardedFor) {
-    return forwardedFor.split(",")[0].trim()
+    const ips = forwardedFor.split(",")
+    return ips[ips.length - 1].trim()
   }
   return "unknown"
 }
