@@ -13,6 +13,7 @@ import { Route as UniversityRouteImport } from './routes/university'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as RosterRouteImport } from './routes/roster'
 import { Route as PricingRouteImport } from './routes/pricing'
+import { Route as DiscoverRouteImport } from './routes/discover'
 import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as StreamerUsernameRouteImport } from './routes/streamer.$username'
@@ -39,6 +40,11 @@ const RosterRoute = RosterRouteImport.update({
 const PricingRoute = PricingRouteImport.update({
   id: '/pricing',
   path: '/pricing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DiscoverRoute = DiscoverRouteImport.update({
+  id: '/discover',
+  path: '/discover',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthedRoute = AuthedRouteImport.update({
@@ -78,6 +84,7 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/discover': typeof DiscoverRoute
   '/pricing': typeof PricingRoute
   '/roster': typeof RosterRoute
   '/sign-in': typeof SignInRoute
@@ -90,6 +97,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/discover': typeof DiscoverRoute
   '/pricing': typeof PricingRoute
   '/roster': typeof RosterRoute
   '/sign-in': typeof SignInRoute
@@ -104,6 +112,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authed': typeof AuthedRouteWithChildren
+  '/discover': typeof DiscoverRoute
   '/pricing': typeof PricingRoute
   '/roster': typeof RosterRoute
   '/sign-in': typeof SignInRoute
@@ -118,6 +127,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/discover'
     | '/pricing'
     | '/roster'
     | '/sign-in'
@@ -130,6 +140,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/discover'
     | '/pricing'
     | '/roster'
     | '/sign-in'
@@ -143,6 +154,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/_authed'
+    | '/discover'
     | '/pricing'
     | '/roster'
     | '/sign-in'
@@ -157,6 +169,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthedRoute: typeof AuthedRouteWithChildren
+  DiscoverRoute: typeof DiscoverRoute
   PricingRoute: typeof PricingRoute
   RosterRoute: typeof RosterRoute
   SignInRoute: typeof SignInRoute
@@ -194,6 +207,13 @@ declare module '@tanstack/react-router' {
       path: '/pricing'
       fullPath: '/pricing'
       preLoaderRoute: typeof PricingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/discover': {
+      id: '/discover'
+      path: '/discover'
+      fullPath: '/discover'
+      preLoaderRoute: typeof DiscoverRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authed': {
@@ -264,6 +284,7 @@ const AuthedRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthedRoute: AuthedRouteWithChildren,
+  DiscoverRoute: DiscoverRoute,
   PricingRoute: PricingRoute,
   RosterRoute: RosterRoute,
   SignInRoute: SignInRoute,

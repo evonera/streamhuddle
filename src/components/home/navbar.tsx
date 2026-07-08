@@ -71,6 +71,9 @@ export default function Navbar() {
                         <a href="https://github.com/StreamHuddleHQ/streamhuddle" className="text-muted-foreground hover:text-foreground"><GithubIcon className="w-6 h-6" /></a>
                         <a href="https://x.com/streamhuddlehq" className="text-muted-foreground hover:text-foreground"><NewTwitterIcon className="w-6 h-6" /></a>
                     </div>
+                    <Link to="/discover" className="w-full text-center bg-zinc-900 text-foreground font-mono font-bold tracking-widest uppercase px-4 py-4 text-xs hover:bg-zinc-800 transition-colors mt-2">
+                        Discover
+                    </Link>
                     <Link to="/roster" className="w-full text-center bg-primary text-background font-mono font-bold tracking-widest uppercase px-4 py-4 text-xs hover:bg-primary/90 transition-colors active:scale-[0.96] mt-2">
                         Get Started
                     </Link>

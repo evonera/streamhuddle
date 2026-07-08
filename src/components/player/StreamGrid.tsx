@@ -39,14 +39,12 @@ export function StreamGrid({
   onRemoveStream,
   activeChatId,
   setActiveChatId,
-  chatPosition,
   onAddStreamClick
 }: { 
   streams: StreamData[];
-  onRemoveStream: (id: string) => void;
+  onRemoveStream: (id: string, type: "stream" | "chat") => void;
   activeChatId: string | null;
   setActiveChatId: (id: string | null) => void;
-  chatPosition?: 'sidebar' | 'grid';
   onAddStreamClick?: () => void;
 }) {
   const [kickRemountKey, setKickRemountKey] = useState(0);
@@ -63,23 +61,26 @@ export function StreamGrid({
 
   const activeChatStream = streams.find(s => s.id === activeChatId) || streams[0];
 
-  const cells: GridCell[] = streams.map((stream) => ({ kind: "stream", stream }));
-  if (chatPosition === "grid" && activeChatStream) cells.push({ kind: "chat" });
-  
-  const laidOut = layoutCells(cells);
+  const laidOut = chunkIntoRows(
+    streams.map((stream) => ({ stream, rowSize: getColumnsForCount(streams.length) })),
+    getColumnsForCount(streams.length)
+  ).flatMap(row => row);
 
-  const handleRemove = (id: string) => {
-    const removed = streams.find((s) => s.id === id);
-    onRemoveStream(id);
+  const handleRemove = (id: string, type: "stream" | "chat") => {
+    const removed = streams.find((s) => s.id === id && s.type === type);
+    onRemoveStream(id, type);
     
-    if (removed?.platform === "kick") {
+    if (removed?.platform === "kick" && type === "stream") {
       setKickRemountKey(k => k + 1);
     }
     
-    if (activeChatId === id) setActiveChatId(streams.find((s) => s.id !== id)?.id || null);
-    if (focusedId === id) {
-      setFocusedId(streams.find((s) => s.id !== id)?.id || null);
-      setManuallyUnmuted(new Set()); // Reset on removal focus shift
+    // If it's a stream being removed, handle focus shifts
+    if (type === "stream") {
+      if (activeChatId === id) setActiveChatId(streams.find((s) => s.id !== id && (!s.type || s.type === "stream"))?.id || null);
+      if (focusedId === id) {
+        setFocusedId(streams.find((s) => s.id !== id && (!s.type || s.type === "stream"))?.id || null);
+        setManuallyUnmuted(new Set());
+      }
     }
   };
 
@@ -122,14 +123,17 @@ export function StreamGrid({
         {/* Flat Grid Container */}
         <div className="absolute inset-1 flex flex-wrap content-stretch gap-1">
           <AnimatePresence mode="popLayout">
-            {laidOut.map(({ cell, rowSize }) => {
-              const style = { flexBasis: `calc(${100 / rowSize}% - 4px)` }; // Account for 4px gap (1rem gap-1)
+            {laidOut.map(({ stream, rowSize }, idx) => {
+              const style = { flexBasis: `calc(${100 / rowSize}% - 4px)` }; 
+              
+              // Unique key for the array map
+              const reactKey = `${stream.id}-${stream.type || 'stream'}-${idx}`;
 
-              if (cell.kind === "chat") {
+              if (stream.type === "chat") {
                 return (
                   <motion.div
                     layout
-                    key="grid-chat"
+                    key={reactKey}
                     style={style}
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
@@ -140,19 +144,25 @@ export function StreamGrid({
                       <div className="flex items-center gap-1 bg-black/50 px-2 py-1 rounded">
                         <MessageSquare size={14} className="text-primary" />
                         <span className="text-white text-xs font-semibold truncate">
-                          {activeChatStream.displayName || activeChatStream.channel} Chat
+                          {stream.displayName || stream.channel} Chat
                         </span>
                       </div>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); handleRemove(stream.id, "chat"); }}
+                        title="Close Chat"
+                        className="p-1.5 bg-red-600/80 hover:bg-red-600 text-white rounded-full transition-colors flex items-center justify-center backdrop-blur-sm"
+                      >
+                        <X size={16} />
+                      </button>
                     </div>
                     <ChatBox 
-                      platform={activeChatStream.platform} 
-                      channel={activeChatStream.channel} 
+                      platform={stream.platform} 
+                      channel={stream.channel} 
                     />
                   </motion.div>
                 );
               }
 
-              const stream = cell.stream;
               const isFocused = stream.id === focusedId;
               const isMuted = !isFocused && !manuallyUnmuted.has(stream.id);
               
@@ -210,9 +220,8 @@ export function StreamGrid({
                         </button>
                       )}
 
-                      {chatPosition === 'sidebar' && (
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); setActiveChatId(stream.id); }}
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); setActiveChatId(stream.id); }}
                           title="Chat"
                           className={`p-1.5 rounded-full transition-colors flex items-center justify-center ${
                             activeChatId === stream.id 
@@ -221,10 +230,9 @@ export function StreamGrid({
                           }`}
                         >
                           <MessageSquare size={16} />
-                        </button>
-                      )}
+                      </button>
                       <button 
-                        onClick={(e) => { e.stopPropagation(); handleRemove(stream.id); }}
+                        onClick={(e) => { e.stopPropagation(); handleRemove(stream.id, "stream"); }}
                         title="Close"
                         className="p-1.5 bg-red-600/80 hover:bg-red-600 text-white rounded-full transition-colors flex items-center justify-center backdrop-blur-sm"
                       >

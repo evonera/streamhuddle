@@ -78,8 +78,10 @@ export default defineSchema({
   layouts: defineTable({
     authId: v.string(), // Links to Better Auth user authId
     name: v.string(), // e.g. "Night Stream"
+    views: v.optional(v.number()), // 👈 Track popularity, optional for old layouts
     streams: v.array(v.object({
       creatorId: v.id("creators"),
+      type: v.optional(v.union(v.literal("stream"), v.literal("chat"))) // 👈 Optional fallback
     }))
   }).index("by_user", ["authId"]),
 })

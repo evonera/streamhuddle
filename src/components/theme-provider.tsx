@@ -2,7 +2,7 @@
 import { ScriptOnce } from "@tanstack/react-router"
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 
-type Theme = "dark" | "light" | "system"
+type Theme = string
 
 type ThemeProviderProps = {
   children: React.ReactNode
@@ -16,7 +16,7 @@ type ThemeProviderState = {
 }
 
 function buildThemeScript(storageKey: string, defaultTheme: Theme) {
-  return `(function(){try{var k=${JSON.stringify(storageKey)};var d=${JSON.stringify(defaultTheme)};var t=localStorage.getItem(k);if(t!=='light'&&t!=='dark'&&t!=='system'){t=d}var m=matchMedia('(prefers-color-scheme: dark)').matches;var r=t==='system'?(m?'dark':'light'):t;var e=document.documentElement;e.classList.add(r);e.style.colorScheme=r}catch(e){}})();`
+  return `(function(){try{var k=${JSON.stringify(storageKey)};var d=${JSON.stringify(defaultTheme)};var t=localStorage.getItem(k);if(!t){t=d}var m=matchMedia('(prefers-color-scheme: dark)').matches;var r=t==='system'?(m?'dark':'light'):t;var e=document.documentElement;if(r!=='light'&&r!=='dark'){e.classList.add('theme-'+r);e.classList.add('dark')}else{e.classList.add(r)}e.style.colorScheme=r==='light'?'light':'dark'}catch(e){}})();`
 }
 
 const ThemeProviderContext = createContext<ThemeProviderState>({
@@ -24,20 +24,29 @@ const ThemeProviderContext = createContext<ThemeProviderState>({
   setTheme: () => {},
 })
 
-function resolveTheme(theme: Theme): "dark" | "light" {
+function resolveTheme(theme: Theme): string {
   if (theme !== "system") return theme
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
 }
 
-function applyTheme(resolved: "dark" | "light") {
+function applyTheme(resolved: string) {
   const root = document.documentElement
-  root.classList.remove("light", "dark")
-  root.classList.add(resolved)
-  root.style.colorScheme = resolved
+  // Remove all theme classes
+  const classesToRemove = Array.from(root.classList).filter(c => c.startsWith('theme-') || c === 'light' || c === 'dark')
+  root.classList.remove(...classesToRemove)
+  
+  if (resolved !== "light" && resolved !== "dark") {
+    root.classList.add(`theme-${resolved}`)
+    root.classList.add("dark") // Custom themes are generally dark mode based
+    root.style.colorScheme = "dark"
+  } else {
+    root.classList.add(resolved)
+    root.style.colorScheme = resolved
+  }
 }
 
 function isTheme(value: unknown): value is Theme {
-  return value === "light" || value === "dark" || value === "system"
+  return typeof value === "string"
 }
 
 export function ThemeProvider({

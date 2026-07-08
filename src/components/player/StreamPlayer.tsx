@@ -11,6 +11,7 @@ export interface StreamData {
   displayName?: string; // used for custom URLs
   isPrimary?: boolean; // For YouTube click-to-play
   muted?: boolean;
+  type?: "stream" | "chat"; // For in-grid chat
 }
 
 export function StreamPlayer({ stream, kickRemountKey }: { stream: StreamData; kickRemountKey?: number }) {
