@@ -1,0 +1,32 @@
+node_modules
+.DS_Store
+dist
+dist-ssr
+*.local
+.env
+.env.*
+!.env.example
+!.env.convex.example
+.nitro
+.tanstack
+.vite
+.cache
+.wrangler
+.output
+.vinxi
+*.tsbuildinfo
+__unconfig*
+.agents
+
+# keep shared VS Code recommendations even when user's global ignores .vscode/
+!.vscode/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.vercel
+.netlify
+
+# AGENTS.md is the convex ai-files entry-point, shared with cloners.
+# CLAUDE.md is a symlink to AGENTS.md so Claude Code reads the same content.
+!AGENTS.md
+!CLAUDE.md

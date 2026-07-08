@@ -1,0 +1,262 @@
+/**
+ * User Queries and Mutations
+ *
+ * CRUD operations for the app users table.
+ * Identity fields (name, email, username, image) live on the Better Auth user
+ * and are merged in at read time by safeGetAuthenticatedUser in auth.ts.
+ */
+
+import { v } from "convex/values"
+
+import type { Id } from "./_generated/dataModel"
+import { internalQuery, internalMutation } from "./_generated/server"
+import { authComponent, authUserValidator } from "./auth"
+import { validationError } from "./errors"
+import { authMutation, optionalAuthQuery } from "./functions"
+import { rateLimitWithThrow } from "./rateLimit"
+import {
+  paginatedUsersValidator,
+  publicUserProfileValidator,
+  userProfileUpdateFields,
+  validateBio,
+} from "./validators"
+
+// ============================================================================
+// Queries
+// ============================================================================
+
+/**
+ * Get the current authenticated user's profile with resolved avatar URL.
+ * Returns null when unauthenticated or during the transient JWT rotation
+ * window after /change-password so the client doesn't log AUTH_1001.
+ * The UI falls back to the loader-preloaded user while the new token lands.
+ */
+export const getMe = optionalAuthQuery({
+  args: {},
+  returns: v.union(authUserValidator, v.null()),
+  handler: async (ctx) => {
+    return ctx.user ?? null
+  },
+})
+
+/**
+ * Get a user by app user id with Better Auth identity fields merged in.
+ * Accepts an arbitrary string and normalizes it via `ctx.db.normalizeId`,
+ * so untrusted inputs (e.g. HTTP query params) can be passed straight through.
+ * Returns null when the id is malformed or either record is missing.
+ * Internal: only reachable through the rate-limited GET /api/users route.
+ */
+export const getUser = internalQuery({
+  args: { userId: v.string() },
+  returns: v.union(publicUserProfileValidator, v.null()),
+  handler: async (ctx, args) => {
+    const id = ctx.db.normalizeId("users", args.userId)
+    if (!id) return null
+
+    const user = await ctx.db.get(id)
+    if (!user) return null
+
+    const authUser = await authComponent.getAnyUserById(ctx, user.authId)
+    if (!authUser) return null
+
+    const avatarUrl = user.avatar ? await ctx.storage.getUrl(user.avatar) : (authUser.image ?? null)
+
+    return {
+      _id: user._id,
+      _creationTime: user._creationTime,
+      name: authUser.name,
+      username:
+        (authUser as { displayUsername?: string | null }).displayUsername ??
+        (authUser as { username?: string | null }).username ??
+        null,
+      avatarUrl,
+      bio: user.bio,
+      isPro: user.isPro,
+    }
+  },
+})
+
+/**
+ * Get a user by Auth ID.
+ * Internal: only reachable through other Convex functions (like Dodo Payments Action).
+ */
+export const getUserByAuthId = internalQuery({
+  args: { authId: v.string() },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("users")
+      .withIndex("authId", (q) => q.eq("authId", args.authId))
+      .first()
+  },
+})
+
+/**
+ * List users (paginated) with Better Auth identity fields merged in.
+ * Entries with a missing Better Auth record are skipped.
+ * Internal: only reachable through the rate-limited GET /api/users/list route.
+ */
+export const listUsers = internalQuery({
+  args: {
+    cursor: v.optional(v.string()),
+    limit: v.optional(v.number()),
+  },
+  returns: paginatedUsersValidator,
+  handler: async (ctx, args) => {
+    const limit = Math.min(Math.max(args.limit ?? 20, 1), 100)
+
+    const results = await ctx.db
+      .query("users")
+      .order("desc")
+      .paginate({ cursor: args.cursor ?? null, numItems: limit })
+
+    const page = await Promise.all(
+      results.page.map(async (user) => {
+        const authUser = await authComponent.getAnyUserById(ctx, user.authId)
+        if (!authUser) return null
+        const avatarUrl = user.avatar
+          ? await ctx.storage.getUrl(user.avatar)
+          : (authUser.image ?? null)
+        return {
+          _id: user._id,
+          _creationTime: user._creationTime,
+          name: authUser.name,
+          username:
+            (authUser as { displayUsername?: string | null }).displayUsername ??
+            (authUser as { username?: string | null }).username ??
+            null,
+          avatarUrl,
+          bio: user.bio,
+        }
+      }),
+    )
+
+    return {
+      page: page.filter((entry): entry is NonNullable<typeof entry> => entry !== null),
+      continueCursor: results.continueCursor,
+      isDone: results.isDone,
+    }
+  },
+})
+
+// ============================================================================
+// Mutations
+// ============================================================================
+
+/**
+ * Update the current user's bio. Name and username changes go through
+ * Better Auth directly via authClient.updateUser on the client.
+ */
+export const updateProfile = authMutation({
+  args: userProfileUpdateFields,
+  returns: v.id("users"),
+  handler: async (ctx, args): Promise<Id<"users">> => {
+    await rateLimitWithThrow(ctx, "userAction", ctx.user._id.toString())
+
+    if (args.bio !== undefined) {
+      const result = validateBio(args.bio)
+      if (!result.valid) {
+        throw validationError(result.error!, "bio")
+      }
+    }
+
+    await ctx.db.patch(ctx.user._id, {
+      bio: args.bio,
+      updatedAt: Date.now(),
+    })
+
+    return ctx.user._id
+  },
+})
+
+/**
+ * Generate an upload URL for avatar images.
+ * The URL expires in 1 hour.
+ */
+export const generateAvatarUploadUrl = authMutation({
+  args: {},
+  returns: v.string(),
+  handler: async (ctx) => {
+    await rateLimitWithThrow(ctx, "userAction", ctx.user._id.toString())
+
+    return await ctx.storage.generateUploadUrl()
+  },
+})
+
+/**
+ * Update the current user's avatar with a storage id.
+ * Deletes the previous uploaded avatar from storage if one exists.
+ * Does not touch Better Auth's image field - that's for provider-supplied URLs.
+ */
+export const updateAvatar = authMutation({
+  args: { storageId: v.id("_storage") },
+  returns: v.object({ avatarUrl: v.union(v.string(), v.null()) }),
+  handler: async (ctx, args) => {
+    await rateLimitWithThrow(ctx, "userAction", ctx.user._id.toString())
+
+    // v.id("_storage") validates shape only; reject ids for blobs that were
+    // never uploaded instead of storing a dangling reference.
+    const blob = await ctx.db.system.get(args.storageId)
+    if (!blob) {
+      throw validationError("Uploaded file not found", "storageId")
+    }
+
+    if (ctx.user.avatar) {
+      await ctx.storage.delete(ctx.user.avatar)
+    }
+
+    await ctx.db.patch(ctx.user._id, {
+      avatar: args.storageId,
+      updatedAt: Date.now(),
+    })
+
+    return { avatarUrl: await ctx.storage.getUrl(args.storageId) }
+  },
+})
+
+/**
+ * Delete the current user's uploaded avatar.
+ * Removes the file from storage and clears the avatar field. After deletion,
+ * Better Auth's image (e.g. OAuth provider avatar) is used as the fallback.
+ */
+export const deleteAvatar = authMutation({
+  args: {},
+  returns: v.object({ success: v.boolean() }),
+  handler: async (ctx) => {
+    await rateLimitWithThrow(ctx, "userAction", ctx.user._id.toString())
+
+    if (ctx.user.avatar) {
+      await ctx.storage.delete(ctx.user.avatar)
+    }
+
+    await ctx.db.patch(ctx.user._id, {
+      avatar: undefined,
+      updatedAt: Date.now(),
+    })
+
+    return { success: true }
+  },
+})
+
+/**
+ * Internal mutation to upgrade a user to Pro when a Dodo Payment succeeds.
+ * Only callable by the server (webhook handler).
+ */
+export const upgradeToPro = internalMutation({
+  args: {
+    dodoCustomerId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Find the user with this customer ID (set by identify function)
+    const user = await ctx.db
+      .query("users")
+      .filter((q) => q.eq(q.field("dodoCustomerId"), args.dodoCustomerId))
+      .first()
+      
+    if (user) {
+      await ctx.db.patch(user._id, {
+        isPro: true,
+        updatedAt: Date.now(),
+      })
+    }
+  },
+})
