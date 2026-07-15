@@ -66,7 +66,7 @@ export default function Footer() {
                     {/* Left Side: Brand & Newsletter (span 5) */}
                     <div className="flex flex-col items-start pr-0 lg:col-span-5 lg:pr-8">
                         <div className="text-primary mb-6 flex items-center gap-3 font-mono text-xs tracking-widest">
-                            <img src="/favicon.png" alt="StreamHuddle Logo" className="w-6 h-6 object-contain rounded-sm" />
+                            <img src="/icon.svg" alt="StreamHuddle Logo" className="w-6 h-6 object-contain rounded-sm" />
                             <span>STREAMHUDDLE</span>
                         </div>
                         <h3 className="mb-6 font-sans text-3xl tracking-tight text-balance md:text-5xl">

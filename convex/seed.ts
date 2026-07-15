@@ -1,8 +1,8 @@
-import { action, internalMutation, internalAction } from "./_generated/server";
+import { internalMutation, internalAction } from "./_generated/server";
 import { v } from "convex/values";
-import { internal, api } from "./_generated/api";
+import { internal } from "./_generated/api";
 import suData from "./su-seed-data.json";
-export const seedSUData = action({
+export const seedSUData = internalAction({
   args: {
     creators: v.array(v.object({
       username: v.string(),
@@ -101,12 +101,11 @@ export const commitSeedData = internalMutation({
   }
 });
 
-// @ts-ignore
 export const triggerSeed = internalAction({
   args: {},
   returns: v.any(),
   handler: async (ctx): Promise<any> => {
-    return await ctx.runAction(api.seed.seedSUData, { creators: suData });
+    return await ctx.runAction(internal.seed.seedSUData, { creators: suData as any });
   }
 });
 
@@ -189,6 +188,17 @@ export const commitPremadeList = internalMutation({
     creators: v.array(v.any())
   },
   handler: async (ctx, args) => {
+    // Idempotency check: don't insert if layout with same name and authId exists
+    const existingLayout = await ctx.db
+      .query("layouts")
+      .withIndex("by_user", q => q.eq("authId", "system_premade"))
+      .filter(q => q.eq(q.field("name"), args.name))
+      .first();
+
+    if (existingLayout) {
+      return existingLayout._id;
+    }
+
     const streams = [];
     const previewStreams = [];
     

@@ -34,7 +34,7 @@ export default function Navbar() {
                 {/* Logo */}
                 <Link to="/" className="flex items-center gap-3 group">
                     <div className="w-8 h-8 flex items-center justify-center relative transition-transform duration-300 group-hover:scale-105">
-                        <img src="/favicon.png" alt="StreamHuddle Logo" className="w-full h-full object-contain rounded-md" />
+                        <img src="/icon.svg" alt="StreamHuddle Logo" className="w-full h-full object-contain rounded-md" />
                     </div>
                     <span className="font-mono font-bold text-sm tracking-widest uppercase">StreamHuddle</span>
                 </Link>
