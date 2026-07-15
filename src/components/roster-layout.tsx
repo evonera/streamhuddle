@@ -111,7 +111,7 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
       }))
       setActiveStreams(loadedStreams)
     }
-  }, [autoLoadAll, creatorsQuery, activeLayoutId])
+  }, [autoLoadAll, creatorsQuery, activeLayoutId, activeStreams.length])
 
   const handleAddCell = (creator: any, type: "stream" | "chat") => {
     setActiveStreams(prev => {
@@ -173,11 +173,32 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
   )
 
   return (
-    <div className="flex w-full h-screen p-2 gap-2 bg-background overflow-hidden relative">
+    <div className="flex flex-col md:flex-row w-full h-screen md:p-2 gap-2 bg-background overflow-hidden relative">
       
+      {/* Mobile Notice & Navbar */}
+      <div className="md:hidden flex flex-col w-full shrink-0 z-10">
+        <div className="bg-yellow-500/20 border-b border-yellow-500/50 text-yellow-200 text-[10px] sm:text-xs p-1.5 text-center flex items-center justify-center gap-2">
+          <HugeiconsIcon icon={Tv01Icon} size={14} />
+          Computer recommended for the best experience!
+        </div>
+        {!theaterMode && (
+          <div className="flex items-center justify-between p-2 bg-card border-b border-border shadow-sm">
+            <button onClick={() => setLeftSidebarOpen(true)} className="p-1.5 bg-zinc-800/80 hover:bg-zinc-700 rounded text-foreground transition-colors">
+              <HugeiconsIcon icon={PanelLeftOpenIcon} size={18} />
+            </button>
+            <div className="font-bold text-sm tracking-tight text-foreground/90">StreamHuddle</div>
+            <button onClick={() => setRightSidebarOpen(true)} className="p-1.5 bg-zinc-800/80 hover:bg-zinc-700 rounded text-foreground transition-colors">
+              <HugeiconsIcon icon={PanelRightOpenIcon} size={18} />
+            </button>
+          </div>
+        )}
+      </div>
+
       {/* Left Sidebar: Roster */}
       {leftSidebarOpen && !theaterMode && (
-        <div className="absolute md:relative z-40 w-80 shrink-0 h-[calc(100vh-1rem)] flex flex-col gap-4 bg-card border border-border rounded-xl p-4 shadow-xl">
+        <>
+          <div className="md:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[60]" onClick={() => setLeftSidebarOpen(false)} />
+          <div className="fixed md:relative top-0 left-0 md:top-auto md:left-auto z-[70] md:z-40 w-[85vw] max-w-[320px] md:w-80 shrink-0 h-full md:h-[calc(100vh-1rem)] flex flex-col gap-4 bg-card border-r md:border border-border md:rounded-xl p-4 shadow-2xl md:shadow-xl">
           <div className="flex items-center justify-between pb-2 border-b border-border">
             <h2 className="font-bold text-foreground">Roster</h2>
             <button onClick={() => setLeftSidebarOpen(false)} className="text-muted-foreground hover:text-foreground">
@@ -281,14 +302,15 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
             ))}
           </div>
         </div>
+        </>
       )}
 
       {/* Main Canvas Area */}
-      <div className="flex-1 flex flex-col gap-4 min-w-0 h-[calc(100vh-1rem)]">
+      <div className="flex-1 flex flex-col gap-4 min-w-0 h-full md:h-[calc(100vh-1rem)] p-2 md:p-0">
         
         {/* Sleek Toolbar */}
         {!theaterMode && (
-          <div className="flex items-center justify-between bg-card/50 backdrop-blur-md border border-border rounded-xl px-4 py-2 shrink-0 shadow-sm">
+          <div className="hidden md:flex items-center justify-between bg-card/50 backdrop-blur-md border border-border rounded-xl px-4 py-2 shrink-0 shadow-sm">
           <div className="flex items-center gap-3">
             {!leftSidebarOpen && (
               <button onClick={() => setLeftSidebarOpen(true)} className="text-muted-foreground hover:text-foreground">
@@ -430,7 +452,9 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
 
       {/* Right Sidebar: Chat */}
       {rightSidebarOpen && !theaterMode && (
-        <div className="absolute right-2 md:relative z-40 w-80 md:w-[340px] h-[calc(100vh-1rem)] shrink-0 flex flex-col bg-card border border-border rounded-xl shadow-xl overflow-hidden">
+        <>
+          <div className="md:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[60]" onClick={() => setRightSidebarOpen(false)} />
+          <div className="fixed md:relative top-0 right-0 md:top-auto md:right-auto z-[70] md:z-40 w-[85vw] max-w-[340px] md:w-80 shrink-0 h-full md:h-[calc(100vh-1rem)] flex flex-col bg-card border-l md:border border-border md:rounded-xl shadow-2xl md:shadow-xl overflow-hidden">
           <div className="flex items-center justify-between p-3 border-b border-border bg-card/80 backdrop-blur shrink-0">
             <div className="flex items-center gap-2">
               <HugeiconsIcon icon={Message01Icon} size={16} className="text-primary" />
@@ -472,6 +496,7 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
             )}
           </div>
         </div>
+        </>
       )}
     </div>
   )

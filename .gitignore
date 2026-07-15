@@ -30,3 +30,4 @@ __unconfig*
 # CLAUDE.md is a symlink to AGENTS.md so Claude Code reads the same content.
 !AGENTS.md
 !CLAUDE.md
+repomix-output.xml
