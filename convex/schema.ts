@@ -36,7 +36,7 @@ export default defineSchema({
     name: v.string(),             // e.g. "Streamer University Season 1"
     slug: v.string(),             // e.g. "su-s1" (used in URLs)
     isActive: v.boolean(),        // Only poll live status for active events
-  }).index("by_slug", ["slug"]),
+  }).index("by_slug", ["slug"]).index("by_active", ["isActive"]),
 
   // 2. Creators: The streamers themselves
   creators: defineTable({
@@ -53,7 +53,14 @@ export default defineSchema({
     offlineImageUrl: v.optional(v.string()), 
     country: v.optional(v.string()),
     language: v.optional(v.string()),
-  }).index("by_platform_and_username", ["platform", "username"]),
+    // Denormalized from liveStatusCache and roster for O(1) fetching
+    isLive: v.optional(v.boolean()),
+    viewerCount: v.optional(v.number()),
+    streamTitle: v.optional(v.string()),
+    categories: v.optional(v.array(v.string())),
+  })
+    .index("by_platform_and_username", ["platform", "username"])
+    .index("by_isLive", ["isLive"]),
 
   // 3. Roster (Junction): Maps a creator to an event with a specific role
   roster: defineTable({
@@ -65,20 +72,27 @@ export default defineSchema({
     .index("by_event", ["eventId"])
     .index("by_creator", ["creatorId"]),
 
-  // 4. Live Status Cache: Updated by crons every 10 mins
+  // 4. Live Status Cache: Updated by crons every 10 mins (Will be phased out in favor of denormalized creators table, kept for backward compatibility during migration)
   liveStatusCache: defineTable({
     creatorId: v.id("creators"),
     isLive: v.boolean(),
     viewerCount: v.optional(v.number()),
     streamTitle: v.optional(v.string()),
     lastUpdated: v.number(),
-  }).index("by_creator", ["creatorId"]),
+  })
+    .index("by_creator", ["creatorId"])
+    .index("by_isLive", ["isLive"]),
 
   // 5. Custom Layouts: User saved rosters (e.g. "Night Stream")
   layouts: defineTable({
     authId: v.string(), // Links to Better Auth user authId
     name: v.string(), // e.g. "Night Stream"
     views: v.optional(v.number()), // 👈 Track popularity, optional for old layouts
+    authorName: v.optional(v.string()), // 👈 Denormalized for Discover page
+    previewStreams: v.optional(v.array(v.object({
+      username: v.string(),
+      type: v.string(),
+    }))), // 👈 Denormalized snapshot for Discover page
     streams: v.array(v.object({
       creatorId: v.id("creators"),
       type: v.optional(v.union(v.literal("stream"), v.literal("chat"))) // 👈 Optional fallback
@@ -86,4 +100,10 @@ export default defineSchema({
   })
     .index("by_user", ["authId"])
     .index("by_views", ["views"]),
+
+  // 6. Twitch Tokens: Cached OAuth tokens
+  twitchTokens: defineTable({
+    token: v.string(),
+    expiresAt: v.number(), // timestamp ms
+  }),
 })

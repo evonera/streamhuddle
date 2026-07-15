@@ -1,21 +1,40 @@
 import { query, mutation } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
 import { safeGetAuthenticatedUser } from "./auth";
-import { authComponent } from "./auth";
+import { rateLimitWithThrow } from "./rateLimit";
+
+// Added return validators to all functions per guidelines.
+const creatorReturnValidator = v.object({
+  _id: v.id("creators"),
+  _creationTime: v.number(),
+  platform: v.string(),
+  username: v.string(),
+  platformId: v.optional(v.string()),
+  avatarUrl: v.optional(v.string()),
+  description: v.optional(v.string()),
+  offlineImageUrl: v.optional(v.string()),
+  country: v.optional(v.string()),
+  language: v.optional(v.string()),
+  isLive: v.optional(v.boolean()),
+  viewerCount: v.optional(v.number()),
+  streamTitle: v.optional(v.string()),
+  categories: v.optional(v.array(v.string())),
+});
 
 export const getAllCreators = query({
   args: {
     country: v.optional(v.string()),
     language: v.optional(v.string()),
-    category: v.optional(v.string()), // we would filter by roster category if needed
+    category: v.optional(v.string()),
   },
+  returns: v.array(creatorReturnValidator),
   handler: async (ctx, args) => {
-    // 1. Fetch everything in parallel (O(3) queries instead of O(1+2N))
-    let [creators, allLiveStatuses, allRosterEntries] = await Promise.all([
-      ctx.db.query("creators").collect(),
-      ctx.db.query("liveStatusCache").collect(),
-      ctx.db.query("roster").collect()
-    ]);
+    // 1. Fetch creators using denormalized fields
+    // We use .take(500) to bound the result instead of .collect()
+    let creators = await ctx.db.query("creators")
+      .withIndex("by_isLive")
+      .order("desc") // Put live first
+      .take(500);
     
     if (args.country) {
       creators = creators.filter(c => c.country === args.country);
@@ -23,52 +42,20 @@ export const getAllCreators = query({
     if (args.language) {
       creators = creators.filter(c => c.language === args.language);
     }
-
-    // Build lookup maps in memory
-    const liveStatusMap = new Map(allLiveStatuses.map(s => [s.creatorId, s]));
-    
-    const rosterMap = new Map<string, string[]>();
-    allRosterEntries.forEach(r => {
-      if (!rosterMap.has(r.creatorId)) rosterMap.set(r.creatorId, []);
-      rosterMap.get(r.creatorId)!.push(r.category);
-    });
-
-    // 2. Map to their live statuses
-    const result = creators.map((creator) => {
-      const liveStatus = liveStatusMap.get(creator._id);
-      const categories = rosterMap.get(creator._id) || [];
-
-      return {
-        ...creator,
-        isLive: liveStatus?.isLive ?? false,
-        viewerCount: liveStatus?.viewerCount,
-        streamTitle: liveStatus?.streamTitle,
-        categories,
-      };
-    });
-    
-    // 3. Filter by category if provided
-    let filtered = result;
     if (args.category) {
-      filtered = filtered.filter(c => c.categories.includes(args.category!));
+      creators = creators.filter(c => c.categories?.includes(args.category!));
     }
 
-    // 4. Sort by live status and viewers
-    return filtered.sort((a, b) => {
-      if (a.isLive && !b.isLive) return -1;
-      if (!a.isLive && b.isLive) return 1;
-      if (a.isLive && b.isLive) {
-        return (b.viewerCount ?? 0) - (a.viewerCount ?? 0);
-      }
-      return 0;
-    });
+    return creators;
   }
 });
 
 export const getCountriesAndLanguages = query({
   args: {},
+  returns: v.object({ countries: v.array(v.string()), languages: v.array(v.string()) }),
   handler: async (ctx) => {
-    const creators = await ctx.db.query("creators").collect();
+    // We bound this to 1000 to prevent OOM
+    const creators = await ctx.db.query("creators").take(1000);
     const countries = new Set<string>();
     const languages = new Set<string>();
     
@@ -84,6 +71,11 @@ export const getCountriesAndLanguages = query({
   }
 });
 
+const streamValidator = v.object({
+  creatorId: v.id("creators"),
+  type: v.optional(v.union(v.literal("stream"), v.literal("chat")))
+});
+
 export const saveLayout = mutation({
   args: {
     name: v.string(),
@@ -92,11 +84,14 @@ export const saveLayout = mutation({
       type: v.union(v.literal("stream"), v.literal("chat"))
     }))
   },
+  returns: v.object({ success: v.boolean(), layoutId: v.id("layouts") }),
   handler: async (ctx, args) => {
     const user = await safeGetAuthenticatedUser(ctx);
     if (!user) throw new ConvexError("Must be logged in to save a layout.");
     
-    // Enforce Free Tier Server-Side!
+    // Add rate limit
+    await rateLimitWithThrow(ctx, "userAction", user.authId);
+
     const userLayouts = await ctx.db
       .query("layouts")
       .withIndex("by_user", q => q.eq("authId", user.authId))
@@ -108,18 +103,48 @@ export const saveLayout = mutation({
     
     const streams = args.creatorIds.map(c => ({ creatorId: c.id, type: c.type }));
     
+    // Create snapshot data for Discover page
+    let authorName = "User " + user.authId.slice(0, 4);
+    if (user.name) {
+      authorName = user.name;
+    }
+
+    const previewStreams = await Promise.all(
+      streams.slice(0, 4).map(async s => {
+        const c = await ctx.db.get(s.creatorId);
+        return {
+           username: c?.username || "Unknown",
+           type: s.type || "stream"
+        };
+      })
+    );
+    
     const layoutId = await ctx.db.insert("layouts", {
       authId: user.authId,
       name: args.name,
       views: 0,
+      authorName,
+      previewStreams,
       streams
     });
     return { success: true, layoutId };
   }
 });
 
+const layoutReturnValidator = v.object({
+  _id: v.id("layouts"),
+  _creationTime: v.number(),
+  authId: v.string(),
+  name: v.string(),
+  views: v.optional(v.number()),
+  authorName: v.optional(v.string()),
+  previewStreams: v.optional(v.array(v.object({ username: v.string(), type: v.string() }))),
+  streams: v.array(streamValidator)
+});
+
 export const getUserLayouts = query({
   args: {},
+  returns: v.array(layoutReturnValidator),
   handler: async (ctx) => {
     const user = await safeGetAuthenticatedUser(ctx);
     if (!user) return [];
@@ -133,6 +158,7 @@ export const getUserLayouts = query({
 
 export const deleteLayout = mutation({
   args: { layoutId: v.id("layouts") },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const user = await safeGetAuthenticatedUser(ctx);
     if (!user) throw new Error("Must be logged in");
@@ -143,11 +169,13 @@ export const deleteLayout = mutation({
     }
     
     await ctx.db.delete(args.layoutId);
+    return null;
   }
 });
 
 export const getStreamListById = query({
   args: { id: v.id("layouts") },
+  returns: v.union(layoutReturnValidator, v.null()),
   handler: async (ctx, args) => {
     const layout = await ctx.db.get(args.id);
     if (!layout) return null;
@@ -157,15 +185,27 @@ export const getStreamListById = query({
 
 export const incrementStreamListViews = mutation({
   args: { id: v.id("layouts") },
+  returns: v.null(),
   handler: async (ctx, args) => {
+    // Add rate limit by layout ID to prevent abuse
+    await rateLimitWithThrow(ctx, "apiRead", args.id);
+    
     const layout = await ctx.db.get(args.id);
-    if (!layout) return;
+    if (!layout) return null;
     await ctx.db.patch(args.id, { views: (layout.views || 0) + 1 });
+    return null;
   }
 });
 
 export const getDiscoverStreamLists = query({
   args: {},
+  returns: v.array(v.object({
+    _id: v.id("layouts"),
+    name: v.string(),
+    views: v.number(),
+    authorName: v.string(),
+    previewStreams: v.array(v.object({ username: v.string(), type: v.string() }))
+  })),
   handler: async (ctx) => {
     // Collect top 20 layouts by views descending
     const topLayouts = await ctx.db
@@ -174,34 +214,16 @@ export const getDiscoverStreamLists = query({
       .order("desc")
       .take(20);
     
-    // Fetch user avatars and creator data
-    const result = await Promise.all(topLayouts.map(async (layout) => {
-      let authorName = "User " + layout.authId.slice(0, 4);
-      
-      const authUser = await authComponent.getAnyUserById(ctx, layout.authId);
-      if (authUser && authUser.name) {
-        authorName = authUser.name;
-      }
-
-      // Fetch creator usernames for the preview
-      const previewStreams = await Promise.all(
-        layout.streams.slice(0, 4).map(async s => {
-          const c = await ctx.db.get(s.creatorId);
-          return {
-             username: c?.username || "Unknown",
-             type: s.type || "stream"
-          };
-        })
-      );
-
+    // Now just map the denormalized data instead of doing 100+ DB reads!
+    const result = topLayouts.map((layout) => {
       return {
         _id: layout._id,
         name: layout.name,
         views: layout.views || 0,
-        authorName,
-        previewStreams
+        authorName: layout.authorName || ("User " + layout.authId.slice(0, 4)),
+        previewStreams: layout.previewStreams || []
       };
-    }));
+    });
     
     return result;
   }

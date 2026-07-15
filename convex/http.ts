@@ -86,6 +86,8 @@ http.route({
   method: "POST",
   handler: process.env.DODO_PAYMENTS_WEBHOOK_SECRET 
     ? createDodoWebhookHandler({
+        // @ts-expect-error - Expected by dodopayments component internally even if types omit it
+        webhookSecret: process.env.DODO_PAYMENTS_WEBHOOK_SECRET,
         onPaymentSucceeded: async (ctx, payload) => {
           console.log("🎉 Payment Succeeded! Upgrading user...");
           

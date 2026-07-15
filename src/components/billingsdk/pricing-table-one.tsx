@@ -1,6 +1,8 @@
 "use client";
 
-import { Check, Zap } from "lucide-react";
+import Tick01Icon from "@hugeicons/core-free-icons/Tick01Icon";
+import FlashIcon from "@hugeicons/core-free-icons/FlashIcon";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { useState, useId } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { cva, type VariantProps } from "class-variance-authority";
@@ -443,7 +445,8 @@ export function PricingTableOne({
                           delay: featureIndex * 0.05,
                         }}
                       >
-                        <Check
+                        <HugeiconsIcon
+                          icon={Tick01Icon}
                           className={cn(featureIconVariants({ size, theme }))}
                         />
                         <span
@@ -463,7 +466,7 @@ export function PricingTableOne({
                     aria-label={`Select ${plan.title} plan`}
                   >
                     {theme === "classic" && plan.highlight && (
-                      <Zap className="mr-1 h-4 w-4" />
+                      <HugeiconsIcon icon={FlashIcon} className="mr-1 h-4 w-4" />
                     )}
                     {plan.buttonText}
                     {theme === "classic" && (

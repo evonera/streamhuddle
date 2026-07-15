@@ -10,6 +10,7 @@ export const seedSUData = action({
       category: v.string(),
     }))
   },
+  returns: v.object({ success: v.boolean(), count: v.number() }),
   handler: async (ctx, args) => {
     const twitchUsernames = args.creators
       .filter(c => c.platform === "twitch")
@@ -50,6 +51,7 @@ export const commitSeedData = internalMutation({
       offlineImageUrl: v.optional(v.string()),
     }))
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     // Create SU Event
     const eventId = await ctx.db.insert("events", {
@@ -84,5 +86,6 @@ export const commitSeedData = internalMutation({
         category: c.category,
       });
     }
+    return null;
   }
 });

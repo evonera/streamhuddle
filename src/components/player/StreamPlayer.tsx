@@ -28,16 +28,30 @@ export function StreamPlayer({ stream, kickRemountKey }: { stream: StreamData; k
       );
     case "kick":
       return <KickPlayer channel={stream.channel} muted={stream.muted} remountKey={kickRemountKey} />;
-    case "custom":
+    case "custom": {
+      // Prevent XSS from javascript: URLs
+      let safeUrl = "";
+      try {
+        const parsed = new URL(stream.channel);
+        if (parsed.protocol === "https:" || parsed.protocol === "http:") {
+          safeUrl = stream.channel;
+        }
+      } catch (e) {
+        // Invalid URL
+      }
+      
+      if (!safeUrl) return <div className="w-full h-full bg-black text-red-500 flex items-center justify-center text-xs p-4 text-center">Invalid custom stream URL</div>;
+
       return (
         <iframe
-          src={stream.channel}
+          src={safeUrl}
           className="w-full h-full bg-black pointer-events-auto"
           allow="fullscreen"
           sandbox="allow-scripts allow-same-origin allow-presentation"
           title={stream.displayName || "Custom Stream"}
         />
       );
+    }
     default:
       return null;
   }

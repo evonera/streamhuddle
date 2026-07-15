@@ -1,7 +1,7 @@
-import { query, mutation, action, internalQuery } from "./_generated/server";
+import { query, mutation, action, internalMutation } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
 import { requireAuthenticatedUser } from "./auth";
-import { internal } from "./_generated/api";
+import { internal, api } from "./_generated/api";
 
 // ----------------------------------------------------------------------------
 // Admin Authorization Helper
@@ -21,15 +21,20 @@ async function requireAdmin(ctx: any) {
 
 export const getStats = query({
   args: {},
+  returns: v.object({
+    totalCreators: v.number(),
+    currentlyLive: v.number(),
+    totalLayouts: v.number(),
+    totalUsers: v.number(),
+  }),
   handler: async (ctx) => {
     await requireAdmin(ctx);
 
-    // TODO: If the app scales, install the @convex-dev/aggregate component to track counts efficiently.
-    // Never use .collect().length to count rows in production at scale as it loads all documents into memory.
-    const creators = await ctx.db.query("creators").collect();
-    const liveStatuses = await ctx.db.query("liveStatusCache").filter(q => q.eq(q.field("isLive"), true)).collect();
-    const layouts = await ctx.db.query("layouts").collect();
-    const users = await ctx.db.query("users").collect();
+    // Bounded queries to prevent OOM. For true scaling, implement an aggregate counter.
+    const creators = await ctx.db.query("creators").take(1000);
+    const liveStatuses = await ctx.db.query("liveStatusCache").withIndex("by_isLive", q => q.eq("isLive", true)).take(1000);
+    const layouts = await ctx.db.query("layouts").take(1000);
+    const users = await ctx.db.query("users").take(1000);
 
     return {
       totalCreators: creators.length,
@@ -40,8 +45,9 @@ export const getStats = query({
   }
 });
 
-export const checkAdminInternal = internalQuery({
+export const checkAdmin = query({
   args: {},
+  returns: v.boolean(),
   handler: async (ctx) => {
     const user = await requireAuthenticatedUser(ctx);
     return user.role === "admin";
@@ -54,13 +60,15 @@ export const checkAdminInternal = internalQuery({
 
 export const forceLiveStatusRefresh = action({
   args: {},
+  returns: v.null(),
   handler: async (ctx) => {
     // Actions can't directly check DB auth easily without a query.
     // We run a query to check if the user is an admin.
-    const isAdmin = await ctx.runQuery(internal.admin.checkAdminInternal);
+    const isAdmin = await ctx.runQuery(api.admin.checkAdmin);
     if (!isAdmin) throw new ConvexError("Unauthorized");
     
     await ctx.runAction(internal.polling.pollAllPlatforms);
+    return null;
   }
 });
 
@@ -73,6 +81,7 @@ export const addCreator = mutation({
     country: v.optional(v.string()),
     language: v.optional(v.string()),
   },
+  returns: v.object({ success: v.boolean(), creatorId: v.id("creators") }),
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
 
@@ -125,6 +134,7 @@ export const removeCreator = mutation({
   args: {
     creatorId: v.id("creators")
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
 
@@ -148,9 +158,28 @@ export const removeCreator = mutation({
       await ctx.db.delete(s._id);
     }
 
-    // Scrub creator from saved layouts
-    const layouts = await ctx.db.query("layouts").collect();
-    for (const layout of layouts) {
+    // Kick off the background batch job to scrub the creator from layouts
+    await ctx.scheduler.runAfter(0, internal.admin.scrubCreatorFromLayoutsBatch, {
+      creatorId: args.creatorId
+    });
+    
+    return null;
+  }
+});
+
+export const scrubCreatorFromLayoutsBatch = internalMutation({
+  args: {
+    creatorId: v.id("creators"),
+    cursor: v.optional(v.union(v.string(), v.null()))
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const batchSize = 100;
+    const { page, continueCursor, isDone } = await ctx.db
+      .query("layouts")
+      .paginate({ cursor: args.cursor ?? null, numItems: batchSize });
+      
+    for (const layout of page) {
       const updatedStreams = layout.streams.filter(s => s.creatorId !== args.creatorId);
       if (updatedStreams.length !== layout.streams.length) {
         // If the layout is now empty, delete it. Otherwise, update it.
@@ -161,7 +190,19 @@ export const removeCreator = mutation({
         }
       }
     }
-
-    await ctx.db.delete(args.creatorId);
+    
+    if (!isDone) {
+      await ctx.scheduler.runAfter(0, internal.admin.scrubCreatorFromLayoutsBatch, {
+        creatorId: args.creatorId,
+        cursor: continueCursor
+      });
+    } else {
+       // Finally delete the creator when all layouts are scrubbed
+       const creator = await ctx.db.get(args.creatorId);
+       if (creator) {
+         await ctx.db.delete(args.creatorId);
+       }
+    }
+    return null;
   }
 });

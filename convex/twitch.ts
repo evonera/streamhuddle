@@ -1,7 +1,50 @@
-import { internalAction } from "./_generated/server";
+import { internalAction, internalQuery, internalMutation } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { v } from "convex/values";
 
-export async function getTwitchAccessToken(): Promise<string> {
+// ----------------------------------------------------------------------------
+// Token Caching Helpers
+// ----------------------------------------------------------------------------
+export const getCachedTwitchToken = internalQuery({
+  args: {},
+  returns: v.union(v.string(), v.null()),
+  handler: async (ctx) => {
+    const tokenDoc = await ctx.db.query("twitchTokens").first();
+    if (!tokenDoc) return null;
+    
+    // Check if expired (with 1 min buffer)
+    if (Date.now() >= tokenDoc.expiresAt - 60000) {
+      return null;
+    }
+    return tokenDoc.token;
+  }
+});
+
+export const cacheTwitchToken = internalMutation({
+  args: { token: v.string(), expiresIn: v.number() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // Delete any existing tokens
+    const existing = await ctx.db.query("twitchTokens").collect();
+    for (const t of existing) {
+      await ctx.db.delete(t._id);
+    }
+    
+    await ctx.db.insert("twitchTokens", {
+      token: args.token,
+      expiresAt: Date.now() + (args.expiresIn * 1000)
+    });
+    
+    return null;
+  }
+});
+
+export async function getTwitchAccessToken(ctx: any): Promise<string> {
+  // Try cache first
+  const cached = await ctx.runQuery(internal.twitch.getCachedTwitchToken);
+  if (cached) return cached;
+
+  // Fetch new token
   const clientId = process.env.TWITCH_CLIENT_ID;
   const clientSecret = process.env.TWITCH_CLIENT_SECRET;
   
@@ -12,21 +55,38 @@ export async function getTwitchAccessToken(): Promise<string> {
   const response = await fetch(`https://id.twitch.tv/oauth2/token?client_id=${clientId}&client_secret=${clientSecret}&grant_type=client_credentials`, {
     method: "POST"
   });
-  const data = await response.json() as { access_token: string };
+  
+  if (!response.ok) {
+     throw new Error(`Failed to fetch Twitch token: ${response.status}`);
+  }
+  
+  const data = await response.json() as { access_token: string, expires_in: number };
+  
+  // Cache it
+  await ctx.runMutation(internal.twitch.cacheTwitchToken, { 
+    token: data.access_token, 
+    expiresIn: data.expires_in 
+  });
+  
   return data.access_token;
 }
 
+// ----------------------------------------------------------------------------
+// Twitch API Actions
+// ----------------------------------------------------------------------------
+
 export const fetchTwitchUsers = internalAction({
   args: { usernames: v.array(v.string()) },
-  handler: async (_ctx, args) => {
+  returns: v.array(v.any()), // Can't strongly type Twitch API responses easily
+  handler: async (ctx, args) => {
     if (args.usernames.length === 0) return [];
     
-    const token = await getTwitchAccessToken();
+    const token = await getTwitchAccessToken(ctx);
     const clientId = process.env.TWITCH_CLIENT_ID;
     
     // Split into chunks of 100 (Twitch limit)
     const chunkSize = 100;
-    const allUsers = [];
+    const allUsers: any[] = [];
     
     for (let i = 0; i < args.usernames.length; i += chunkSize) {
       const chunk = args.usernames.slice(i, i + chunkSize);
@@ -55,14 +115,15 @@ export const fetchTwitchUsers = internalAction({
 
 export const fetchTwitchStreams = internalAction({
   args: { logins: v.array(v.string()) },
-  handler: async (_ctx, args) => {
+  returns: v.array(v.any()),
+  handler: async (ctx, args) => {
     if (args.logins.length === 0) return [];
     
-    const token = await getTwitchAccessToken();
+    const token = await getTwitchAccessToken(ctx);
     const clientId = process.env.TWITCH_CLIENT_ID;
     
     const chunkSize = 100;
-    const allStreams = [];
+    const allStreams: any[] = [];
     
     for (let i = 0; i < args.logins.length; i += chunkSize) {
       const chunk = args.logins.slice(i, i + chunkSize);

@@ -1,7 +1,11 @@
 // @ts-nocheck
 import { useState, useEffect } from "react";
 import { Link } from "@tanstack/react-router";
-import { GithubIcon, NewTwitterIcon, Menu01Icon, Cancel01Icon } from "hugeicons-react";
+import GithubIcon from "@hugeicons/core-free-icons/GithubIcon";
+import NewTwitterIcon from "@hugeicons/core-free-icons/NewTwitterIcon";
+import Menu01Icon from "@hugeicons/core-free-icons/Menu01Icon";
+import Cancel01Icon from "@hugeicons/core-free-icons/Cancel01Icon";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { cn } from "@/lib/utils";
 import LogoIcon from "@/assets/logo-icon";
 
@@ -41,10 +45,10 @@ export default function Navbar() {
                 <div className="hidden md:flex items-center gap-4">
                     <div className="flex items-center gap-2">
                         <a href="https://github.com/StreamHuddleHQ/streamhuddle" target="_blank" rel="noreferrer" className="flex items-center justify-center h-10 w-10 border border-white/10 bg-transparent text-white/50 hover:text-white hover:bg-white/5 transition-colors">
-                            <GithubIcon className="w-4 h-4" />
+                            <HugeiconsIcon icon={GithubIcon} className="w-4 h-4" />
                         </a>
                         <a href="https://x.com/streamhuddlehq" target="_blank" rel="noreferrer" className="flex items-center justify-center h-10 w-10 border border-white/10 bg-transparent text-white/50 hover:text-white hover:bg-white/5 transition-colors">
-                            <NewTwitterIcon className="w-4 h-4" />
+                            <HugeiconsIcon icon={NewTwitterIcon} className="w-4 h-4" />
                         </a>
                     </div>
                     <Link to="/roster" className="flex items-center h-10 bg-primary text-background font-mono font-bold tracking-widest uppercase px-6 text-xs hover:bg-primary/90 transition-colors active:scale-[0.96]">
@@ -58,7 +62,7 @@ export default function Navbar() {
                         className="text-foreground p-1"
                         onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                     >
-                        {mobileMenuOpen ? <Cancel01Icon className="w-6 h-6" /> : <Menu01Icon className="w-6 h-6" />}
+                        {mobileMenuOpen ? <HugeiconsIcon icon={Cancel01Icon} className="w-6 h-6" /> : <HugeiconsIcon icon={Menu01Icon} className="w-6 h-6" />}
                     </button>
                 </div>
             </div>
@@ -68,8 +72,8 @@ export default function Navbar() {
                 <div className="md:hidden absolute top-full left-0 right-0 bg-background border-b border-border/50 shadow-lg p-4 flex flex-col gap-4 animate-fade-in-up">
 
                     <div className="flex items-center justify-center gap-8 p-4 border-t border-border/50 mt-2">
-                        <a href="https://github.com/StreamHuddleHQ/streamhuddle" className="text-muted-foreground hover:text-foreground"><GithubIcon className="w-6 h-6" /></a>
-                        <a href="https://x.com/streamhuddlehq" className="text-muted-foreground hover:text-foreground"><NewTwitterIcon className="w-6 h-6" /></a>
+                        <a href="https://github.com/StreamHuddleHQ/streamhuddle" className="text-muted-foreground hover:text-foreground"><HugeiconsIcon icon={GithubIcon} className="w-6 h-6" /></a>
+                        <a href="https://x.com/streamhuddlehq" className="text-muted-foreground hover:text-foreground"><HugeiconsIcon icon={NewTwitterIcon} className="w-6 h-6" /></a>
                     </div>
                     <Link to="/discover" className="w-full text-center bg-zinc-900 text-foreground font-mono font-bold tracking-widest uppercase px-4 py-4 text-xs hover:bg-zinc-800 transition-colors mt-2">
                         Discover

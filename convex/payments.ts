@@ -7,7 +7,11 @@ export const createCheckout = action({
     productId: v.string(), // Dodo Payments Product ID
     returnUrl: v.string(),
   },
+  returns: v.object({ checkout_url: v.string() }),
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthenticated");
+
     try {
       const session = await checkout(ctx, {
         payload: {
@@ -34,7 +38,11 @@ export const getCustomerPortal = action({
   args: {
     send_email: v.optional(v.boolean()),
   },
+  returns: v.object({ portal_url: v.string() }),
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthenticated");
+
     try {
       const portal = await customerPortal(ctx, args);
       if (!portal?.portal_url) {

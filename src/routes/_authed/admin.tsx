@@ -8,13 +8,21 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
-import { Users, LayoutTemplate, Activity, Radio, Trash2, RefreshCcw, Plus } from "lucide-react"
+import UserGroupIcon from "@hugeicons/core-free-icons/UserGroupIcon";
+import Layout01Icon from "@hugeicons/core-free-icons/Layout01Icon";
+import Activity01Icon from "@hugeicons/core-free-icons/Activity01Icon";
+import RadioIcon from "@hugeicons/core-free-icons/RadioIcon";
+import Delete02Icon from "@hugeicons/core-free-icons/Delete02Icon";
+import ReloadIcon from "@hugeicons/core-free-icons/ReloadIcon";
+import PlusSignIcon from "@hugeicons/core-free-icons/PlusSignIcon";
+import { HugeiconsIcon } from "@hugeicons/react";
 
 export const Route = createFileRoute('/_authed/admin')({
   component: AdminRoute,
 })
 
 function AdminRoute() {
+  const isAdmin = useQuery(api.admin.checkAdmin)
   const stats = useQuery(api.admin.getStats)
   const creators = useQuery(api.roster.getAllCreators, {})
   
@@ -27,6 +35,17 @@ function AdminRoute() {
   const [platformId, setPlatformId] = useState("")
   const [category, setCategory] = useState("Student")
   const [isRefreshing, setIsRefreshing] = useState(false)
+
+  if (isAdmin === undefined) {
+    return <div className="flex h-screen items-center justify-center text-muted-foreground">Loading admin dashboard...</div>
+  }
+
+  if (isAdmin === false) {
+    return <div className="flex h-screen flex-col items-center justify-center gap-4">
+      <h1 className="text-2xl font-bold">Unauthorized</h1>
+      <p className="text-muted-foreground">You do not have permission to view this page.</p>
+    </div>
+  }
 
   const handleAddCreator = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -81,7 +100,7 @@ function AdminRoute() {
           disabled={isRefreshing}
           className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
         >
-          <RefreshCcw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+          <HugeiconsIcon icon={ReloadIcon} className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
           Force Live Refresh
         </Button>
       </div>
@@ -91,7 +110,7 @@ function AdminRoute() {
         <Card className="bg-card border-border shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Creators</CardTitle>
-            <Users className="w-4 h-4 text-muted-foreground" />
+            <HugeiconsIcon icon={UserGroupIcon} className="w-4 h-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground">{stats?.totalCreators ?? "..."}</div>
@@ -101,7 +120,7 @@ function AdminRoute() {
         <Card className="bg-card border-border shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Currently Live</CardTitle>
-            <Radio className="w-4 h-4 text-red-500" />
+            <HugeiconsIcon icon={RadioIcon} className="w-4 h-4 text-red-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground">{stats?.currentlyLive ?? "..."}</div>
@@ -111,7 +130,7 @@ function AdminRoute() {
         <Card className="bg-card border-border shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total StreamLists</CardTitle>
-            <LayoutTemplate className="w-4 h-4 text-muted-foreground" />
+            <HugeiconsIcon icon={Layout01Icon} className="w-4 h-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground">{stats?.totalLayouts ?? "..."}</div>
@@ -121,7 +140,7 @@ function AdminRoute() {
         <Card className="bg-card border-border shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Registered Users</CardTitle>
-            <Activity className="w-4 h-4 text-muted-foreground" />
+            <HugeiconsIcon icon={Activity01Icon} className="w-4 h-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground">{stats?.totalUsers ?? "..."}</div>
@@ -189,7 +208,7 @@ function AdminRoute() {
                           onClick={() => handleRemove(creator._id)}
                           className="text-red-500 hover:text-red-600 hover:bg-red-500/10"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <HugeiconsIcon icon={Delete02Icon} className="w-4 h-4" />
                         </Button>
                       </td>
                     </tr>
@@ -270,7 +289,7 @@ function AdminRoute() {
               </div>
 
               <Button type="submit" className="w-full mt-2 font-semibold">
-                <Plus className="w-4 h-4 mr-2" /> Add Creator
+                <HugeiconsIcon icon={PlusSignIcon} className="w-4 h-4 mr-2" /> Add Creator
               </Button>
             </form>
           </CardContent>

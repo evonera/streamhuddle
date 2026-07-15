@@ -14,7 +14,7 @@ import {
 import { useQuery } from "convex/react"
 import { api } from "../../convex/_generated/api"
 import { useNavigate } from "@tanstack/react-router"
-import { Lock } from "lucide-react"
+import LockIcon from "@hugeicons/core-free-icons/LockIcon"
 
 export function ThemeToggle() {
   const { setTheme } = useTheme()
@@ -54,7 +54,7 @@ export function ThemeToggle() {
 
         <div className="px-2 py-1.5 mt-2 text-xs font-semibold text-muted-foreground flex items-center justify-between">
           <span>Pro Themes</span>
-          <Lock className="w-3 h-3" />
+          <HugeiconsIcon icon={LockIcon} className="w-3 h-3" />
         </div>
         
         {['monokai', 'nord', 'solarized', 'neon', 'cyberpunk', 'synthwave', 'hacker', 'forest'].map(theme => (
@@ -64,7 +64,7 @@ export function ThemeToggle() {
             className="capitalize flex items-center justify-between"
           >
             {theme}
-            {(!me || !me.isPro) && <Lock className="w-3 h-3 text-muted-foreground" />}
+            {(!me || !me.isPro) && <HugeiconsIcon icon={LockIcon} className="w-3 h-3 text-muted-foreground" />}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

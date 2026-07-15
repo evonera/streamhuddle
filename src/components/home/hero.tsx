@@ -1,5 +1,6 @@
 // @ts-nocheck
-import { ArrowUpRight01Icon } from 'hugeicons-react';
+import ArrowUpRight01Icon from "@hugeicons/core-free-icons/ArrowUpRight01Icon";
+import { HugeiconsIcon } from "@hugeicons/react";
 import Container from './container';
 import Heading from './heading';
 import SubHeading from './subheading';
@@ -210,7 +211,7 @@ export default function Hero() {
                             className="group text-background bg-primary hover:bg-primary/90 inline-flex items-center justify-center gap-2 px-8 py-3 text-sm font-bold transition-all active:scale-[0.97]"
                         >
                             Launch StreamHuddle
-                            <ArrowUpRight01Icon className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                            <HugeiconsIcon icon={ArrowUpRight01Icon} className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
                         </Link>
                         <Link
                             to="/university"

@@ -1,10 +1,9 @@
 // @ts-nocheck
-import {
-    ArrowUpRight01Icon,
-    NewTwitterIcon,
-    GithubIcon,
-    DiscordIcon,
-} from 'hugeicons-react';
+import ArrowUpRight01Icon from "@hugeicons/core-free-icons/ArrowUpRight01Icon";
+import NewTwitterIcon from "@hugeicons/core-free-icons/NewTwitterIcon";
+import GithubIcon from "@hugeicons/core-free-icons/GithubIcon";
+import DiscordIcon from "@hugeicons/core-free-icons/DiscordIcon";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { cn } from '@/lib/utils';
 import LogoIcon from '@/assets/logo-icon';
 
@@ -43,13 +42,13 @@ function FooterLink({ href, children }: { href: string; children: React.ReactNod
     );
 }
 
-function SocialLink({ href, icon: Icon }: { href: string; icon: React.ElementType }) {
+function SocialLink({ href, icon: Icon }: { href: string; icon: any }) {
     return (
         <a
             href={href}
             className="flex h-8 w-8 items-center justify-center border border-white/10 bg-white/2 text-white/50 transition-all hover:border-white/30 hover:text-white"
         >
-            <Icon className="h-4 w-4" />
+            <HugeiconsIcon icon={Icon} className="h-4 w-4" />
         </a>
     );
 }
@@ -81,7 +80,7 @@ export default function Footer() {
                             href="/roster"
                             className="text-background bg-primary hover:bg-primary/90 inline-flex w-fit items-center justify-center px-8 py-4 text-xs font-bold tracking-widest uppercase transition-colors active:scale-[0.96]"
                         >
-                            Get Started <ArrowUpRight01Icon className="ml-2 h-4 w-4" />
+                            Get Started <HugeiconsIcon icon={ArrowUpRight01Icon} className="ml-2 h-4 w-4" />
                         </a>
                     </div>
 

@@ -1,8 +1,11 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery } from 'convex/react'
 import { api } from '../../convex/_generated/api'
-import { motion } from 'framer-motion'
-import { Eye, MonitorPlay, Users } from 'lucide-react'
+import { motion } from 'motion/react'
+import ViewIcon from "@hugeicons/core-free-icons/ViewIcon";
+import Tv01Icon from "@hugeicons/core-free-icons/Tv01Icon";
+import UserGroupIcon from "@hugeicons/core-free-icons/UserGroupIcon";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 
@@ -31,7 +34,7 @@ function DiscoverPage() {
           </div>
         ) : streamLists.length === 0 ? (
           <div className="text-center py-24 text-muted-foreground border border-dashed border-white/10 rounded-xl bg-zinc-950/30">
-            <MonitorPlay className="w-12 h-12 mx-auto mb-4 opacity-50" />
+            <HugeiconsIcon icon={Tv01Icon} className="w-12 h-12 mx-auto mb-4 opacity-50" />
             <p>No StreamLists found yet.</p>
           </div>
         ) : (
@@ -57,11 +60,11 @@ function DiscoverPage() {
                           {list.name}
                         </CardTitle>
                         <Badge variant="secondary" className="shrink-0 flex items-center gap-1 bg-zinc-900 text-zinc-300 border-white/5">
-                          <Eye className="w-3 h-3" /> {list.views}
+                          <HugeiconsIcon icon={ViewIcon} className="w-3 h-3" /> {list.views}
                         </Badge>
                       </div>
                       <CardDescription className="flex items-center gap-2 mt-2">
-                        <Users className="w-3 h-3" />
+                        <HugeiconsIcon icon={UserGroupIcon} className="w-3 h-3" />
                         By {list.authorName}
                       </CardDescription>
                     </CardHeader>

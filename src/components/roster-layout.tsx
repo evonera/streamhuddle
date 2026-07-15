@@ -11,7 +11,15 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import Home01Icon from "@hugeicons/core-free-icons/Home01Icon"
 import { buttonVariants } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, MessageSquare, Search, Share, MonitorPlay, Maximize } from 'lucide-react'
+import PanelLeftCloseIcon from "@hugeicons/core-free-icons/PanelLeftCloseIcon"
+import PanelLeftOpenIcon from "@hugeicons/core-free-icons/PanelLeftOpenIcon"
+import PanelRightCloseIcon from "@hugeicons/core-free-icons/PanelRightCloseIcon"
+import PanelRightOpenIcon from "@hugeicons/core-free-icons/PanelRightOpenIcon"
+import Message01Icon from "@hugeicons/core-free-icons/Message01Icon"
+import Search01Icon from "@hugeicons/core-free-icons/Search01Icon"
+import Share01Icon from "@hugeicons/core-free-icons/Share01Icon"
+import Tv01Icon from "@hugeicons/core-free-icons/Tv01Icon"
+import Maximize01Icon from "@hugeicons/core-free-icons/Maximize01Icon"
 import { toast } from 'sonner'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
@@ -29,9 +37,16 @@ export function RosterLayout({ initialListId }: { initialListId?: string }) {
   
   const [activeChatId, setActiveChatId] = useState<string | null>(null)
   
-  // Auto-close sidebars on mobile on mount
-  const [leftSidebarOpen, setLeftSidebarOpen] = useState(typeof window !== 'undefined' ? window.innerWidth > 768 : true)
-  const [rightSidebarOpen, setRightSidebarOpen] = useState(typeof window !== 'undefined' ? window.innerWidth > 768 : true)
+  // Auto-close sidebars on mobile on mount (SSR safe)
+  const [leftSidebarOpen, setLeftSidebarOpen] = useState(true)
+  const [rightSidebarOpen, setRightSidebarOpen] = useState(true)
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+      setLeftSidebarOpen(false)
+      setRightSidebarOpen(false)
+    }
+  }, [])
   
   const [theaterMode, setTheaterMode] = useState(false)
 
@@ -152,13 +167,13 @@ export function RosterLayout({ initialListId }: { initialListId?: string }) {
           <div className="flex items-center justify-between pb-2 border-b border-border">
             <h2 className="font-bold text-foreground">Roster</h2>
             <button onClick={() => setLeftSidebarOpen(false)} className="text-muted-foreground hover:text-foreground">
-              <PanelLeftClose size={20} />
+              <HugeiconsIcon icon={PanelLeftCloseIcon} size={20} />
             </button>
           </div>
           
           <div className="flex flex-col gap-2 text-sm">
             <div className="relative">
-              <Search className="absolute left-2.5 top-2 h-4 w-4 text-muted-foreground" />
+              <HugeiconsIcon icon={Search01Icon} className="absolute left-2.5 top-2 h-4 w-4 text-muted-foreground" />
               <Input
                 type="text"
                 placeholder="Search streamer..."
@@ -221,7 +236,7 @@ export function RosterLayout({ initialListId }: { initialListId?: string }) {
                         : 'bg-zinc-800/50 hover:bg-zinc-800 text-muted-foreground'
                     }`}
                   >
-                    <MonitorPlay size={14} /> Stream
+                    <HugeiconsIcon icon={Tv01Icon} size={14} /> Stream
                   </button>
                   <button
                     onClick={() => handleAddCell(creator, "chat")}
@@ -231,7 +246,7 @@ export function RosterLayout({ initialListId }: { initialListId?: string }) {
                         : 'bg-zinc-800/50 hover:bg-zinc-800 text-muted-foreground'
                     }`}
                   >
-                    <MessageSquare size={14} /> Chat
+                    <HugeiconsIcon icon={Message01Icon} size={14} /> Chat
                   </button>
                 </div>
                 {creator.isLive ? (
@@ -263,7 +278,7 @@ export function RosterLayout({ initialListId }: { initialListId?: string }) {
           <div className="flex items-center gap-3">
             {!leftSidebarOpen && (
               <button onClick={() => setLeftSidebarOpen(true)} className="text-muted-foreground hover:text-foreground">
-                <PanelLeftOpen size={20} />
+                <HugeiconsIcon icon={PanelLeftOpenIcon} size={20} />
               </button>
             )}
             
@@ -308,7 +323,7 @@ export function RosterLayout({ initialListId }: { initialListId?: string }) {
                   className="h-8 w-8 p-0"
                   title="Share StreamList"
                 >
-                  <Share className="w-4 h-4" />
+                  <HugeiconsIcon icon={Share01Icon} className="w-4 h-4" />
                 </Button>
               )}
             </div>
@@ -356,7 +371,7 @@ export function RosterLayout({ initialListId }: { initialListId?: string }) {
               className="text-muted-foreground hover:text-foreground flex items-center justify-center w-8 h-8 rounded-md hover:bg-accent"
               title="Enter Theater Mode"
             >
-              <Maximize size={18} />
+              <HugeiconsIcon icon={Maximize01Icon} size={18} />
             </button>
 
             <div className="h-4 w-px bg-border mx-1"></div>
@@ -367,7 +382,7 @@ export function RosterLayout({ initialListId }: { initialListId?: string }) {
               <>
                 <div className="h-4 w-px bg-border mx-1"></div>
                 <button onClick={() => setRightSidebarOpen(true)} className="text-muted-foreground hover:text-foreground">
-                  <PanelRightOpen size={20} />
+                  <HugeiconsIcon icon={PanelRightOpenIcon} size={20} />
                 </button>
               </>
             )}
@@ -401,11 +416,11 @@ export function RosterLayout({ initialListId }: { initialListId?: string }) {
         <div className="absolute right-2 md:relative z-40 w-80 md:w-[340px] h-[calc(100vh-1rem)] shrink-0 flex flex-col bg-card border border-border rounded-xl shadow-xl overflow-hidden">
           <div className="flex items-center justify-between p-3 border-b border-border bg-card/80 backdrop-blur shrink-0">
             <div className="flex items-center gap-2">
-              <MessageSquare size={16} className="text-primary" />
+              <HugeiconsIcon icon={Message01Icon} size={16} className="text-primary" />
               <h2 className="font-bold text-foreground text-sm">Universal Chat</h2>
             </div>
             <button onClick={() => setRightSidebarOpen(false)} className="text-muted-foreground hover:text-foreground">
-              <PanelRightClose size={18} />
+              <HugeiconsIcon icon={PanelRightCloseIcon} size={18} />
             </button>
           </div>
 

@@ -1,8 +1,13 @@
 import { useState, useEffect } from "react";
 import { StreamPlayer, type StreamData } from "./StreamPlayer";
 import { ChatBox } from "./ChatBox";
-import { motion, AnimatePresence } from "framer-motion";
-import { MessageSquare, Volume2, VolumeX, X, Grid } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+import Message01Icon from "@hugeicons/core-free-icons/Message01Icon";
+import VolumeHighIcon from "@hugeicons/core-free-icons/VolumeHighIcon";
+import VolumeMute01Icon from "@hugeicons/core-free-icons/VolumeMute01Icon";
+import Cancel01Icon from "@hugeicons/core-free-icons/Cancel01Icon";
+import GridIcon from "@hugeicons/core-free-icons/GridIcon";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { Empty, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 
 // Picks a column count that pairs with the flex-row renderer below so the
@@ -94,7 +99,7 @@ export function StreamGrid({
       <div className="w-full h-full bg-[#0a0a0a] p-2 flex items-center justify-center relative">
         <Empty className="p-8 border border-zinc-800 rounded-xl bg-zinc-950 max-w-md w-full mx-4 shadow-2xl">
           <EmptyMedia>
-            <Grid className="w-12 h-12 text-zinc-500" />
+            <HugeiconsIcon icon={GridIcon} className="w-12 h-12 text-zinc-500" />
           </EmptyMedia>
           <EmptyTitle>No streams selected</EmptyTitle>
           <EmptyDescription>
@@ -137,7 +142,7 @@ export function StreamGrid({
                   >
                     <div className="absolute top-0 left-0 w-full p-2 bg-gradient-to-b from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex justify-between items-center z-50">
                       <div className="flex items-center gap-1 bg-black/50 px-2 py-1 rounded">
-                        <MessageSquare size={14} className="text-primary" />
+                        <HugeiconsIcon icon={Message01Icon} size={14} className="text-primary" />
                         <span className="text-white text-xs font-semibold truncate">
                           {stream.displayName || stream.channel} Chat
                         </span>
@@ -147,7 +152,7 @@ export function StreamGrid({
                         title="Close Chat"
                         className="p-1.5 bg-red-600/80 hover:bg-red-600 text-white rounded-full transition-colors flex items-center justify-center backdrop-blur-sm"
                       >
-                        <X size={16} />
+                        <HugeiconsIcon icon={Cancel01Icon} size={16} />
                       </button>
                     </div>
                     <ChatBox 
@@ -211,7 +216,7 @@ export function StreamGrid({
                               : 'bg-black/50 text-white hover:bg-black/70 backdrop-blur-sm'
                           }`}
                         >
-                          {!isMuted ? <Volume2 size={16} /> : <VolumeX size={16} />}
+                          {!isMuted ? <HugeiconsIcon icon={VolumeHighIcon} size={16} /> : <HugeiconsIcon icon={VolumeMute01Icon} size={16} />}
                         </button>
                       )}
 
@@ -224,14 +229,14 @@ export function StreamGrid({
                               : 'bg-black/50 text-white hover:bg-black/70 backdrop-blur-sm'
                           }`}
                         >
-                          <MessageSquare size={16} />
+                          <HugeiconsIcon icon={Message01Icon} size={16} />
                       </button>
                       <button 
                         onClick={(e) => { e.stopPropagation(); handleRemove(stream.id, "stream"); }}
                         title="Close"
                         className="p-1.5 bg-red-600/80 hover:bg-red-600 text-white rounded-full transition-colors flex items-center justify-center backdrop-blur-sm"
                       >
-                        <X size={16} />
+                        <HugeiconsIcon icon={Cancel01Icon} size={16} />
                       </button>
                     </div>
                   </div>
