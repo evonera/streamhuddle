@@ -17,7 +17,7 @@ function PricingPage() {
     try {
       // Create checkout session for "Lifetime Pro"
       const { checkout_url } = await createCheckout({
-        productId: "prod_example_123", // FIXME: Update with your Dodo product ID
+        productId: "pdt_0NjG80JquVO61z1ctWCt8",
         returnUrl: `${window.location.origin}/roster`,
       })
       if (!checkout_url) {

@@ -86,7 +86,7 @@ const signUpSchema = z.object({
     .min(PASSWORD_MIN_LENGTH, `Password must be at least ${PASSWORD_MIN_LENGTH} characters.`),
 })
 
-type AuthSearchParams = { redirect?: string }
+type AuthSearchParams = { redirect?: string; mode?: "signin" | "signup" }
 
 // Post-auth redirects come from `_authed` as same-origin paths. Reject anything
 // else ("//host" is protocol-relative) so ?redirect= can't send users off-site.
@@ -105,6 +105,7 @@ export const Route = createFileRoute("/sign-in")({
   }),
   validateSearch: (search: Record<string, unknown>): AuthSearchParams => ({
     redirect: sanitizeRedirect(search.redirect),
+    mode: search.mode === "signup" ? "signup" : undefined,
   }),
   beforeLoad: ({ context, search }) => {
     if (context.isAuthenticated) {
@@ -125,7 +126,7 @@ type AuthPhase =
 
 function SignInPage() {
   const [phase, setPhase] = useState<AuthPhase>({ kind: "default" })
-  const { redirect: redirectTo } = Route.useSearch()
+  const { redirect: redirectTo, mode: searchMode } = Route.useSearch()
   const navigate = useNavigate()
   const { isAuthenticated, isLoading } = useConvexAuth()
 
@@ -180,15 +181,15 @@ function SignInPage() {
             <Spinner className="size-6" />
           </div>
         ) : (
-          <UnauthedView setPhase={setPhase} />
+          <UnauthedView setPhase={setPhase} defaultMode={searchMode ?? "signin"} />
         )}
       </div>
     </div>
   )
 }
 
-function UnauthedView({ setPhase }: { setPhase: (phase: AuthPhase) => void }) {
-  const [mode, setMode] = useState<"signin" | "signup">("signin")
+function UnauthedView({ setPhase, defaultMode }: { setPhase: (phase: AuthPhase) => void; defaultMode: "signin" | "signup" }) {
+  const [mode, setMode] = useState<"signin" | "signup">(defaultMode)
   const [signInMethod, setSignInMethod] = useState<"email" | "username" | "otp">("email")
   const [serverError, setServerError] = useState("")
 
@@ -422,49 +423,6 @@ function UnauthedView({ setPhase }: { setPhase: (phase: AuthPhase) => void }) {
         <FieldGroup>
           {mode === "signup" && (
             <>
-              <Field>
-                <FieldLabel>Profile photo (optional)</FieldLabel>
-                <div className="flex items-center gap-4">
-                  <input
-                    ref={avatarInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleAvatarChange}
-                    className="hidden"
-                  />
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => avatarInputRef.current?.click()}
-                      className="group rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
-                    >
-                      <Avatar className="size-14 border border-dashed border-input group-hover:border-ring/60">
-                        {avatarPreview ? (
-                          <AvatarImage src={avatarPreview} alt="Avatar preview" />
-                        ) : (
-                          <AvatarFallback>
-                            <HugeiconsIcon icon={Camera01Icon} strokeWidth={2} className="size-5" />
-                          </AvatarFallback>
-                        )}
-                      </Avatar>
-                    </button>
-                    {avatarPreview ? (
-                      <button
-                        type="button"
-                        onClick={clearAvatar}
-                        className="text-destructive-foreground absolute -top-1 -right-1 grid size-5 place-items-center rounded-full bg-destructive shadow-sm outline-none focus-visible:ring-3 focus-visible:ring-destructive/30"
-                        aria-label="Remove photo"
-                      >
-                        <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} className="size-3" />
-                      </button>
-                    ) : null}
-                  </div>
-                  <FieldDescription>
-                    {avatarPreview ? "Photo selected" : "Click to upload"}
-                  </FieldDescription>
-                </div>
-              </Field>
-
               <signUpForm.Field
                 name="name"
                 children={(field) => {

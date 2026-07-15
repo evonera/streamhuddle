@@ -72,17 +72,17 @@ const descriptionVariants = cva("text-muted-foreground max-w-3xl", {
 });
 
 const cardVariants = cva(
-  "flex w-full flex-col rounded-lg border text-left h-full transition-all duration-300",
+  "flex w-full flex-col rounded-xl border text-left h-full transition-all duration-500",
   {
     variants: {
       size: {
         small: "p-4",
-        medium: "p-5",
-        large: "p-6",
+        medium: "p-6",
+        large: "p-8",
       },
       theme: {
         minimal: "",
-        classic: "hover:shadow-xl backdrop-blur-sm bg-card/50 border-border/50",
+        classic: "hover:-translate-y-2 hover:shadow-[0_0_40px_-15px_rgba(255,255,255,0.1)] backdrop-blur-xl bg-background/40 border-white/10 dark:bg-black/40 dark:border-white/10 shadow-2xl",
       },
       highlight: {
         true: "",
@@ -94,7 +94,7 @@ const cardVariants = cva(
         theme: "classic",
         highlight: true,
         className:
-          "ring-2 ring-primary/20 border-primary/30 bg-gradient-to-b from-primary/5 to-transparent relative overflow-hidden",
+          "ring-1 ring-primary/50 border-primary/50 bg-gradient-to-b from-primary/10 to-background/40 relative overflow-hidden shadow-[0_0_40px_-15px_rgba(var(--primary),0.3)]",
       },
       {
         theme: "minimal",
@@ -152,7 +152,7 @@ const highlightBadgeVariants = cva("mb-8 block w-fit", {
     theme: {
       minimal: "",
       classic:
-        "bg-gradient-to-r from-primary to-primary/80 text-primary-foreground border-primary/20 shadow-lg",
+        "bg-gradient-to-r from-primary to-primary/80 text-primary-foreground border-primary/20 shadow-[0_0_20px_rgba(var(--primary),0.3)]",
     },
   },
   defaultVariants: {
@@ -161,7 +161,7 @@ const highlightBadgeVariants = cva("mb-8 block w-fit", {
 });
 
 const toggleVariants = cva(
-  "flex h-11 w-fit shrink-0 items-center rounded-md p-1 text-lg",
+  "flex w-fit shrink-0 items-center rounded-lg p-1 text-base",
   {
     variants: {
       theme: {
@@ -184,7 +184,7 @@ const buttonVariants = cva(
         minimal:
           "shadow hover:bg-primary/90 h-9 py-2 group bg-primary text-primary-foreground ring-primary before:from-primary-foreground/20 after:from-primary-foreground/10 relative isolate inline-flex w-full items-center justify-center overflow-hidden rounded-md px-3 text-left text-sm font-medium ring-1 before:pointer-events-none before:absolute before:inset-0 before:-z-10 before:rounded-md before:bg-gradient-to-b before:opacity-80 before:transition-opacity before:duration-300 before:ease-[cubic-bezier(0.4,0.36,0,1)] after:pointer-events-none after:absolute after:inset-0 after:-z-10 after:rounded-md after:bg-gradient-to-b after:to-transparent after:mix-blend-overlay hover:cursor-pointer",
         classic:
-          "relative overflow-hidden bg-gradient-to-r from-primary to-primary/80 text-primary-foreground font-semibold py-3 px-6 rounded-lg hover:shadow-xl active:scale-95 border border-primary/20",
+          "relative overflow-hidden bg-primary text-primary-foreground font-bold py-3 px-6 rounded-lg hover:shadow-[0_0_30px_rgba(var(--primary),0.4)] hover:scale-[1.02] active:scale-95 border border-primary/50 transition-all duration-300",
       },
     },
     defaultVariants: {
@@ -215,34 +215,7 @@ export function PricingTableOne({
   const [isAnnually, setIsAnnually] = useState(false);
   const uniqueId = useId(); // Generate unique ID automatically
 
-  function calculateDiscount(
-    monthlyPrice: string,
-    yearlyPrice: string,
-  ): number {
-    const monthly = parseFloat(monthlyPrice);
-    const yearly = parseFloat(yearlyPrice);
 
-    if (
-      monthlyPrice.toLowerCase() === "custom" ||
-      yearlyPrice.toLowerCase() === "custom" ||
-      isNaN(monthly) ||
-      isNaN(yearly) ||
-      monthly === 0
-    ) {
-      return 0;
-    }
-
-    const discount = ((monthly * 12 - yearly) / (monthly * 12)) * 100;
-    return Math.round(discount);
-  }
-
-  const yearlyPriceDiscount = plans.length
-    ? Math.max(
-        ...plans.map((plan) =>
-          calculateDiscount(plan.monthlyPrice, plan.yearlyPrice),
-        ),
-      )
-    : 0;
 
   return (
     <section className={cn(sectionVariants({ size, theme }), className)}>
@@ -280,52 +253,7 @@ export function PricingTableOne({
               {description ||
                 "Transparent pricing with no hidden fees. Upgrade or downgrade anytime."}
             </p>
-            <div
-              className={cn(
-                toggleVariants({ theme }),
-                theme === "classic" && "mx-auto",
-              )}
-            >
-              <RadioGroup
-                defaultValue="monthly"
-                className="h-full grid-cols-2"
-                onValueChange={(value) => {
-                  setIsAnnually(value === "annually");
-                }}
-              >
-                <div className='has-[button[data-state="checked"]]:bg-background h-full rounded-md transition-all'>
-                  <RadioGroupItem
-                    value="monthly"
-                    id={`${uniqueId}-monthly`}
-                    className="peer sr-only"
-                  />
-                  <Label
-                    htmlFor={`${uniqueId}-monthly`}
-                    className="text-muted-foreground peer-data-[state=checked]:text-primary hover:text-foreground flex h-full cursor-pointer items-center justify-center px-2 font-semibold transition-all md:px-7"
-                  >
-                    Monthly
-                  </Label>
-                </div>
-                <div className='has-[button[data-state="checked"]]:bg-background h-full rounded-md transition-all'>
-                  <RadioGroupItem
-                    value="annually"
-                    id={`${uniqueId}-annually`}
-                    className="peer sr-only"
-                  />
-                  <Label
-                    htmlFor={`${uniqueId}-annually`}
-                    className="text-muted-foreground peer-data-[state=checked]:text-primary hover:text-foreground flex h-full cursor-pointer items-center justify-center gap-1 px-2 font-semibold transition-all md:px-7"
-                  >
-                    Yearly
-                    {yearlyPriceDiscount > 0 && (
-                      <span className="bg-primary/10 text-primary border-primary/20 ml-1 rounded border px-2 py-0.5 text-xs font-medium">
-                        Save {yearlyPriceDiscount}%
-                      </span>
-                    )}
-                  </Label>
-                </div>
-              </RadioGroup>
-            </div>
+
           </div>
 
           <div className="flex w-full flex-col items-stretch gap-6 md:flex-row md:items-stretch">
@@ -366,63 +294,14 @@ export function PricingTableOne({
                   {plan.title}
                 </Badge>
 
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={isAnnually ? "year" : "month"}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    {isAnnually ? (
-                      <>
-                        <span
-                          className={cn(
-                            "my-auto",
-                            priceTextVariants({ size, theme }),
-                          )}
-                        >
-                          {parseFloat(plan.yearlyPrice) >= 0 && (
-                            <>{plan.currency}</>
-                          )}
-                          {plan.yearlyPrice}
-                          {calculateDiscount(
-                            plan.monthlyPrice,
-                            plan.yearlyPrice,
-                          ) > 0 && (
-                            <span
-                              className={cn(
-                                "ml-2 text-xs",
-                                theme === "classic"
-                                  ? "font-semibold text-emerald-500"
-                                  : "underline",
-                              )}
-                            >
-                              {calculateDiscount(
-                                plan.monthlyPrice,
-                                plan.yearlyPrice,
-                              )}
-                              % off
-                            </span>
-                          )}
-                        </span>
-                        <p className="text-muted-foreground">per year</p>
-                      </>
-                    ) : (
-                      <>
-                        <span
-                          className={cn(priceTextVariants({ size, theme }))}
-                        >
-                          {parseFloat(plan.monthlyPrice) >= 0 && (
-                            <>{plan.currency}</>
-                          )}
-                          {plan.monthlyPrice}
-                        </span>
-                        <p className="text-muted-foreground">per month</p>
-                      </>
-                    )}
-                  </motion.div>
-                </AnimatePresence>
+                  <div>
+                    <span className={cn(priceTextVariants({ size, theme }))}>
+                      {parseFloat(plan.monthlyPrice) > 0 && (
+                        <>{plan.currency}</>
+                      )}
+                      {plan.monthlyPrice === "0" ? "Free" : plan.monthlyPrice}
+                    </span>
+                  </div>
 
                 <Separator
                   className={cn(

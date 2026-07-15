@@ -16,37 +16,24 @@ const ROTATING_WORDS = [
     'creators',
 ] as const;
 
-const HERO_IMAGES = Array.from({ length: 10 }).map(
+const HERO_IMAGES = Array.from({ length: 5 }).map(
     (_, i) =>
-        `https://assets.watermelon.sh/lp-hero-${(i + 1).toString().padStart(2, '0')}.avif`,
+        `/hero/${i + 1}.jpg`,
 );
 
 const IMAGE_POSITIONS = [
-    // L4 (Highest, furthest left)
-    { top: '-30%', left: '-15%', width: '24%', rotate: '-15deg', zIndex: 1 },
-    // R4 (Highest, furthest right)
-    { top: '-30%', right: '-15%', width: '24%', rotate: '15deg', zIndex: 1 },
-
-    // L3
-    { top: '-10%', left: '-5%', width: '28%', rotate: '-10deg', zIndex: 2 },
-    // R3
-    { top: '-10%', right: '-5%', width: '28%', rotate: '10deg', zIndex: 2 },
-
-    // L2
-    { top: '10%', left: '5%', width: '34%', rotate: '-5deg', zIndex: 3 },
-    // R2
-    { top: '10%', right: '5%', width: '34%', rotate: '5deg', zIndex: 3 },
-
-    // L1
-    { top: '25%', left: '15%', width: '42%', rotate: '-2deg', zIndex: 4 },
-    // R1
-    { top: '25%', right: '15%', width: '42%', rotate: '2deg', zIndex: 4 },
-
-    // Center (Front, lowest)
-    { top: '40%', left: '24%', width: '52%', rotate: '0deg', zIndex: 10 },
-
-    // Top Center (Background Floater)
-    { top: '15%', left: '38%', width: '24%', rotate: '0deg', zIndex: 0 },
+    // L2 (Furthest left, back)
+    { top: '5%', left: '-5%', width: '40%', rotate: '-8deg', zIndex: 1 },
+    // R2 (Furthest right, back)
+    { top: '5%', right: '-5%', width: '40%', rotate: '8deg', zIndex: 1 },
+    
+    // L1 (Mid left, forward)
+    { top: '20%', left: '10%', width: '48%', rotate: '-4deg', zIndex: 2 },
+    // R1 (Mid right, forward)
+    { top: '20%', right: '10%', width: '48%', rotate: '4deg', zIndex: 2 },
+    
+    // Center (Front, bottom)
+    { top: '35%', left: '22%', width: '56%', rotate: '0deg', zIndex: 10 },
 ];
 
 export default function Hero() {

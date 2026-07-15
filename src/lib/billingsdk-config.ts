@@ -35,7 +35,7 @@ export const plans: Plan[] = [
     yearlyPrice: "0",
     buttonText: "Current Plan",
     features: [
-      { name: "Watch up to 8 Streams", icon: "check" },
+      { name: "Watch up to 20 Streams at once", icon: "check" },
       { name: "1 Saved Custom Layout", icon: "check" },
       { name: "Public Roster Access", icon: "check" },
     ],
@@ -43,7 +43,7 @@ export const plans: Plan[] = [
   {
     id: "pro",
     title: "Lifetime Pro",
-    description: "Unlock the ultimate squad viewing experience forever.",
+    description: "Unlock the ultimate multi-stream viewing experience forever.",
     currency: "$",
     monthlyPrice: "29.99",
     yearlyPrice: "29.99",
@@ -52,7 +52,7 @@ export const plans: Plan[] = [
     highlight: true,
     features: [
       { name: "Unlimited Saved Layouts", icon: "check" },
-      { name: "Ad-free Experience", icon: "check" },
+      { name: "8+ Premium Custom Themes", icon: "check" },
       { name: "Custom Profile Themes", icon: "check" },
       { name: "Exclusive Pro Badge", icon: "check" },
     ],
