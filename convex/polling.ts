@@ -19,19 +19,23 @@ export const pollAllPlatforms = internalAction({
 
     // 3. Poll Twitch
     if (twitchCreators.length > 0) {
-      const logins = twitchCreators.map(c => c.username);
-      const streams = await ctx.runAction(internal.twitch.fetchTwitchStreams, { logins });
-      
-      const streamMap = new Map(streams.map((s: any) => [s.user_login.toLowerCase(), s]));
+      try {
+        const logins = twitchCreators.map(c => c.username);
+        const streams = await ctx.runAction(internal.twitch.fetchTwitchStreams, { logins });
+        
+        const streamMap = new Map(streams.map((s: any) => [s.user_login.toLowerCase(), s]));
 
-      for (const creator of twitchCreators) {
-        const stream = streamMap.get(creator.username.toLowerCase());
-        updates.push({
-          creatorId: creator._id,
-          isLive: !!stream,
-          viewerCount: stream ? stream.viewer_count : undefined,
-          streamTitle: stream ? stream.title : undefined,
-        });
+        for (const creator of twitchCreators) {
+          const stream = streamMap.get(creator.username.toLowerCase());
+          updates.push({
+            creatorId: creator._id,
+            isLive: !!stream,
+            viewerCount: stream ? stream.viewer_count : undefined,
+            streamTitle: stream ? stream.title : undefined,
+          });
+        }
+      } catch (error) {
+        console.error("Failed to poll Twitch streams (possibly missing TWITCH_CLIENT_ID/SECRET):", error);
       }
     }
 

@@ -25,7 +25,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 
-export function RosterLayout({ initialListId }: { initialListId?: string }) {
+export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: string, autoLoadAll?: boolean }) {
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedLanguage, setSelectedLanguage] = useState<string | undefined>()
@@ -98,6 +98,20 @@ export function RosterLayout({ initialListId }: { initialListId?: string }) {
       incrementViewsMutation({ id: initialListId as any }).catch(console.error)
     }
   }, [sharedListQuery, creatorsQuery])
+
+  // Auto-load all creators for specific routes (like /university)
+  useEffect(() => {
+    if (autoLoadAll && creatorsQuery && activeStreams.length === 0 && !activeLayoutId) {
+      const loadedStreams = creatorsQuery.slice(0, 20).map(creator => ({
+        id: creator._id,
+        platform: creator.platform as any,
+        channel: creator.platform === "custom" && creator.platformId ? creator.platformId : creator.username,
+        displayName: creator.username,
+        type: "stream" as const
+      }))
+      setActiveStreams(loadedStreams)
+    }
+  }, [autoLoadAll, creatorsQuery, activeLayoutId])
 
   const handleAddCell = (creator: any, type: "stream" | "chat") => {
     setActiveStreams(prev => {
@@ -221,7 +235,7 @@ export function RosterLayout({ initialListId }: { initialListId?: string }) {
                 } bg-background border-border hover:border-primary/50`}
               >
                 <div className="flex items-center gap-3">
-                  <img src={creator.avatarUrl || `https://avatar.vercel.sh/${creator.username}`} className="w-8 h-8 rounded-full bg-black" />
+                  <img src={creator.avatarUrl || `https://avatar.vercel.sh/${creator.username}`} className="w-8 h-8 rounded-full bg-muted" />
                   <div className="flex-1">
                     <div className="font-semibold text-foreground text-sm leading-tight">{creator.username}</div>
                     <div className="text-[10px] text-muted-foreground capitalize">{creator.platform}</div>
@@ -255,7 +269,7 @@ export function RosterLayout({ initialListId }: { initialListId?: string }) {
                       <div className="w-1.5 h-1.5 rounded-full bg-red-500"></div> Live
                     </div>
                     {creator.viewerCount && (
-                      <div className="text-[9px] font-bold text-muted-foreground bg-black/50 px-1 rounded mt-0.5">
+                      <div className="text-[9px] font-bold text-muted-foreground bg-background/50 px-1 rounded mt-0.5">
                         {creator.viewerCount.toLocaleString()} Viewers
                       </div>
                     )}
@@ -367,9 +381,12 @@ export function RosterLayout({ initialListId }: { initialListId?: string }) {
             
             <div className="h-4 w-px bg-border mx-1"></div>
             <button
-              onClick={() => setTheaterMode(true)}
+              onClick={() => {
+                setTheaterMode(true)
+                toast("Zen Mode Activated", { description: "Press ESC to exit zen mode." })
+              }}
               className="text-muted-foreground hover:text-foreground flex items-center justify-center w-8 h-8 rounded-md hover:bg-accent"
-              title="Enter Theater Mode"
+              title="Enter Zen Mode"
             >
               <HugeiconsIcon icon={Maximize01Icon} size={18} />
             </button>
@@ -391,7 +408,7 @@ export function RosterLayout({ initialListId }: { initialListId?: string }) {
         )}
         
         {/* The Grid */}
-        <div className="flex-1 rounded-xl overflow-hidden border border-border shadow-2xl bg-black relative">
+        <div className="flex-1 rounded-xl overflow-hidden border border-border shadow-2xl bg-background relative">
           <StreamGrid 
             streams={activeStreams} 
             activeChatId={activeChatId}
@@ -403,7 +420,7 @@ export function RosterLayout({ initialListId }: { initialListId?: string }) {
           {/* Escape Theater Mode Overlay */}
           {theaterMode && (
             <div className="absolute top-4 right-4 opacity-0 hover:opacity-100 transition-opacity z-50">
-              <Button onClick={() => setTheaterMode(false)} variant="secondary" className="bg-black/50 backdrop-blur hover:bg-black/80">
+              <Button onClick={() => setTheaterMode(false)} variant="secondary" className="bg-background/50 backdrop-blur hover:bg-background/80">
                 Exit Theater Mode (ESC)
               </Button>
             </div>
@@ -442,7 +459,7 @@ export function RosterLayout({ initialListId }: { initialListId?: string }) {
             </div>
           )}
           
-          <div className="flex-1 bg-black overflow-hidden relative">
+          <div className="flex-1 bg-background overflow-hidden relative">
             {videoStreams.length > 0 && activeChatStream ? (
               <ChatBox 
                 platform={activeChatStream.platform} 

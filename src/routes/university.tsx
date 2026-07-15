@@ -8,7 +8,7 @@ export const Route = createFileRoute('/university')({
 function UniversityPage() {
   return (
     <div className="min-h-screen bg-background w-full">
-      <RosterLayout />
+      <RosterLayout autoLoadAll={true} />
     </div>
   )
 }

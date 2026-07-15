@@ -89,3 +89,29 @@ export const commitSeedData = internalMutation({
     return null;
   }
 });
+
+import suData from "./su-seed-data.json";
+import { api } from "./_generated/api";
+
+export const triggerSeed = action({
+  args: {},
+  returns: v.any(),
+  handler: async (ctx) => {
+    return await ctx.runAction(api.seed.seedSUData, { creators: suData });
+  }
+});
+
+export const fixCategories = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const creators = await ctx.db.query("creators").collect();
+    for (const c of creators) {
+      const rosters = await ctx.db
+        .query("roster")
+        .withIndex("by_creator", (q) => q.eq("creatorId", c._id))
+        .collect();
+      const categories = Array.from(new Set(rosters.map((r) => r.category)));
+      await ctx.db.patch(c._id, { categories });
+    }
+  },
+});

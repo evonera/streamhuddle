@@ -102,15 +102,14 @@ export const Route = createRootRouteWithContext<{
       ...seo({
         title: SITE_TITLE,
         description: SITE_DESCRIPTION,
-        image: "/og.png",
+        image: "/favicon.png",
       }),
     ],
     links: [
       { rel: "stylesheet", href: appCss },
       // rel=canonical is per-route (links don't dedupe across route heads).
-      { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
-      { rel: "icon", type: "image/x-icon", href: "/favicon.ico", sizes: "32x32" },
-      { rel: "apple-touch-icon", sizes: "180x180", href: "/apple-touch-icon.png" },
+      { rel: "icon", type: "image/png", href: "/favicon.png" },
+      { rel: "apple-touch-icon", sizes: "180x180", href: "/favicon.png" },
       { rel: "manifest", href: "/manifest.webmanifest" },
       // Fediverse verification: fill in your own profile URL.
       // { rel: "me", href: "https://mastodon.social/@ramonclaudio" },
