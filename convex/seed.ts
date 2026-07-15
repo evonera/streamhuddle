@@ -1,7 +1,7 @@
-import { action, internalMutation } from "./_generated/server";
+import { action, internalMutation, internalAction } from "./_generated/server";
 import { v } from "convex/values";
-import { internal } from "./_generated/api";
-
+import { internal, api } from "./_generated/api";
+import suData from "./su-seed-data.json";
 export const seedSUData = action({
   args: {
     creators: v.array(v.object({
@@ -54,11 +54,15 @@ export const commitSeedData = internalMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     // Create SU Event
-    const eventId = await ctx.db.insert("events", {
-      name: "Streamer University",
-      slug: "streamer-university",
-      isActive: true,
-    });
+    let event = await ctx.db.query("events").withIndex("by_slug", q => q.eq("slug", "streamer-university")).first();
+    let eventId = event?._id;
+    if (!eventId) {
+      eventId = await ctx.db.insert("events", {
+        name: "Streamer University",
+        slug: "streamer-university",
+        isActive: true,
+      });
+    }
 
     for (const c of args.creators) {
       const existing = await ctx.db
@@ -80,23 +84,28 @@ export const commitSeedData = internalMutation({
         });
       }
 
-      await ctx.db.insert("roster", {
-        eventId,
-        creatorId,
-        category: c.category,
-      });
+      const existingRoster = await ctx.db.query("roster")
+        .withIndex("by_event", q => q.eq("eventId", eventId!))
+        .filter(q => q.eq(q.field("creatorId"), creatorId!))
+        .first();
+      
+      if (!existingRoster) {
+        await ctx.db.insert("roster", {
+          eventId: eventId!,
+          creatorId: creatorId!,
+          category: c.category,
+        });
+      }
     }
     return null;
   }
 });
 
-import suData from "./su-seed-data.json";
-import { api } from "./_generated/api";
-
-export const triggerSeed = action({
+// @ts-ignore
+export const triggerSeed = internalAction({
   args: {},
   returns: v.any(),
-  handler: async (ctx) => {
+  handler: async (ctx): Promise<any> => {
     return await ctx.runAction(api.seed.seedSUData, { creators: suData });
   }
 });
@@ -114,4 +123,109 @@ export const fixCategories = internalMutation({
       await ctx.db.patch(c._id, { categories });
     }
   },
+});
+
+export const seedPremadeLists = internalAction({
+  args: {},
+  handler: async (ctx) => {
+    const lists = [
+      {
+        name: "The Esports Hub",
+        views: 124500,
+        authorName: "StreamHuddle Official",
+        streamers: [
+          { username: "tarik", platform: "twitch" },
+          { username: "shroud", platform: "twitch" },
+          { username: "s1mple", platform: "twitch" },
+          { username: "scump", platform: "twitch" },
+        ]
+      },
+      {
+        name: "Just Chatting Legends",
+        views: 312000,
+        authorName: "StreamHuddle Official",
+        streamers: [
+          { username: "xQc", platform: "twitch" },
+          { username: "KaiCenat", platform: "twitch" },
+          { username: "HasanAbi", platform: "twitch" },
+          { username: "pokimane", platform: "twitch" },
+          { username: "caseoh_", platform: "twitch" },
+          { username: "asmongold", platform: "twitch" }
+        ]
+      }
+    ];
+
+    for (const list of lists) {
+      const enrichedStreamers = await ctx.runAction(internal.twitch.fetchTwitchUsers, {
+        usernames: list.streamers.map(s => s.username)
+      });
+      
+      const toInsert = list.streamers.map((s) => {
+        const enriched = enrichedStreamers.find((e: any) => e.login.toLowerCase() === s.username.toLowerCase());
+        return {
+          ...s,
+          platformId: enriched?.id,
+          avatarUrl: enriched?.profile_image_url,
+          description: enriched?.description,
+          offlineImageUrl: enriched?.offline_image_url
+        };
+      });
+      
+      await ctx.runMutation(internal.seed.commitPremadeList, {
+        name: list.name,
+        views: list.views,
+        authorName: list.authorName,
+        creators: toInsert
+      });
+    }
+  }
+});
+
+export const commitPremadeList = internalMutation({
+  args: {
+    name: v.string(),
+    views: v.number(),
+    authorName: v.string(),
+    creators: v.array(v.any())
+  },
+  handler: async (ctx, args) => {
+    const streams = [];
+    const previewStreams = [];
+    
+    for (const c of args.creators) {
+      const existing = await ctx.db
+        .query("creators")
+        .withIndex("by_platform_and_username", q => 
+          q.eq("platform", c.platform).eq("username", c.username)
+        )
+        .first();
+      
+      let creatorId = existing?._id;
+      if (!creatorId) {
+        creatorId = await ctx.db.insert("creators", {
+          platform: c.platform,
+          username: c.username,
+          platformId: c.platformId,
+          avatarUrl: c.avatarUrl,
+          description: c.description,
+          offlineImageUrl: c.offlineImageUrl,
+          categories: ["Premade"]
+        });
+      }
+      
+      streams.push({ creatorId, type: "stream" as const });
+      if (previewStreams.length < 4) {
+        previewStreams.push({ username: c.username, type: "stream" });
+      }
+    }
+    
+    await ctx.db.insert("layouts", {
+      authId: "system_premade",
+      name: args.name,
+      views: args.views,
+      authorName: args.authorName,
+      previewStreams,
+      streams
+    });
+  }
 });

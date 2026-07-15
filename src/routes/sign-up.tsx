@@ -5,7 +5,7 @@ export const Route = createFileRoute('/sign-up')({
     throw redirect({
       to: '/sign-in',
       search: {
-        ...search,
+        ...(search as any).redirect ? { redirect: (search as any).redirect } : {},
         mode: 'signup',
       },
     })
