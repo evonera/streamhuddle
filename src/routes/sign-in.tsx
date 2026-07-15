@@ -1,4 +1,3 @@
-import { api } from "@convex/_generated/api"
 import {
   isReservedUsername,
   isValidUsernameFormat,
@@ -6,19 +5,17 @@ import {
   USERNAME_MAX_LENGTH,
   USERNAME_MIN_LENGTH,
 } from "@convex/constants"
-import Camera01Icon from "@hugeicons/core-free-icons/Camera01Icon"
 import Cancel01Icon from "@hugeicons/core-free-icons/Cancel01Icon"
 import Tick02Icon from "@hugeicons/core-free-icons/Tick02Icon"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useForm } from "@tanstack/react-form"
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router"
-import { useConvexAuth, useMutation } from "convex/react"
+import { useConvexAuth } from "convex/react"
 import { REGEXP_ONLY_DIGITS } from "input-otp"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 import { z } from "zod"
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
   Field,
@@ -119,7 +116,7 @@ type AuthPhase =
   // Avatar lives on the phase so it's automatically forgotten when the user
   // backs out of verification; no risk of uploading it to a different account.
   | { kind: "default" }
-  | { kind: "verify-signup"; email: string; avatarFile: File | null }
+  | { kind: "verify-signup"; email: string }
   | { kind: "otp-sign-in"; email: string }
   | { kind: "reset-request" }
   | { kind: "reset-verify"; email: string }
@@ -130,40 +127,20 @@ function SignInPage() {
   const navigate = useNavigate()
   const { isAuthenticated, isLoading } = useConvexAuth()
 
-  const generateUploadUrl = useMutation(api.users.generateAvatarUploadUrl)
-  const updateAvatar = useMutation(api.users.updateAvatar)
-
   // Auth flipped to authenticated: finish the pending avatar upload (if any)
   // then navigate. `beforeLoad` only redirects on fresh navigations, so this
   // effect handles the in-session transition (password sign-in, OTP sign-in,
   // or the autoSignInAfterVerification flip during email verification).
   useEffect(() => {
     if (isLoading || !isAuthenticated) return undefined
-    const avatarFile = phase.kind === "verify-signup" ? phase.avatarFile : null
     let cancelled = false
     void (async () => {
-      if (avatarFile) {
-        try {
-          const uploadUrl = await generateUploadUrl()
-          const res = await fetch(uploadUrl, {
-            method: "POST",
-            headers: { "Content-Type": avatarFile.type },
-            body: avatarFile,
-          })
-          if (res.ok) {
-            const { storageId } = await res.json()
-            await updateAvatar({ storageId })
-          }
-        } catch (err) {
-          console.error("Failed to upload avatar after sign-up", err)
-        }
-      }
       if (!cancelled) void navigate({ to: redirectTo ?? "/" })
     })()
     return () => {
       cancelled = true
     }
-  }, [isLoading, isAuthenticated, phase, redirectTo, navigate, generateUploadUrl, updateAvatar])
+  }, [isLoading, isAuthenticated, phase, redirectTo, navigate])
 
   const resetToDefault = useCallback(() => setPhase({ kind: "default" }), [])
 
@@ -196,10 +173,6 @@ function UnauthedView({ setPhase, defaultMode }: { setPhase: (phase: AuthPhase) 
   const [isCheckingUsername, setIsCheckingUsername] = useState(false)
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null)
   const usernameCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-
-  const [avatarFile, setAvatarFile] = useState<File | null>(null)
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
-  const avatarInputRef = useRef<HTMLInputElement>(null)
 
   // Holds the candidate the in-flight availability request is for. Responses
   // resolving for anything else are dropped, so a slow response for an old
@@ -274,7 +247,7 @@ function UnauthedView({ setPhase, defaultMode }: { setPhase: (phase: AuthPhase) 
               email: value.email,
               type: "email-verification",
             })
-            setPhase({ kind: "verify-signup", email: value.email, avatarFile: null })
+            setPhase({ kind: "verify-signup", email: value.email })
             return
           }
           setServerError(result.error.message || "Sign in failed")
@@ -341,7 +314,7 @@ function UnauthedView({ setPhase, defaultMode }: { setPhase: (phase: AuthPhase) 
         }
         // Stash the avatar on the phase; the parent uploads it once email
         // verification mints a session (authMutation would reject before that).
-        setPhase({ kind: "verify-signup", email: value.email, avatarFile })
+        setPhase({ kind: "verify-signup", email: value.email })
       } catch {
         setServerError("An error occurred during sign up")
       }
@@ -357,38 +330,10 @@ function UnauthedView({ setPhase, defaultMode }: { setPhase: (phase: AuthPhase) 
           ? signInUsernameForm
           : signInOtpEmailForm
 
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    if (!file.type.startsWith("image/")) {
-      setServerError("Please select an image file")
-      return
-    }
-    const maxSize = 5 * 1024 * 1024
-    if (file.size > maxSize) {
-      setServerError("Image must be less than 5MB")
-      return
-    }
-    setAvatarFile(file)
-    setServerError("")
-    const reader = new FileReader()
-    reader.onloadend = () => {
-      if (typeof reader.result === "string") setAvatarPreview(reader.result)
-    }
-    reader.readAsDataURL(file)
-  }
-
-  const clearAvatar = () => {
-    setAvatarFile(null)
-    setAvatarPreview(null)
-    if (avatarInputRef.current) avatarInputRef.current.value = ""
-  }
-
   const handleModeChange = (next: "signin" | "signup") => {
     setMode(next)
     setServerError("")
     setUsernameAvailable(null)
-    if (next === "signin") clearAvatar()
   }
 
   const handleSignInMethodChange = (method: "email" | "username" | "otp") => {

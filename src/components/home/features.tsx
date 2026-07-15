@@ -32,7 +32,7 @@ export default function Features() {
         <section className="relative w-full py-24 md:py-32">
             <Container>
                 <div className="mb-16 md:mb-24 flex flex-col gap-4 text-center md:text-left">
-                    <Heading as="h2" variant="h3" className="text-foreground font-sans">
+                    <Heading as="h2" variant="medium" className="text-foreground font-sans">
                         Everything you need <br />
                         <span className="text-primary">to dominate the stream.</span>
                     </Heading>

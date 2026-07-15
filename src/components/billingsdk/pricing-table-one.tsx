@@ -3,14 +3,11 @@
 import Tick01Icon from "@hugeicons/core-free-icons/Tick01Icon";
 import FlashIcon from "@hugeicons/core-free-icons/FlashIcon";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { useState, useId } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import { motion } from "motion/react";
 import { cva, type VariantProps } from "class-variance-authority";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
 import { type Plan } from "@/lib/billingsdk-config";
 import { cn } from "@/lib/utils";
@@ -160,22 +157,6 @@ const highlightBadgeVariants = cva("mb-8 block w-fit", {
   },
 });
 
-const toggleVariants = cva(
-  "flex w-fit shrink-0 items-center rounded-lg p-1 text-base",
-  {
-    variants: {
-      theme: {
-        minimal: "bg-muted",
-        classic:
-          "bg-muted/50 backdrop-blur-sm border border-border/50 shadow-lg",
-      },
-    },
-    defaultVariants: {
-      theme: "minimal",
-    },
-  },
-);
-
 const buttonVariants = cva(
   "gap-2 whitespace-nowrap focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 transition-all duration-300",
   {
@@ -212,11 +193,6 @@ export function PricingTableOne({
   size,
   theme = "minimal",
 }: PricingTableOneProps) {
-  const [isAnnually, setIsAnnually] = useState(false);
-  const uniqueId = useId(); // Generate unique ID automatically
-
-
-
   return (
     <section className={cn(sectionVariants({ size, theme }), className)}>
       {/* Classic theme background elements */}

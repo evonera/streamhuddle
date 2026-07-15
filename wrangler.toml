@@ -5,8 +5,6 @@ compatibility_flags = ["nodejs_compat"]
 # Workers Builds reads `build.command` and runs it after install. Bun version
 # is detected from `bun.lock`. Override with the `BUN_VERSION` env var on the
 # Cloudflare Worker if you need a specific bun.
-[build]
-command = "bun run build"
 # Env vars: this Vite-built app reads `process.env.X` at BUILD time (via Vite's
 # `define` block in `vite.config.ts`), not at request time. Set them as
 # build-time env vars in the Cloudflare dashboard:
