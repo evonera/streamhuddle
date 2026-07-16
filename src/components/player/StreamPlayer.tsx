@@ -12,6 +12,7 @@ export interface StreamData {
   isPrimary?: boolean; // For YouTube click-to-play
   muted?: boolean;
   type?: "stream" | "chat"; // For in-grid chat
+  gridIndex?: number; // Tracks position in fixed grid layouts
 }
 
 export function StreamPlayer({ stream, kickRemountKey }: { stream: StreamData; kickRemountKey?: number }) {

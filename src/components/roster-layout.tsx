@@ -34,6 +34,7 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
   const [activeLayoutName, setActiveLayoutName] = useState("")
   const [activeLayoutId, setActiveLayoutId] = useState<string | null>(initialListId || null)
   const [activeStreams, setActiveStreams] = useState<StreamData[]>([])
+  const [gridSize, setGridSize] = useState<"auto" | number>("auto")
   
   const [activeChatId, setActiveChatId] = useState<string | null>(null)
   
@@ -82,7 +83,7 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
   // Auto-load shared list
   useEffect(() => {
     if (sharedListQuery && creatorsQuery && activeStreams.length === 0 && activeLayoutId === initialListId) {
-      const loadedStreams = sharedListQuery.streams.map(s => {
+      const loadedStreams = sharedListQuery.streams.map((s, idx) => {
         const creator = creatorsQuery.find(c => c._id === s.creatorId)
         if (!creator) return null
         return {
@@ -90,11 +91,13 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
           platform: creator.platform as any,
           channel: creator.platform === "custom" && creator.platformId ? creator.platformId : creator.username,
           displayName: creator.username,
-          type: s.type || "stream"
+          type: s.type || "stream",
+          gridIndex: idx
         }
       }).filter(Boolean) as StreamData[]
       setActiveLayoutName(sharedListQuery.name)
       setActiveStreams(loadedStreams)
+      setGridSize("auto")
       incrementViewsMutation({ id: initialListId as any }).catch(console.error)
     }
   }, [sharedListQuery, creatorsQuery])
@@ -102,16 +105,28 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
   // Auto-load all creators for specific routes (like /university)
   useEffect(() => {
     if (autoLoadAll && creatorsQuery && activeStreams.length === 0 && !activeLayoutId) {
-      const loadedStreams = creatorsQuery.slice(0, 20).map(creator => ({
+      const loadedStreams = creatorsQuery.slice(0, 20).map((creator, idx) => ({
         id: creator._id,
         platform: creator.platform as any,
         channel: creator.platform === "custom" && creator.platformId ? creator.platformId : creator.username,
         displayName: creator.username,
-        type: "stream" as const
+        type: "stream" as const,
+        gridIndex: idx
       }))
       setActiveStreams(loadedStreams)
     }
   }, [autoLoadAll, creatorsQuery, activeLayoutId, activeStreams.length])
+
+  // Truncate active streams if gridSize is reduced below the current stream count
+  useEffect(() => {
+    if (gridSize !== "auto") {
+      const outOfBounds = activeStreams.some(s => (s.gridIndex ?? activeStreams.indexOf(s)) >= gridSize);
+      if (outOfBounds) {
+        toast.info(`Grid shrunk to ${gridSize}. Extra streams were removed.`);
+        setActiveStreams(prev => prev.filter(s => (s.gridIndex ?? prev.indexOf(s)) < gridSize));
+      }
+    }
+  }, [gridSize, activeStreams]);
 
   const handleAddCell = (creator: any, type: "stream" | "chat") => {
     setActiveStreams(prev => {
@@ -125,8 +140,25 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
           return prev;
         }
         
-        if (prev.length === 8) {
-          toast.warning("Warning: Loading more than 8 streams requires significant RAM and bandwidth. Your browser may experience lag.")
+        let nextGridIndex = gridSize === "auto" ? 0 : gridSize;
+        if (gridSize !== "auto") {
+          const usedIndices = new Set(prev.map(s => s.gridIndex).filter(i => i !== undefined));
+          for (let i = 0; i < gridSize; i++) {
+            if (!usedIndices.has(i)) {
+              nextGridIndex = i;
+              break;
+            }
+          }
+          if (nextGridIndex >= gridSize) {
+            toast.error("Grid is full. Increase grid size or remove a stream.");
+            return prev;
+          }
+        } else {
+          // Prevent collisions in auto mode if streams were removed from the middle
+          nextGridIndex = prev.length > 0 ? Math.max(...prev.map(s => s.gridIndex ?? 0)) + 1 : 0;
+          if (prev.length === 8) {
+            toast.warning("Warning: Loading more than 8 streams requires significant RAM and bandwidth. Your browser may experience lag.")
+          }
         }
         
         return [...prev, {
@@ -134,11 +166,35 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
           platform: creator.platform as any,
           channel: creator.platform === "custom" && creator.platformId ? creator.platformId : creator.username,
           displayName: creator.username,
-          type
+          type,
+          gridIndex: nextGridIndex
         }]
       }
     })
   }
+
+  const handleSwapStream = (draggedId: string, draggedType: "stream" | "chat", targetGridIndex: number) => {
+    setActiveStreams(prev => {
+      const draggedIndex = prev.findIndex(s => s.id === draggedId && s.type === draggedType);
+      if (draggedIndex === -1) return prev;
+      
+      const newStreams = [...prev];
+      const targetIndex = newStreams.findIndex(s => (s.gridIndex ?? newStreams.indexOf(s)) === targetGridIndex);
+      
+      const oldGridIndex = newStreams[draggedIndex].gridIndex ?? draggedIndex;
+      
+      newStreams[draggedIndex] = { ...newStreams[draggedIndex], gridIndex: targetGridIndex };
+      if (targetIndex !== -1) {
+        newStreams[targetIndex] = { ...newStreams[targetIndex], gridIndex: oldGridIndex };
+        
+        // Swap their positions in the array so auto mode renders the new order
+        const temp = newStreams[draggedIndex];
+        newStreams[draggedIndex] = newStreams[targetIndex];
+        newStreams[targetIndex] = temp;
+      }
+      return newStreams;
+    });
+  };
 
   const handleSaveLayout = async () => {
     if (!activeLayoutName) {
@@ -365,6 +421,23 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
             </div>
           </div>
 
+          {/* Grid Size Selector */}
+          <div className="hidden lg:flex items-center gap-1 bg-zinc-900/50 rounded-lg p-1 border border-border mx-2">
+            {(["auto", 1, 2, 3, 4, 5, 6, 8, 12, 16] as const).map(size => (
+              <button
+                key={size}
+                onClick={() => setGridSize(size)}
+                className={`w-7 h-7 flex items-center justify-center rounded text-xs font-semibold transition-colors ${
+                  gridSize === size 
+                    ? 'bg-primary text-primary-foreground shadow-sm' 
+                    : 'text-muted-foreground hover:text-foreground hover:bg-zinc-800'
+                }`}
+              >
+                {size === "auto" ? "A" : size}
+              </button>
+            ))}
+          </div>
+
           <div className="flex items-center gap-3">
             <Select 
               value="none" 
@@ -372,7 +445,7 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
                 if (val !== "none") {
                   const layout = userLayouts?.find(l => l._id === val)
                   if (layout && creatorsQuery) {
-                    const loadedStreams = layout.streams.map(s => {
+                    const loadedStreams = layout.streams.map((s, idx) => {
                       const creator = creatorsQuery.find(c => c._id === s.creatorId)
                       if (!creator) return null
                       return {
@@ -381,11 +454,13 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
                         channel: creator.platform === "custom" && creator.platformId ? creator.platformId : creator.username,
                         displayName: creator.username,
                         type: s.type || "stream",
+                        gridIndex: idx
                       }
                     }).filter(Boolean) as StreamData[]
                     setActiveLayoutName(layout.name)
                     setActiveLayoutId(layout._id)
                     setActiveStreams(loadedStreams)
+                    setGridSize("auto")
                   }
                 }
               }}
@@ -433,10 +508,12 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
         <div className="flex-1 rounded-xl overflow-hidden border border-border shadow-2xl bg-background relative">
           <StreamGrid 
             streams={activeStreams} 
+            gridSize={gridSize}
             activeChatId={activeChatId}
             setActiveChatId={setActiveChatId}
             onRemoveStream={(id, type) => setActiveStreams(prev => prev.filter(s => !(s.id === id && s.type === type)))}
             onAddStreamClick={() => setLeftSidebarOpen(true)}
+            onSwapStream={handleSwapStream}
           />
           
           {/* Escape Theater Mode Overlay */}

@@ -35,16 +35,20 @@ function chunkIntoRows<T>(items: T[], cols: number): T[][] {
 
 export function StreamGrid({ 
   streams,
+  gridSize = "auto",
   onRemoveStream,
   activeChatId,
   setActiveChatId,
-  onAddStreamClick
+  onAddStreamClick,
+  onSwapStream
 }: { 
   streams: StreamData[];
+  gridSize?: "auto" | number;
   onRemoveStream: (id: string, type: "stream" | "chat") => void;
   activeChatId: string | null;
   setActiveChatId: (id: string | null) => void;
   onAddStreamClick?: () => void;
+  onSwapStream?: (draggedId: string, draggedType: "stream" | "chat", targetGridIndex: number) => void;
 }) {
   const [kickRemountKey, setKickRemountKey] = useState(0);
   const [focusedId, setFocusedId] = useState<string | null>(null);
@@ -60,10 +64,20 @@ export function StreamGrid({
 
 
 
-  const cols = getColumnsForCount(streams.length);
-  const rows = chunkIntoRows(streams, cols);
+  let cells: { stream: StreamData | null; gridIndex: number }[] = [];
+  if (gridSize === "auto") {
+    cells = streams.map((stream, idx) => ({ stream, gridIndex: stream.gridIndex ?? idx }));
+  } else {
+    for (let i = 0; i < gridSize; i++) {
+      const stream = streams.find(s => s.gridIndex === i) || null;
+      cells.push({ stream, gridIndex: i });
+    }
+  }
+
+  const cols = getColumnsForCount(cells.length);
+  const rows = chunkIntoRows(cells, cols);
   const laidOut = rows.flatMap(row => 
-    row.map(stream => ({ stream, rowSize: row.length }))
+    row.map(cell => ({ ...cell, rowSize: row.length }))
   );
 
   const handleRemove = (id: string, type: "stream" | "chat") => {
@@ -94,7 +108,7 @@ export function StreamGrid({
     });
   };
 
-  if (streams.length === 0) {
+  if (streams.length === 0 && gridSize === "auto") {
     return (
       <div className="w-full h-full bg-[#0a0a0a] p-2 flex items-center justify-center relative">
         <Empty className="p-8 border border-zinc-800 rounded-xl bg-zinc-950 max-w-md w-full mx-4 shadow-2xl">
@@ -123,11 +137,60 @@ export function StreamGrid({
         {/* Flat Grid Container */}
         <div className="absolute inset-1 flex flex-wrap content-stretch gap-1">
           <AnimatePresence mode="popLayout">
-            {laidOut.map(({ stream, rowSize }, idx) => {
+            {laidOut.map(({ stream, gridIndex, rowSize }) => {
               const style = { flexBasis: `calc(${100 / rowSize}% - 4px)` }; 
               
-              // Unique key for the array map
-              const reactKey = `${stream.id}-${stream.type || 'stream'}-${idx}`;
+              const reactKey = stream ? `${stream.id}-${stream.type || 'stream'}` : `empty-${gridIndex}`;
+
+              const dropProps = {
+                onDragOver: ((e: React.DragEvent) => e.preventDefault()) as any,
+                onDrop: ((e: React.DragEvent) => {
+                  e.preventDefault();
+                  const dragId = e.dataTransfer.getData("application/x-stream-id");
+                  const dragType = e.dataTransfer.getData("application/x-stream-type");
+                  if (dragId && onSwapStream) {
+                    onSwapStream(dragId, dragType as any, gridIndex);
+                  }
+                }) as any
+              };
+
+              const dragProps = {
+                ...dropProps,
+                draggable: true,
+                onDragStart: ((e: React.DragEvent) => {
+                  if (stream) {
+                    e.dataTransfer.setData("application/x-stream-id", stream.id);
+                    e.dataTransfer.setData("application/x-stream-type", stream.type || "stream");
+                  }
+                }) as any
+              };
+
+              if (!stream) {
+                return (
+                  <motion.div
+                    layout
+                    key={reactKey}
+                    style={style}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
+                    className="relative min-w-0 min-h-0 grow-0 shrink-0 bg-transparent flex flex-col p-[1px]"
+                    {...dropProps}
+                  >
+                    <div 
+                      className="w-full h-full flex flex-col items-center justify-center bg-zinc-950 border border-zinc-800 rounded group hover:border-zinc-700 transition-colors border-dashed"
+                    >
+                      <button 
+                        onClick={onAddStreamClick}
+                        className="w-16 h-16 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center group-hover:bg-zinc-800 transition-colors mb-4 text-3xl font-light text-zinc-500 group-hover:text-zinc-300 shadow-sm"
+                      >
+                        +
+                      </button>
+                      <span className="text-zinc-500 font-semibold group-hover:text-zinc-400 text-sm">Add Stream</span>
+                    </div>
+                  </motion.div>
+                );
+              }
 
               if (stream.type === "chat") {
                 return (
@@ -139,8 +202,9 @@ export function StreamGrid({
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
                     className="relative min-w-0 min-h-0 grow-0 shrink-0 group bg-zinc-950 border border-zinc-800 rounded overflow-hidden flex flex-col"
+                    {...dragProps}
                   >
-                    <div className="absolute top-0 left-0 w-full p-2 bg-gradient-to-b from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex justify-between items-center z-50">
+                    <div className="absolute top-0 left-0 w-full p-2 bg-gradient-to-b from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex justify-between items-center z-50 cursor-grab active:cursor-grabbing">
                       <div className="flex items-center gap-1 bg-black/50 px-2 py-1 rounded">
                         <HugeiconsIcon icon={Message01Icon} size={14} className="text-primary" />
                         <span className="text-white text-xs font-semibold truncate">
@@ -166,13 +230,10 @@ export function StreamGrid({
               const isFocused = stream.id === focusedId;
               const isMuted = !isFocused && !manuallyUnmuted.has(stream.id);
               
-              // Always use stream.id to preserve FLIP animation for Kick!
-              const streamKey = stream.id;
-
               return (
                 <motion.div
                   layout
-                  key={streamKey}
+                  key={reactKey}
                   style={style}
                   onClick={() => {
                     setFocusedId(stream.id);
@@ -184,6 +245,7 @@ export function StreamGrid({
                   className={`relative min-w-0 min-h-0 grow-0 shrink-0 group bg-zinc-900 border rounded overflow-hidden cursor-pointer transition-colors ${
                     isFocused ? "border-primary shadow-[0_0_15px_rgba(var(--primary),0.3)] z-10" : "border-zinc-800"
                   }`}
+                  {...dragProps}
                 >
                   <StreamPlayer 
                     stream={{
@@ -191,11 +253,11 @@ export function StreamGrid({
                       isPrimary: isFocused,
                       muted: isMuted
                     }} 
-                    kickRemountKey={kickRemountKey} // Pass down remount key so it doesn't break motion.div!
+                    kickRemountKey={kickRemountKey}
                   />
                   
                   {/* Toolbar Overlay (Hover) */}
-                  <div className="absolute top-0 left-0 w-full p-2 bg-gradient-to-b from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex justify-between items-center z-50">
+                  <div className="absolute top-0 left-0 w-full p-2 bg-gradient-to-b from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex justify-between items-center z-50 cursor-grab active:cursor-grabbing">
                     <span className="text-white text-sm font-semibold truncate bg-black/50 px-2 py-1 rounded flex items-center gap-2">
                       {stream.displayName || stream.channel}
                       {!isMuted && stream.platform !== "custom" && (
