@@ -140,16 +140,9 @@ export function StreamGrid({
             {laidOut.map(({ stream, gridIndex, rowSize }) => {
               const style = { flexBasis: `calc(${100 / rowSize}% - 4px)` }; 
               
-              const reactKey = stream ? `${stream.id}-${stream.type || 'stream'}-${gridIndex}` : `empty-${gridIndex}`;
+              const reactKey = stream ? `${stream.id}-${stream.type || 'stream'}` : `empty-${gridIndex}`;
 
-              const dragProps = {
-                draggable: true,
-                onDragStart: ((e: React.DragEvent) => {
-                  if (stream) {
-                    e.dataTransfer.setData("application/x-stream-id", stream.id);
-                    e.dataTransfer.setData("application/x-stream-type", stream.type || "stream");
-                  }
-                }) as any,
+              const dropProps = {
                 onDragOver: ((e: React.DragEvent) => e.preventDefault()) as any,
                 onDrop: ((e: React.DragEvent) => {
                   e.preventDefault();
@@ -157,6 +150,17 @@ export function StreamGrid({
                   const dragType = e.dataTransfer.getData("application/x-stream-type");
                   if (dragId && onSwapStream) {
                     onSwapStream(dragId, dragType as any, gridIndex);
+                  }
+                }) as any
+              };
+
+              const dragProps = {
+                ...dropProps,
+                draggable: true,
+                onDragStart: ((e: React.DragEvent) => {
+                  if (stream) {
+                    e.dataTransfer.setData("application/x-stream-id", stream.id);
+                    e.dataTransfer.setData("application/x-stream-type", stream.type || "stream");
                   }
                 }) as any
               };
@@ -171,7 +175,7 @@ export function StreamGrid({
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
                     className="relative min-w-0 min-h-0 grow-0 shrink-0 bg-transparent flex flex-col p-[1px]"
-                    {...dragProps}
+                    {...dropProps}
                   >
                     <div 
                       className="w-full h-full flex flex-col items-center justify-center bg-zinc-950 border border-zinc-800 rounded group hover:border-zinc-700 transition-colors border-dashed"

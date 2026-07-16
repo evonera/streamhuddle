@@ -83,7 +83,7 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
   // Auto-load shared list
   useEffect(() => {
     if (sharedListQuery && creatorsQuery && activeStreams.length === 0 && activeLayoutId === initialListId) {
-      const loadedStreams = sharedListQuery.streams.map(s => {
+      const loadedStreams = sharedListQuery.streams.map((s, idx) => {
         const creator = creatorsQuery.find(c => c._id === s.creatorId)
         if (!creator) return null
         return {
@@ -91,7 +91,8 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
           platform: creator.platform as any,
           channel: creator.platform === "custom" && creator.platformId ? creator.platformId : creator.username,
           displayName: creator.username,
-          type: s.type || "stream"
+          type: s.type || "stream",
+          gridIndex: idx
         }
       }).filter(Boolean) as StreamData[]
       setActiveLayoutName(sharedListQuery.name)
@@ -103,12 +104,13 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
   // Auto-load all creators for specific routes (like /university)
   useEffect(() => {
     if (autoLoadAll && creatorsQuery && activeStreams.length === 0 && !activeLayoutId) {
-      const loadedStreams = creatorsQuery.slice(0, 20).map(creator => ({
+      const loadedStreams = creatorsQuery.slice(0, 20).map((creator, idx) => ({
         id: creator._id,
         platform: creator.platform as any,
         channel: creator.platform === "custom" && creator.platformId ? creator.platformId : creator.username,
         displayName: creator.username,
-        type: "stream" as const
+        type: "stream" as const,
+        gridIndex: idx
       }))
       setActiveStreams(loadedStreams)
     }
@@ -424,7 +426,7 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
                 if (val !== "none") {
                   const layout = userLayouts?.find(l => l._id === val)
                   if (layout && creatorsQuery) {
-                    const loadedStreams = layout.streams.map(s => {
+                    const loadedStreams = layout.streams.map((s, idx) => {
                       const creator = creatorsQuery.find(c => c._id === s.creatorId)
                       if (!creator) return null
                       return {
@@ -433,6 +435,7 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
                         channel: creator.platform === "custom" && creator.platformId ? creator.platformId : creator.username,
                         displayName: creator.username,
                         type: s.type || "stream",
+                        gridIndex: idx
                       }
                     }).filter(Boolean) as StreamData[]
                     setActiveLayoutName(layout.name)
