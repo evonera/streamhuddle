@@ -426,7 +426,7 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
 
           {/* Grid Size Selector */}
           <div className="hidden lg:flex items-center gap-1 bg-zinc-900/50 rounded-lg p-1 border border-border mx-2">
-            {(["auto", 2, 4, 5, 6, 8, 12, 16, 18, 20] as const).map(size => (
+            {(["auto", 2, 4, 6, 8, 12, 16, 18, 20] as const).map(size => (
               <button
                 key={size}
                 onClick={() => setGridSize(size)}
