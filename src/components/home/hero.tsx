@@ -16,25 +16,7 @@ const ROTATING_WORDS = [
     'creators',
 ] as const;
 
-const HERO_IMAGES = Array.from({ length: 5 }).map(
-    (_, i) =>
-        `/hero/${i + 1}.jpg`,
-);
 
-const IMAGE_POSITIONS = [
-    // L2 (Furthest left, back)
-    { top: '5%', left: '-5%', width: '40%', rotate: '-8deg', zIndex: 1 },
-    // R2 (Furthest right, back)
-    { top: '5%', right: '-5%', width: '40%', rotate: '8deg', zIndex: 1 },
-    
-    // L1 (Mid left, forward)
-    { top: '20%', left: '10%', width: '48%', rotate: '-4deg', zIndex: 2 },
-    // R1 (Mid right, forward)
-    { top: '20%', right: '10%', width: '48%', rotate: '4deg', zIndex: 2 },
-    
-    // Center (Front, bottom)
-    { top: '35%', left: '22%', width: '56%', rotate: '0deg', zIndex: 10 },
-];
 
 export default function Hero() {
     const [wordIndex, setWordIndex] = useState(0);
@@ -253,50 +235,42 @@ export default function Hero() {
                     </motion.div>
                 </motion.div>
 
-                {/* Images Collage */}
+                {/* Image Showcase */}
                 <motion.div
-                    className="pointer-events-none relative mx-auto mt-32 flex h-[400px] w-full max-w-6xl items-center justify-center sm:h-[600px] md:h-[800px]"
+                    className="pointer-events-none relative mx-auto mt-32 flex w-full max-w-5xl items-center justify-center px-4"
                     initial="hidden"
                     animate="visible"
                     variants={{
                         hidden: {},
                         visible: {
                             transition: {
-                                staggerChildren: 0.1,
                                 delayChildren: 0.8,
                             },
                         },
                     }}
                 >
-                    {HERO_IMAGES.map((url, i) => (
-                        <motion.div
-                            key={url}
-                            className="pointer-events-auto absolute shadow-2xl"
-                            style={{
-                                ...IMAGE_POSITIONS[i],
-                                transformOrigin: 'center center',
-                            }}
-                            variants={{
-                                hidden: { opacity: 0, y: 12, filter: 'blur(4px)' },
-                                visible: {
-                                    opacity: 1,
-                                    y: 0,
-                                    filter: 'blur(0px)',
-                                    transition: { duration: 0.8, ease: [0.16, 1, 0.3, 1] },
-                                },
-                            }}
-                            whileHover={{
-                                scale: 1.05,
-                                zIndex: 50,
-                                transition: { duration: 0.4 },
-                            }}
-                        >
-                            <BgFrame
-                                imageUrl={url}
-                                className="bg-background w-full border-white/10 shadow-2xl"
-                            />
-                        </motion.div>
-                    ))}
+                    <motion.div
+                        className="pointer-events-auto shadow-2xl w-full rounded-2xl"
+                        variants={{
+                            hidden: { opacity: 0, y: 12, filter: 'blur(4px)' },
+                            visible: {
+                                opacity: 1,
+                                y: 0,
+                                filter: 'blur(0px)',
+                                transition: { duration: 0.8, ease: [0.16, 1, 0.3, 1] },
+                            },
+                        }}
+                        whileHover={{
+                            scale: 1.02,
+                            zIndex: 50,
+                            transition: { duration: 0.4 },
+                        }}
+                    >
+                        <BgFrame
+                            imageUrl="/hero/2.jpg"
+                            className="bg-background w-full border-white/10 shadow-2xl overflow-hidden"
+                        />
+                    </motion.div>
                 </motion.div>
             </Container>
         </section>
