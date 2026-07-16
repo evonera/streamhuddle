@@ -163,16 +163,16 @@ export default function CreateStreamlistBar() {
             ) : (
               <div className="flex items-center gap-3 h-14">
                 {selected.map(s => (
-                  <div key={s._id} className="relative group shrink-0">
-                    <div className="w-12 h-12 rounded-full border-2 border-primary/30 overflow-hidden bg-zinc-800 shadow-md group-hover:border-primary transition-colors">
+                  <div key={s._id} className="relative group/avatar shrink-0">
+                    <div className="w-12 h-12 rounded-full border-2 border-primary/30 overflow-hidden bg-zinc-800 shadow-md group-hover/avatar:border-primary transition-colors">
                       <img src={s.avatarUrl || `https://avatar.vercel.sh/${s.username}`} alt={s.username} className="w-full h-full object-cover" />
                     </div>
-                    <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-black/80 backdrop-blur-md px-1.5 rounded text-[9px] font-bold text-white tracking-widest truncate max-w-[48px] opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-black/80 backdrop-blur-md px-1.5 rounded text-[9px] font-bold text-white tracking-widest truncate max-w-[48px] opacity-0 group-hover/avatar:opacity-100 transition-opacity">
                       {s.username}
                     </div>
                     <button 
                       onClick={() => handleRemove(s._id)}
-                      className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 hover:bg-red-600 rounded-full text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all scale-75 group-hover:scale-100 shadow-lg z-10"
+                      className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 hover:bg-red-600 rounded-full text-white flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-all scale-75 group-hover/avatar:scale-100 shadow-lg z-10"
                     >
                       <HugeiconsIcon icon={Cancel01Icon} className="w-3.5 h-3.5" />
                     </button>
@@ -206,7 +206,7 @@ export default function CreateStreamlistBar() {
               <button 
                 onClick={handlePlayNow}
                 disabled={selected.length === 0}
-                className="h-12 px-6 bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90 text-white font-bold text-sm uppercase tracking-wider rounded-xl transition-all shadow-[0_0_20px_rgba(var(--primary),0.3)] hover:shadow-[0_0_25px_rgba(var(--primary),0.5)] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-0.5 active:translate-y-0"
+                className="h-12 px-6 bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90 text-white font-bold text-sm uppercase tracking-wider rounded-xl transition-all shadow-[0_0_20px_oklch(var(--primary)/.3)] hover:shadow-[0_0_25px_oklch(var(--primary)/.5)] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-0.5 active:translate-y-0"
               >
                 <HugeiconsIcon icon={Tv01Icon} className="w-4 h-4" />
                 <span>Play Now</span>
