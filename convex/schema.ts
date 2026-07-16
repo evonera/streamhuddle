@@ -18,6 +18,7 @@ export const userFields = {
   isPro: v.optional(v.boolean()),
   dodoCustomerId: v.optional(v.string()),
   role: v.optional(v.string()),
+  favoriteStreamer: v.optional(v.string()),
   updatedAt: v.number(),
 }
 
@@ -30,6 +31,7 @@ export default defineSchema({
     isPro: userFields.isPro,
     dodoCustomerId: userFields.dodoCustomerId,
     role: userFields.role,
+    favoriteStreamer: userFields.favoriteStreamer,
     updatedAt: userFields.updatedAt,
   }).index("authId", ["authId"]).index("by_dodoCustomerId", ["dodoCustomerId"]),
 

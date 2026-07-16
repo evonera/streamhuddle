@@ -28,6 +28,7 @@ export const paginatedResponseFields = {
  */
 export const userProfileUpdateFields = {
   bio: v.optional(v.string()),
+  favoriteStreamer: v.optional(v.string()),
 }
 
 /**

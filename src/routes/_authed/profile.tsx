@@ -27,6 +27,7 @@ import { useConvexAuth, useMutation } from "convex/react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -115,6 +116,7 @@ type PreloadedUser = AuthUser | null
 
 function ProfileContent({ preloadedUser }: { preloadedUser: PreloadedUser }) {
   const { data: user, isPending } = useQuery(api.users.getMe)
+  const { data: layouts } = useQuery(api.roster.getUserLayouts)
   const { data: hasPassword } = useQuery(api.auth.hasPassword)
   const updateProfile = useMutation(api.users.updateProfile)
   const generateUploadUrl = useMutation(api.users.generateAvatarUploadUrl)
@@ -159,6 +161,7 @@ function ProfileContent({ preloadedUser }: { preloadedUser: PreloadedUser }) {
     name: currentUser?.name ?? "",
     username: currentUser?.displayUsername ?? currentUser?.username ?? "",
     bio: currentUser?.bio ?? "",
+    favoriteStreamer: currentUser?.favoriteStreamer ?? "",
   })
 
   // Sync formData to currentUser when it changes (e.g. live query resolved
@@ -171,6 +174,7 @@ function ProfileContent({ preloadedUser }: { preloadedUser: PreloadedUser }) {
       name: currentUser?.name ?? "",
       username: currentUser?.displayUsername ?? currentUser?.username ?? "",
       bio: currentUser?.bio ?? "",
+      favoriteStreamer: currentUser?.favoriteStreamer ?? "",
     })
   }, [
     currentUserId,
@@ -261,6 +265,7 @@ function ProfileContent({ preloadedUser }: { preloadedUser: PreloadedUser }) {
       name: currentUser?.name ?? "",
       username: currentUser?.displayUsername ?? currentUser?.username ?? "",
       bio: currentUser?.bio ?? "",
+      favoriteStreamer: currentUser?.favoriteStreamer ?? "",
     })
     setUsernameAvailable(null)
     setUsernameError(null)
@@ -303,7 +308,7 @@ function ProfileContent({ preloadedUser }: { preloadedUser: PreloadedUser }) {
           return
         }
       }
-      await updateProfile({ bio: formData.bio || undefined })
+      await updateProfile({ bio: formData.bio || undefined, favoriteStreamer: formData.favoriteStreamer || undefined })
       setIsEditing(false)
       setUsernameAvailable(null)
       setUsernameError(null)
@@ -462,30 +467,18 @@ function ProfileContent({ preloadedUser }: { preloadedUser: PreloadedUser }) {
   }
 
   return (
-    <div className="flex flex-col gap-8">
-      <div className="flex items-start justify-between">
-        <h1 className="font-heading text-2xl font-medium tracking-tight">Profile</h1>
+    <div className="flex flex-col gap-8 pb-12">
+      <div className="flex items-center justify-between">
+        <h1 className="font-heading text-3xl font-medium tracking-tight">Profile</h1>
         {!isEditing ? (
-          <Button
-            onClick={() => {
-              resetForm()
-              setIsEditing(true)
-            }}
-          >
+          <Button onClick={() => { resetForm(); setIsEditing(true) }}>
             Edit profile
           </Button>
         ) : (
           <div className="flex gap-2">
-            <Button variant="outline" onClick={handleCancel} disabled={isSaving}>
-              Cancel
-            </Button>
+            <Button variant="outline" onClick={handleCancel} disabled={isSaving}>Cancel</Button>
             <Button onClick={handleSave} disabled={isSaving || !isUsernameChangeValid()}>
-              <HugeiconsIcon
-                icon={isSaving ? Loading03Icon : FloppyDiskIcon}
-                strokeWidth={2}
-                className={cn(isSaving && "animate-spin")}
-                data-icon="inline-start"
-              />
+              <HugeiconsIcon icon={isSaving ? Loading03Icon : FloppyDiskIcon} strokeWidth={2} className={cn(isSaving && "animate-spin")} data-icon="inline-start" />
               Save
             </Button>
           </div>
@@ -499,289 +492,204 @@ function ProfileContent({ preloadedUser }: { preloadedUser: PreloadedUser }) {
         </Alert>
       ) : null}
 
-      <div className="flex items-center gap-6">
-        <div className="relative">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleFileChange}
-            className="hidden"
-          />
-          {isEditing ? (
-            <button
-              type="button"
-              onClick={handleAvatarClick}
-              disabled={isUploadingAvatar}
-              className="group relative rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
-              title="Click to change avatar"
-            >
-              <Avatar className="size-24 border border-border">
-                <AvatarImage src={currentUser.avatarUrl ?? undefined} alt={currentUser.name} />
-                <AvatarFallback>
-                  <HugeiconsIcon icon={UserIcon} strokeWidth={2} className="size-9" />
-                </AvatarFallback>
-              </Avatar>
-              <div className="absolute inset-0 grid place-items-center rounded-full bg-foreground/50 opacity-0 transition-opacity group-hover:opacity-100">
-                <HugeiconsIcon
-                  icon={isUploadingAvatar ? Loading03Icon : Camera01Icon}
-                  strokeWidth={2}
-                  className={cn("size-7 text-background", isUploadingAvatar && "animate-spin")}
-                />
-              </div>
-            </button>
-          ) : (
-            <Avatar className="size-24 border border-border">
-              <AvatarImage src={currentUser.avatarUrl ?? undefined} alt={currentUser.name} />
-              <AvatarFallback>
-                <HugeiconsIcon icon={UserIcon} strokeWidth={2} className="size-9" />
-              </AvatarFallback>
-            </Avatar>
-          )}
-          {isEditing && currentUser.hasUploadedAvatar && !isUploadingAvatar ? (
-            <button
-              type="button"
-              onClick={handleDeleteAvatar}
-              className="text-destructive-foreground absolute -top-1 -right-1 grid size-6 place-items-center rounded-full bg-destructive shadow-sm outline-none focus-visible:ring-3 focus-visible:ring-destructive/30"
-              aria-label="Remove avatar"
-              title="Remove avatar"
-            >
-              <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} className="size-3" />
-            </button>
-          ) : null}
-        </div>
+      <Card className="overflow-hidden bg-card/50 border-border/50">
+        <div className="h-32 w-full bg-gradient-to-r from-primary/20 via-primary/10 to-transparent" />
+        <CardContent className="relative px-6 pb-6 pt-0">
+          <div className="flex flex-col sm:flex-row sm:items-end gap-6 -mt-12">
+            <div className="relative">
+              <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
+              {isEditing ? (
+                <button type="button" onClick={handleAvatarClick} disabled={isUploadingAvatar} className="group relative rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring/30" title="Click to change avatar">
+                  <Avatar className="size-24 border-4 border-background bg-background shadow-sm">
+                    <AvatarImage src={currentUser.avatarUrl ?? undefined} alt={currentUser.name} />
+                    <AvatarFallback><HugeiconsIcon icon={UserIcon} strokeWidth={2} className="size-9" /></AvatarFallback>
+                  </Avatar>
+                  <div className="absolute inset-0 grid place-items-center rounded-full bg-foreground/50 opacity-0 transition-opacity group-hover:opacity-100 border-4 border-transparent">
+                    <HugeiconsIcon icon={isUploadingAvatar ? Loading03Icon : Camera01Icon} strokeWidth={2} className={cn("size-7 text-background", isUploadingAvatar && "animate-spin")} />
+                  </div>
+                </button>
+              ) : (
+                <Avatar className="size-24 border-4 border-background bg-background shadow-sm">
+                  <AvatarImage src={currentUser.avatarUrl ?? undefined} alt={currentUser.name} />
+                  <AvatarFallback><HugeiconsIcon icon={UserIcon} strokeWidth={2} className="size-9" /></AvatarFallback>
+                </Avatar>
+              )}
+              {isEditing && currentUser.hasUploadedAvatar && !isUploadingAvatar ? (
+                <button type="button" onClick={handleDeleteAvatar} className="absolute -top-1 -right-1 grid size-6 place-items-center rounded-full bg-destructive text-destructive-foreground shadow-sm outline-none focus-visible:ring-3 focus-visible:ring-destructive/30" aria-label="Remove avatar" title="Remove avatar">
+                  <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} className="size-3" />
+                </button>
+              ) : null}
+            </div>
 
-        <div className="flex min-w-0 flex-col gap-1">
-          {isEditing ? (
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
-              placeholder="Name"
-              className="w-full max-w-xs bg-transparent text-xl font-semibold text-foreground outline-none placeholder:text-muted-foreground"
-            />
-          ) : (
-            <h2 className="truncate text-xl font-semibold">{currentUser.name || "No name set"}</h2>
-          )}
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <HugeiconsIcon icon={Mail01Icon} strokeWidth={2} className="size-4" />
-            <span className="truncate">{currentUser.email}</span>
+            <div className="flex min-w-0 flex-col gap-1 pb-2">
+              {isEditing ? (
+                <input type="text" value={formData.name} onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))} placeholder="Name" className="w-full max-w-xs bg-transparent text-2xl font-bold text-foreground outline-none placeholder:text-muted-foreground" />
+              ) : (
+                <h2 className="truncate text-2xl font-bold">{currentUser.name || "No name set"}</h2>
+              )}
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <HugeiconsIcon icon={Mail01Icon} strokeWidth={2} className="size-4" />
+                <span className="truncate">{currentUser.email}</span>
+              </div>
+            </div>
           </div>
 
-          {isEditing ? (
-            <div className="flex flex-col gap-1">
-              <div className="flex items-center gap-2">
-                <HugeiconsIcon
-                  icon={AtIcon}
-                  strokeWidth={2}
-                  className="size-4 text-muted-foreground"
-                />
-                <div className="relative">
-                  <Input
-                    type="text"
-                    value={formData.username}
-                    onChange={(e) => handleUsernameChange(e.target.value)}
-                    placeholder="username"
-                    aria-invalid={!!usernameError || usernameAvailable === false}
-                    className="h-8 w-44 pr-8 text-sm"
-                  />
-                  {formData.username &&
-                  formData.username.toLowerCase() !== originalUsername.toLowerCase() ? (
-                    <div className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2">
-                      {isCheckingUsername ? (
-                        <Spinner className="size-3.5 text-muted-foreground" />
-                      ) : usernameAvailable === true ? (
-                        <HugeiconsIcon
-                          icon={Tick02Icon}
-                          strokeWidth={2}
-                          className="size-3.5 text-primary"
-                        />
-                      ) : usernameAvailable === false || usernameError ? (
-                        <HugeiconsIcon
-                          icon={Cancel01Icon}
-                          strokeWidth={2}
-                          className="size-3.5 text-destructive"
-                        />
-                      ) : null}
+          <div className="mt-8 grid gap-6 sm:grid-cols-2">
+            <Field>
+              <FieldLabel className="flex items-center gap-2 text-muted-foreground">
+                <HugeiconsIcon icon={AtIcon} strokeWidth={2} className="size-4" />
+                Username
+              </FieldLabel>
+              {isEditing ? (
+                <div className="flex flex-col gap-1">
+                  <div className="relative">
+                    <Input type="text" value={formData.username} onChange={(e) => handleUsernameChange(e.target.value)} placeholder="username" aria-invalid={!!usernameError || usernameAvailable === false} className="h-10 pr-8" />
+                    {formData.username && formData.username.toLowerCase() !== originalUsername.toLowerCase() ? (
+                      <div className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2">
+                        {isCheckingUsername ? (
+                          <Spinner className="size-4 text-muted-foreground" />
+                        ) : usernameAvailable === true ? (
+                          <HugeiconsIcon icon={Tick02Icon} strokeWidth={2} className="size-4 text-primary" />
+                        ) : usernameAvailable === false || usernameError ? (
+                          <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} className="size-4 text-destructive" />
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                  {formData.username && formData.username.toLowerCase() !== originalUsername.toLowerCase() ? (
+                    <div className="ml-1">
+                      {usernameError ? <span className="text-xs text-destructive">{usernameError}</span> : usernameAvailable === true ? <span className="text-xs text-primary">Username available</span> : null}
                     </div>
                   ) : null}
                 </div>
+              ) : (
+                <p className="text-foreground">{currentUser.displayUsername || currentUser.username || "Not set"}</p>
+              )}
+            </Field>
+
+            <Field>
+              <FieldLabel className="flex items-center gap-2 text-muted-foreground">
+                <HugeiconsIcon icon={UserIcon} strokeWidth={2} className="size-4" />
+                Favorite Streamer
+              </FieldLabel>
+              {isEditing ? (
+                <Input type="text" value={formData.favoriteStreamer} onChange={(e) => setFormData((p) => ({ ...p, favoriteStreamer: e.target.value }))} placeholder="e.g. xQc" className="h-10" />
+              ) : (
+                <p className="text-foreground">{currentUser.favoriteStreamer || "None selected"}</p>
+              )}
+            </Field>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card className="bg-card/50 border-border/50">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <HugeiconsIcon icon={Note01Icon} strokeWidth={2} className="size-5 text-muted-foreground" />
+              About Me
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isEditing ? (
+              <Textarea value={formData.bio} onChange={(e) => setFormData((p) => ({ ...p, bio: e.target.value }))} placeholder="Tell us about yourself..." rows={4} maxLength={BIO_MAX_LENGTH} className="resize-none" />
+            ) : (
+              <p className="text-sm text-foreground/90 whitespace-pre-wrap">{currentUser.bio || "No bio yet."}</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="bg-card/50 border-border/50">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <HugeiconsIcon icon={UserIcon} strokeWidth={2} className="size-5 text-muted-foreground" />
+              SquadView Stats
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <dl className="grid gap-4 text-sm">
+              <div className="flex justify-between items-center p-3 rounded-md bg-muted/30">
+                <dt className="text-muted-foreground">Streamlists Created</dt>
+                <dd className="font-semibold text-foreground text-lg">{layouts ? layouts.length : 0}</dd>
               </div>
-              {formData.username &&
-              formData.username.toLowerCase() !== originalUsername.toLowerCase() ? (
-                <div className="ml-6">
-                  {usernameError ? (
-                    <span className="text-xs text-destructive">{usernameError}</span>
-                  ) : usernameAvailable === true ? (
-                    <span className="text-xs text-primary">Username available</span>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-          ) : currentUser.displayUsername || currentUser.username ? (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <HugeiconsIcon icon={AtIcon} strokeWidth={2} className="size-4" />
-              <span>{currentUser.displayUsername || currentUser.username}</span>
-            </div>
-          ) : null}
-        </div>
-      </div>
-
-      <Field>
-        <FieldLabel className="flex items-center gap-2">
-          <HugeiconsIcon icon={Note01Icon} strokeWidth={2} className="size-4" />
-          Bio
-        </FieldLabel>
-        {isEditing ? (
-          <Textarea
-            value={formData.bio}
-            onChange={(e) => setFormData((p) => ({ ...p, bio: e.target.value }))}
-            placeholder="Tell us about yourself..."
-            rows={4}
-            maxLength={BIO_MAX_LENGTH}
-            className="resize-none"
-          />
-        ) : (
-          <p className="text-sm text-muted-foreground">{currentUser.bio || "No bio yet."}</p>
-        )}
-      </Field>
-
-      <Separator />
-
-      <div className="flex flex-col gap-3">
-        <h3 className="text-sm font-medium">Account</h3>
-        <dl className="grid gap-2 text-sm">
-          <div className="flex justify-between">
-            <dt className="text-muted-foreground">Member since</dt>
-            <dd>
-              {new Date(currentUser._creationTime).toLocaleDateString(undefined, {
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              })}
-            </dd>
-          </div>
-          <div className="flex justify-between">
-            <dt className="text-muted-foreground">Last updated</dt>
-            <dd>
-              {new Date(currentUser.updatedAt).toLocaleDateString(undefined, {
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              })}
-            </dd>
-          </div>
-        </dl>
-        <Button
-          variant="outline"
-          onClick={handleRevokeOtherSessions}
-          disabled={isRevokingSessions}
-          className="self-start"
-        >
-          Sign out other devices
-        </Button>
+              <div className="flex justify-between items-center p-3 rounded-md bg-muted/30">
+                <dt className="text-muted-foreground">Member since</dt>
+                <dd className="font-medium text-foreground">{new Date(currentUser._creationTime).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })}</dd>
+              </div>
+            </dl>
+          </CardContent>
+        </Card>
       </div>
 
       {hasPassword ? (
-        <>
-          <Separator />
-          <div className="flex flex-col gap-4">
-            <h3 className="flex items-center gap-2 text-sm font-medium">
-              <HugeiconsIcon icon={SquareLock02Icon} strokeWidth={2} className="size-4" />
+        <Card className="bg-card/50 border-border/50">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <HugeiconsIcon icon={SquareLock02Icon} strokeWidth={2} className="size-5 text-muted-foreground" />
               Security
-            </h3>
-
+            </CardTitle>
+            <CardDescription>Manage your password and active sessions across devices.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-6">
             {passwordSuccess && !isChangingPassword ? (
-              <p className="text-sm text-primary">
-                Password changed. Other sessions have been signed out.
-              </p>
+              <Alert className="bg-primary/10 text-primary border-primary/20">
+                <AlertDescription>Password changed successfully. Other sessions have been signed out.</AlertDescription>
+              </Alert>
             ) : null}
 
-            {!isChangingPassword ? (
-              <Button variant="outline" onClick={openPasswordForm} className="self-start">
-                Change password
-              </Button>
-            ) : (
-              <form onSubmit={handleChangePassword} className="flex max-w-sm flex-col gap-3">
-                <FieldGroup>
-                  <Field data-invalid={!!passwordErrors.currentPassword || undefined}>
-                    <FieldLabel>Current password</FieldLabel>
-                    <Input
-                      type="password"
-                      autoComplete="current-password"
-                      value={passwordForm.currentPassword}
-                      onChange={(e) =>
-                        setPasswordForm((p) => ({ ...p, currentPassword: e.target.value }))
-                      }
-                      aria-invalid={!!passwordErrors.currentPassword}
-                      disabled={isSavingPassword}
-                    />
-                    {passwordErrors.currentPassword ? (
-                      <FieldError>{passwordErrors.currentPassword}</FieldError>
-                    ) : null}
-                  </Field>
-                  <Field data-invalid={!!passwordErrors.newPassword || undefined}>
-                    <FieldLabel>New password</FieldLabel>
-                    <Input
-                      type="password"
-                      autoComplete="new-password"
-                      value={passwordForm.newPassword}
-                      onChange={(e) =>
-                        setPasswordForm((p) => ({ ...p, newPassword: e.target.value }))
-                      }
-                      aria-invalid={!!passwordErrors.newPassword}
-                      disabled={isSavingPassword}
-                    />
-                    {passwordErrors.newPassword ? (
-                      <FieldError>{passwordErrors.newPassword}</FieldError>
-                    ) : null}
-                  </Field>
-                  <Field data-invalid={!!passwordErrors.confirmPassword || undefined}>
-                    <FieldLabel>Confirm new password</FieldLabel>
-                    <Input
-                      type="password"
-                      autoComplete="new-password"
-                      value={passwordForm.confirmPassword}
-                      onChange={(e) =>
-                        setPasswordForm((p) => ({ ...p, confirmPassword: e.target.value }))
-                      }
-                      aria-invalid={!!passwordErrors.confirmPassword}
-                      disabled={isSavingPassword}
-                    />
-                    {passwordErrors.confirmPassword ? (
-                      <FieldError>{passwordErrors.confirmPassword}</FieldError>
-                    ) : null}
-                  </Field>
-                  {passwordErrors.general ? (
-                    <FieldError>{passwordErrors.general}</FieldError>
-                  ) : null}
-                  <FieldDescription>
-                    Other sessions will be signed out for security.
-                  </FieldDescription>
-                </FieldGroup>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={closePasswordForm}
-                    disabled={isSavingPassword}
-                  >
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={isSavingPassword}>
-                    <HugeiconsIcon
-                      icon={isSavingPassword ? Loading03Icon : FloppyDiskIcon}
-                      strokeWidth={2}
-                      className={cn(isSavingPassword && "animate-spin")}
-                      data-icon="inline-start"
-                    />
-                    Save password
-                  </Button>
+            <div className="flex flex-col gap-4">
+              {!isChangingPassword ? (
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-sm font-medium">Password</h4>
+                    <p className="text-sm text-muted-foreground">Change your login password.</p>
+                  </div>
+                  <Button variant="outline" onClick={openPasswordForm}>Change</Button>
                 </div>
-              </form>
-            )}
-          </div>
-        </>
+              ) : (
+                <form onSubmit={handleChangePassword} className="flex max-w-sm flex-col gap-4 p-4 border border-border rounded-lg bg-background/50">
+                  <h4 className="text-sm font-medium">Change Password</h4>
+                  <FieldGroup>
+                    <Field data-invalid={!!passwordErrors.currentPassword || undefined}>
+                      <FieldLabel>Current password</FieldLabel>
+                      <Input type="password" autoComplete="current-password" value={passwordForm.currentPassword} onChange={(e) => setPasswordForm((p) => ({ ...p, currentPassword: e.target.value }))} aria-invalid={!!passwordErrors.currentPassword} disabled={isSavingPassword} />
+                      {passwordErrors.currentPassword ? <FieldError>{passwordErrors.currentPassword}</FieldError> : null}
+                    </Field>
+                    <Field data-invalid={!!passwordErrors.newPassword || undefined}>
+                      <FieldLabel>New password</FieldLabel>
+                      <Input type="password" autoComplete="new-password" value={passwordForm.newPassword} onChange={(e) => setPasswordForm((p) => ({ ...p, newPassword: e.target.value }))} aria-invalid={!!passwordErrors.newPassword} disabled={isSavingPassword} />
+                      {passwordErrors.newPassword ? <FieldError>{passwordErrors.newPassword}</FieldError> : null}
+                    </Field>
+                    <Field data-invalid={!!passwordErrors.confirmPassword || undefined}>
+                      <FieldLabel>Confirm new password</FieldLabel>
+                      <Input type="password" autoComplete="new-password" value={passwordForm.confirmPassword} onChange={(e) => setPasswordForm((p) => ({ ...p, confirmPassword: e.target.value }))} aria-invalid={!!passwordErrors.confirmPassword} disabled={isSavingPassword} />
+                      {passwordErrors.confirmPassword ? <FieldError>{passwordErrors.confirmPassword}</FieldError> : null}
+                    </Field>
+                    {passwordErrors.general ? <FieldError>{passwordErrors.general}</FieldError> : null}
+                    <FieldDescription>Other sessions will be signed out for security.</FieldDescription>
+                  </FieldGroup>
+                  <div className="flex gap-2 justify-end mt-2">
+                    <Button type="button" variant="ghost" onClick={closePasswordForm} disabled={isSavingPassword}>Cancel</Button>
+                    <Button type="submit" disabled={isSavingPassword}>
+                      <HugeiconsIcon icon={isSavingPassword ? Loading03Icon : FloppyDiskIcon} strokeWidth={2} className={cn(isSavingPassword && "animate-spin")} data-icon="inline-start" />
+                      Save password
+                    </Button>
+                  </div>
+                </form>
+              )}
+
+              <Separator />
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-medium">Active Sessions</h4>
+                  <p className="text-sm text-muted-foreground">Sign out of all other browsers and devices.</p>
+                </div>
+                <Button variant="outline" onClick={handleRevokeOtherSessions} disabled={isRevokingSessions}>Sign out other devices</Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       ) : null}
     </div>
   )

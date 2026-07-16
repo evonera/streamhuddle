@@ -233,6 +233,7 @@ export async function safeGetAuthenticatedUser(
     avatarUrl,
     hasUploadedAvatar,
     role: user.role ?? "user",
+    favoriteStreamer: user.favoriteStreamer,
   }
 }
 
@@ -269,6 +270,7 @@ export const authUserValidator = v.object({
   isPro: v.optional(v.boolean()),
   dodoCustomerId: v.optional(v.string()),
   role: v.union(v.string(), v.null()),
+  favoriteStreamer: v.optional(v.string()),
 })
 
 // ============================================================================

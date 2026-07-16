@@ -159,10 +159,11 @@ export const updateProfile = authMutation({
       }
     }
 
-    await ctx.db.patch(ctx.user._id, {
-      bio: args.bio,
-      updatedAt: Date.now(),
-    })
+    const updates: Record<string, any> = { updatedAt: Date.now() }
+    if (args.bio !== undefined) updates.bio = args.bio
+    if (args.favoriteStreamer !== undefined) updates.favoriteStreamer = args.favoriteStreamer
+
+    await ctx.db.patch(ctx.user._id, updates)
 
     return ctx.user._id
   },
