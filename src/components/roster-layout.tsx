@@ -97,6 +97,7 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
       }).filter(Boolean) as StreamData[]
       setActiveLayoutName(sharedListQuery.name)
       setActiveStreams(loadedStreams)
+      setGridSize("auto")
       incrementViewsMutation({ id: initialListId as any }).catch(console.error)
     }
   }, [sharedListQuery, creatorsQuery])
@@ -115,6 +116,20 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
       setActiveStreams(loadedStreams)
     }
   }, [autoLoadAll, creatorsQuery, activeLayoutId, activeStreams.length])
+
+  // Truncate active streams if gridSize is reduced below the current stream count
+  useEffect(() => {
+    if (gridSize !== "auto") {
+      setActiveStreams(prev => {
+        const outOfBounds = prev.some(s => (s.gridIndex ?? prev.indexOf(s)) >= gridSize);
+        if (outOfBounds) {
+          toast.info(`Grid shrunk to ${gridSize}. Extra streams were removed.`);
+          return prev.filter(s => (s.gridIndex ?? prev.indexOf(s)) < gridSize);
+        }
+        return prev;
+      });
+    }
+  }, [gridSize]);
 
   const handleAddCell = (creator: any, type: "stream" | "chat") => {
     setActiveStreams(prev => {
@@ -446,6 +461,7 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
                     setActiveLayoutName(layout.name)
                     setActiveLayoutId(layout._id)
                     setActiveStreams(loadedStreams)
+                    setGridSize("auto")
                   }
                 }
               }}
