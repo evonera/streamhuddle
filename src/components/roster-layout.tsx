@@ -77,6 +77,11 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
     category: selectedCategory
   })
   
+  useEffect(() => {
+    console.log("CREATORS QUERY (convex/react):", creatorsQuery === undefined ? "undefined" : "loaded", creatorsQuery);
+    console.log("FILTERS QUERY (convex/react):", filtersQuery === undefined ? "undefined" : "loaded", filtersQuery);
+  }, [creatorsQuery, filtersQuery]);
+  
   const userLayouts = useQuery(api.roster.getUserLayouts)
   const incrementViewsMutation = useMutation(api.roster.incrementStreamListViews)
   const sharedListQuery = useQuery(api.roster.getStreamListById, initialListId ? { id: initialListId as any } : "skip")
@@ -105,7 +110,7 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
   // Auto-load all creators for specific routes (like /university)
   useEffect(() => {
     if (autoLoadAll && creatorsQuery && activeStreams.length === 0 && !activeLayoutId) {
-      const loadedStreams = creatorsQuery.slice(0, 20).map((creator, idx) => ({
+      const loadedStreams = (creatorsQuery || []).slice(0, 20).map((creator, idx) => ({
         id: creator._id,
         platform: creator.platform as any,
         channel: creator.platform === "custom" && creator.platformId ? creator.platformId : creator.username,
@@ -239,7 +244,7 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
   const videoStreams = activeStreams.filter(s => !s.type || s.type === "stream");
   const activeChatStream = videoStreams.find(s => s.id === activeChatId) || videoStreams[0];
 
-  const filteredCreators = creatorsQuery?.filter(c => 
+  const filteredCreators = (creatorsQuery || []).filter(c => 
     c.username.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
@@ -310,7 +315,7 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All</SelectItem>
-                  {filtersQuery?.languages.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+                  {filtersQuery && filtersQuery.languages ? filtersQuery.languages.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>) : null}
                 </SelectContent>
               </Select>
             </div>

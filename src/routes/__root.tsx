@@ -30,9 +30,7 @@ import {
 
 import appCss from "../styles.css?url"
 
-const Devtools = import.meta.env.DEV
-  ? lazy(() => import("@/components/devtools").then((m) => ({ default: m.Devtools })))
-  : null
+const Devtools = null
 
 const getAuth = createServerFn({ method: "GET" }).handler(async () => {
   return await getToken()
