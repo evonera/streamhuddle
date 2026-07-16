@@ -165,13 +165,18 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
       if (draggedIndex === -1) return prev;
       
       const newStreams = [...prev];
-      const targetIndex = newStreams.findIndex(s => s.gridIndex === targetGridIndex);
+      const targetIndex = newStreams.findIndex(s => (s.gridIndex ?? newStreams.indexOf(s)) === targetGridIndex);
       
       const oldGridIndex = newStreams[draggedIndex].gridIndex ?? draggedIndex;
       
       newStreams[draggedIndex] = { ...newStreams[draggedIndex], gridIndex: targetGridIndex };
       if (targetIndex !== -1) {
         newStreams[targetIndex] = { ...newStreams[targetIndex], gridIndex: oldGridIndex };
+        
+        // Swap their positions in the array so auto mode renders the new order
+        const temp = newStreams[draggedIndex];
+        newStreams[draggedIndex] = newStreams[targetIndex];
+        newStreams[targetIndex] = temp;
       }
       return newStreams;
     });
