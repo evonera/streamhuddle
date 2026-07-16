@@ -96,6 +96,16 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) =>
     baseURL: getSiteUrl(),
     trustedOrigins: getTrustedOrigins(),
     database: authComponent.adapter(ctx),
+    socialProviders: {
+      google: {
+        clientId: process.env.GOOGLE_CLIENT_ID as string,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
+      },
+      twitch: {
+        clientId: process.env.TWITCH_CLIENT_ID as string,
+        clientSecret: process.env.TWITCH_CLIENT_SECRET as string,
+      }
+    },
     emailAndPassword: {
       enabled: true,
       // Require a verified email before password sign-in is allowed.

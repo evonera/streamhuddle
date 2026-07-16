@@ -66,7 +66,6 @@ const resetPasswordSchema = z.object({
 })
 
 const signUpSchema = z.object({
-  name: z.string().min(1, "Name is required."),
   username: z
     .string()
     .refine(
@@ -297,7 +296,7 @@ function UnauthedView({ setPhase, defaultMode }: { setPhase: (phase: AuthPhase) 
   })
 
   const signUpForm = useForm({
-    defaultValues: { name: "", username: "", email: "", password: "" },
+    defaultValues: { username: "", email: "", password: "" },
     validators: { onSubmit: signUpSchema },
     onSubmit: async ({ value }) => {
       setServerError("")
@@ -305,7 +304,7 @@ function UnauthedView({ setPhase, defaultMode }: { setPhase: (phase: AuthPhase) 
         const result = await authClient.signUp.email({
           email: value.email,
           password: value.password,
-          name: value.name,
+          name: value.username || value.email.split('@')[0],
           ...(value.username && { username: value.username }),
         })
         if (result.error) {
@@ -368,29 +367,6 @@ function UnauthedView({ setPhase, defaultMode }: { setPhase: (phase: AuthPhase) 
         <FieldGroup>
           {mode === "signup" && (
             <>
-              <signUpForm.Field
-                name="name"
-                children={(field) => {
-                  const invalid = field.state.meta.isTouched && !field.state.meta.isValid
-                  return (
-                    <Field data-invalid={invalid || undefined}>
-                      <FieldLabel htmlFor={field.name}>Name</FieldLabel>
-                      <Input
-                        id={field.name}
-                        name={field.name}
-                        value={field.state.value}
-                        onBlur={field.handleBlur}
-                        onChange={(e) => field.handleChange(e.target.value)}
-                        aria-invalid={invalid}
-                        placeholder="Your name"
-                        autoComplete="name"
-                      />
-                      {invalid ? <FieldError errors={field.state.meta.errors} /> : null}
-                    </Field>
-                  )
-                }}
-              />
-
               <signUpForm.Field
                 name="username"
                 children={(field) => {
@@ -664,7 +640,7 @@ function UnauthedView({ setPhase, defaultMode }: { setPhase: (phase: AuthPhase) 
           <activeForm.Subscribe
             selector={(state) => state.isSubmitting}
             children={(isSubmitting) => (
-              <Button type="submit" disabled={isSubmitting} size="lg" className="w-full">
+              <Button type="submit" disabled={isSubmitting} size="lg" className="w-full mt-2">
                 {isSubmitting
                   ? "Loading..."
                   : mode === "signup"
@@ -676,6 +652,34 @@ function UnauthedView({ setPhase, defaultMode }: { setPhase: (phase: AuthPhase) 
             )}
           />
         </FieldGroup>
+
+        <div className="relative my-4">
+          <div className="absolute inset-0 flex items-center">
+            <span className="w-full border-t border-border" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-card px-2 text-muted-foreground font-mono tracking-wider">Or continue with</span>
+          </div>
+        </div>
+
+        <div className="flex gap-3">
+          <Button 
+            type="button" 
+            variant="outline" 
+            className="w-full bg-zinc-900/50 hover:bg-zinc-800" 
+            onClick={() => authClient.signIn.social({ provider: "google", callbackURL: "/" })}
+          >
+            Google
+          </Button>
+          <Button 
+            type="button" 
+            variant="outline" 
+            className="w-full bg-zinc-900/50 hover:bg-zinc-800" 
+            onClick={() => authClient.signIn.social({ provider: "twitch", callbackURL: "/" })}
+          >
+            Twitch
+          </Button>
+        </div>
       </FieldSet>
     </form>
   )
