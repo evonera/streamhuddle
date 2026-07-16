@@ -140,7 +140,7 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
           return prev;
         }
         
-        let nextGridIndex = 0;
+        let nextGridIndex = gridSize === "auto" ? 0 : gridSize;
         if (gridSize !== "auto") {
           const usedIndices = new Set(prev.map(s => s.gridIndex).filter(i => i !== undefined));
           for (let i = 0; i < gridSize; i++) {
