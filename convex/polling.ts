@@ -151,6 +151,9 @@ export const getActiveCreators = internalQuery({
     offlineImageUrl: v.optional(v.string()),
     country: v.optional(v.string()),
     language: v.optional(v.string()),
+    isLive: v.optional(v.boolean()),
+    viewerCount: v.optional(v.number()),
+    streamTitle: v.optional(v.string()),
     categories: v.optional(v.array(v.string())),
   })),
   handler: async (ctx) => {

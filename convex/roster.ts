@@ -183,6 +183,10 @@ export const getStreamListById = query({
   }
 });
 
+export const getEverything = query(async (ctx) => {
+  return await ctx.db.query("creators").collect();
+});
+
 export const incrementStreamListViews = mutation({
   args: { id: v.id("layouts") },
   returns: v.null(),

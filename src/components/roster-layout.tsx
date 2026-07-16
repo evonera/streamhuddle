@@ -6,7 +6,7 @@ import { StreamGrid } from '@/components/player/StreamGrid'
 import { ChatBox } from '@/components/player/ChatBox'
 import { UserMenu } from "@/components/user-menu"
 import { ThemeToggle } from "@/components/theme-toggle"
-import { Link, useNavigate } from "@tanstack/react-router"
+import { Link } from "@tanstack/react-router"
 import { HugeiconsIcon } from "@hugeicons/react"
 import Home01Icon from "@hugeicons/core-free-icons/Home01Icon"
 import { buttonVariants } from "@/components/ui/button"
@@ -26,21 +26,23 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 
 export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: string, autoLoadAll?: boolean }) {
-  const navigate = useNavigate()
+
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedLanguage, setSelectedLanguage] = useState<string | undefined>()
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>()
   
-  const [activeLayoutName, setActiveLayoutName] = useState("")
+
   const [activeLayoutId, setActiveLayoutId] = useState<string | null>(initialListId || null)
   const [activeStreams, setActiveStreams] = useState<StreamData[]>([])
   const [gridSize, setGridSize] = useState<"auto" | number>("auto")
   
   const [activeChatId, setActiveChatId] = useState<string | null>(null)
   
-  // Auto-close sidebars on mobile on mount (SSR safe)
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(true)
   const [rightSidebarOpen, setRightSidebarOpen] = useState(true)
+
+  const [addStreamDialog, setAddStreamDialog] = useState<{isOpen: boolean; gridIndex?: number}>({ isOpen: false })
+  const [customUrlInput, setCustomUrlInput] = useState("")
 
   useEffect(() => {
     if (typeof window !== 'undefined' && window.innerWidth <= 768) {
@@ -76,7 +78,6 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
   })
   
   const userLayouts = useQuery(api.roster.getUserLayouts)
-  const saveLayoutMutation = useMutation(api.roster.saveLayout)
   const incrementViewsMutation = useMutation(api.roster.incrementStreamListViews)
   const sharedListQuery = useQuery(api.roster.getStreamListById, initialListId ? { id: initialListId as any } : "skip")
 
@@ -95,7 +96,6 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
           gridIndex: idx
         }
       }).filter(Boolean) as StreamData[]
-      setActiveLayoutName(sharedListQuery.name)
       setActiveStreams(loadedStreams)
       setGridSize("auto")
       incrementViewsMutation({ id: initialListId as any }).catch(console.error)
@@ -128,7 +128,7 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
     }
   }, [gridSize, activeStreams]);
 
-  const handleAddCell = (creator: any, type: "stream" | "chat") => {
+  const handleAddCell = (creator: any, type: "stream" | "chat", targetGridIndex?: number) => {
     setActiveStreams(prev => {
       // Check if this exact cell is already there
       const exists = prev.find(s => s.id === creator._id && s.type === type)
@@ -140,24 +140,31 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
           return prev;
         }
         
-        let nextGridIndex = gridSize === "auto" ? 0 : gridSize;
-        if (gridSize !== "auto") {
-          const usedIndices = new Set(prev.map(s => s.gridIndex).filter(i => i !== undefined));
-          for (let i = 0; i < gridSize; i++) {
-            if (!usedIndices.has(i)) {
-              nextGridIndex = i;
-              break;
+        let nextGridIndex = targetGridIndex !== undefined ? targetGridIndex : (gridSize === "auto" ? 0 : gridSize);
+        if (targetGridIndex === undefined) {
+          if (gridSize !== "auto") {
+            const usedIndices = new Set(prev.map(s => s.gridIndex).filter(i => i !== undefined));
+            for (let i = 0; i < gridSize; i++) {
+              if (!usedIndices.has(i)) {
+                nextGridIndex = i;
+                break;
+              }
+            }
+            if (nextGridIndex >= gridSize) {
+              toast.error("Grid is full. Increase grid size or remove a stream.");
+              return prev;
+            }
+          } else {
+            // Prevent collisions in auto mode if streams were removed from the middle
+            nextGridIndex = prev.length > 0 ? Math.max(...prev.map(s => s.gridIndex ?? 0)) + 1 : 0;
+            if (prev.length === 8) {
+              toast.warning("Warning: Loading more than 8 streams requires significant RAM and bandwidth. Your browser may experience lag.")
             }
           }
-          if (nextGridIndex >= gridSize) {
-            toast.error("Grid is full. Increase grid size or remove a stream.");
-            return prev;
-          }
         } else {
-          // Prevent collisions in auto mode if streams were removed from the middle
-          nextGridIndex = prev.length > 0 ? Math.max(...prev.map(s => s.gridIndex ?? 0)) + 1 : 0;
-          if (prev.length === 8) {
-            toast.warning("Warning: Loading more than 8 streams requires significant RAM and bandwidth. Your browser may experience lag.")
+          if (gridSize !== "auto" && targetGridIndex >= gridSize) {
+             toast.error("Invalid grid cell.");
+             return prev;
           }
         }
         
@@ -172,6 +179,36 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
       }
     })
   }
+
+  const handleAddCustomStream = (url: string, targetGridIndex?: number) => {
+    let platform: "twitch" | "youtube" | "kick" | "custom" = "custom";
+    let channel = url;
+    try {
+      const parsedUrl = new URL(url.startsWith('http') ? url : `https://${url}`);
+      if (parsedUrl.hostname.includes('twitch.tv')) {
+        platform = 'twitch';
+        channel = parsedUrl.pathname.split('/').filter(Boolean)[0] || url;
+      } else if (parsedUrl.hostname.includes('youtube.com') || parsedUrl.hostname.includes('youtu.be')) {
+        platform = 'youtube';
+        if (url.includes('v=')) {
+          channel = parsedUrl.searchParams.get('v') || url;
+        } else {
+          channel = parsedUrl.pathname.split('/').pop() || url;
+        }
+      } else if (parsedUrl.hostname.includes('kick.com')) {
+        platform = 'kick';
+        channel = parsedUrl.pathname.split('/').filter(Boolean)[0] || url;
+      }
+    } catch (e) {}
+
+    const dummyCreator = {
+      _id: `custom-${Date.now()}`,
+      platform,
+      platformId: channel,
+      username: channel,
+    };
+    handleAddCell(dummyCreator as any, "stream", targetGridIndex);
+  };
 
   const handleSwapStream = (draggedId: string, draggedType: "stream" | "chat", targetGridIndex: number) => {
     setActiveStreams(prev => {
@@ -196,29 +233,7 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
     });
   };
 
-  const handleSaveLayout = async () => {
-    if (!activeLayoutName) {
-      toast.error("Please enter a StreamList name.");
-      return;
-    }
-    if (activeStreams.length === 0) {
-      toast.error("Please add at least one stream to save a StreamList.");
-      return;
-    }
-    try {
-      const res = await saveLayoutMutation({
-        name: activeLayoutName,
-        creatorIds: activeStreams.map(s => ({ id: s.id as any, type: s.type || "stream" }))
-      })
-      if (res.layoutId) setActiveLayoutId(res.layoutId)
-      toast.success("StreamList saved successfully!")
-    } catch (e: any) {
-      toast.error(e.message || "Failed to save StreamList.")
-      if (e.message && e.message.includes("Free tier")) {
-        navigate({ to: "/pricing" })
-      }
-    }
-  }
+
 
   // Filter to only actual video streams for the Universal Chat selector
   const videoStreams = activeStreams.filter(s => !s.type || s.type === "stream");
@@ -357,6 +372,7 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
               </div>
             ))}
           </div>
+
         </div>
         </>
       )}
@@ -388,20 +404,7 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
             <div className="h-4 w-px bg-border mx-1 hidden sm:block"></div>
             
             <div className="hidden md:flex items-center gap-2">
-              <Input 
-                type="text" 
-                placeholder="StreamList Name..."
-                className="h-8 text-xs w-40"
-                value={activeLayoutName}
-                onChange={e => setActiveLayoutName(e.target.value)}
-              />
-              <Button 
-                onClick={handleSaveLayout}
-                size="sm"
-                className="h-8 text-xs font-semibold"
-              >
-                Save
-              </Button>
+
               {activeLayoutId && (
                 <Button 
                   onClick={() => {
@@ -457,7 +460,6 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
                         gridIndex: idx
                       }
                     }).filter(Boolean) as StreamData[]
-                    setActiveLayoutName(layout.name)
                     setActiveLayoutId(layout._id)
                     setActiveStreams(loadedStreams)
                     setGridSize("auto")
@@ -512,10 +514,49 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
             activeChatId={activeChatId}
             setActiveChatId={setActiveChatId}
             onRemoveStream={(id, type) => setActiveStreams(prev => prev.filter(s => !(s.id === id && s.type === type)))}
-            onAddStreamClick={() => setLeftSidebarOpen(true)}
+            onAddStreamClick={(gridIndex) => {
+              if (gridIndex !== undefined) {
+                setAddStreamDialog({ isOpen: true, gridIndex });
+                setCustomUrlInput("");
+              } else {
+                setLeftSidebarOpen(true);
+              }
+            }}
             onSwapStream={handleSwapStream}
           />
           
+          {addStreamDialog.isOpen && (
+            <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+              <div className="bg-zinc-950 border border-zinc-800 p-6 rounded-xl w-[400px] shadow-2xl flex flex-col gap-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="font-semibold text-lg">Add Custom Stream</h3>
+                  <button onClick={() => setAddStreamDialog({ isOpen: false })} className="text-muted-foreground hover:text-foreground">✕</button>
+                </div>
+                <p className="text-sm text-muted-foreground">Paste a Twitch, Kick, or YouTube URL to add it to this slot.</p>
+                <div className="flex gap-2">
+                  <Input 
+                    placeholder="Paste Twitch/YouTube URL here..."
+                    value={customUrlInput}
+                    onChange={(e) => setCustomUrlInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleAddCustomStream(customUrlInput, addStreamDialog.gridIndex);
+                        setAddStreamDialog({isOpen: false});
+                      }
+                    }}
+                    className="bg-muted border-border"
+                  />
+                  <Button onClick={() => {
+                    if (customUrlInput) {
+                      handleAddCustomStream(customUrlInput, addStreamDialog.gridIndex);
+                      setAddStreamDialog({ isOpen: false });
+                    }
+                  }}>Add</Button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Escape Theater Mode Overlay */}
           {theaterMode && (
             <div className="absolute top-4 right-4 opacity-0 hover:opacity-100 transition-opacity z-50">

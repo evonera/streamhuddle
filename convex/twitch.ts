@@ -81,15 +81,20 @@ export const fetchTwitchUsers = internalAction({
   handler: async (ctx, args) => {
     if (args.usernames.length === 0) return [];
     
+    // Twitch usernames must be alphanumeric/underscores only and not contain spaces.
+    // Invalid characters will cause Twitch to throw a 400 Malformed query params error.
+    const validUsernames = args.usernames.filter(u => /^[a-zA-Z0-9_]+$/.test(u));
+    if (validUsernames.length === 0) return [];
+    
     const token = await getTwitchAccessToken(ctx);
     const clientId = process.env.TWITCH_CLIENT_ID;
     
-    // Split into chunks of 100 (Twitch limit)
-    const chunkSize = 100;
+    // Split into chunks of 50 to avoid URL length limits and Malformed Query Params
+    const chunkSize = 50;
     const allUsers: any[] = [];
     
-    for (let i = 0; i < args.usernames.length; i += chunkSize) {
-      const chunk = args.usernames.slice(i, i + chunkSize);
+    for (let i = 0; i < validUsernames.length; i += chunkSize) {
+      const chunk = validUsernames.slice(i, i + chunkSize);
       const url = new URL("https://api.twitch.tv/helix/users");
       chunk.forEach(u => url.searchParams.append("login", u));
 
@@ -101,7 +106,7 @@ export const fetchTwitchUsers = internalAction({
       });
       
       if (!response.ok) {
-        console.error("Twitch API error", await response.text());
+        console.error("Twitch API error (users)", await response.text(), "URL:", url.toString());
         continue;
       }
       
@@ -119,14 +124,19 @@ export const fetchTwitchStreams = internalAction({
   handler: async (ctx, args) => {
     if (args.logins.length === 0) return [];
     
+    // Twitch usernames must be alphanumeric/underscores only and not contain spaces.
+    // Invalid characters will cause Twitch to throw a 400 Malformed query params error.
+    const validLogins = args.logins.filter(u => /^[a-zA-Z0-9_]+$/.test(u));
+    if (validLogins.length === 0) return [];
+    
     const token = await getTwitchAccessToken(ctx);
     const clientId = process.env.TWITCH_CLIENT_ID;
-    
-    const chunkSize = 100;
+    // Split into chunks of 50 to avoid URL length limits and Malformed Query Params
+    const chunkSize = 50;
     const allStreams: any[] = [];
     
-    for (let i = 0; i < args.logins.length; i += chunkSize) {
-      const chunk = args.logins.slice(i, i + chunkSize);
+    for (let i = 0; i < validLogins.length; i += chunkSize) {
+      const chunk = validLogins.slice(i, i + chunkSize);
       const url = new URL("https://api.twitch.tv/helix/streams");
       chunk.forEach(login => url.searchParams.append("user_login", login));
 
@@ -141,7 +151,7 @@ export const fetchTwitchStreams = internalAction({
         const data = await response.json() as { data: any[] };
         allStreams.push(...data.data);
       } else {
-        console.error("Twitch stream fetch failed:", await response.text());
+        console.error("Twitch stream fetch failed:", await response.text(), "URL:", url.toString());
       }
     }
     return allStreams;

@@ -47,7 +47,7 @@ export function StreamGrid({
   onRemoveStream: (id: string, type: "stream" | "chat") => void;
   activeChatId: string | null;
   setActiveChatId: (id: string | null) => void;
-  onAddStreamClick?: () => void;
+  onAddStreamClick?: (gridIndex?: number) => void;
   onSwapStream?: (draggedId: string, draggedType: "stream" | "chat", targetGridIndex: number) => void;
 }) {
   const [kickRemountKey, setKickRemountKey] = useState(0);
@@ -120,7 +120,7 @@ export function StreamGrid({
             Click the "Browse Roster" button to explore live creators and start building your ultimate viewing experience.
           </EmptyDescription>
           <button 
-            onClick={onAddStreamClick}
+            onClick={() => onAddStreamClick?.()}
             className="mt-6 w-full bg-primary/90 hover:bg-primary text-primary-foreground font-semibold py-2 px-4 rounded transition-colors"
           >
             Browse Roster
@@ -181,7 +181,7 @@ export function StreamGrid({
                       className="w-full h-full flex flex-col items-center justify-center bg-zinc-950 border border-zinc-800 rounded group hover:border-zinc-700 transition-colors border-dashed"
                     >
                       <button 
-                        onClick={onAddStreamClick}
+                        onClick={() => onAddStreamClick?.(gridIndex)}
                         className="w-16 h-16 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center group-hover:bg-zinc-800 transition-colors mb-4 text-3xl font-light text-zinc-500 group-hover:text-zinc-300 shadow-sm"
                       >
                         +
