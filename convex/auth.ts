@@ -3,7 +3,7 @@ import type { AuthFunctions, GenericCtx } from "@convex-dev/better-auth"
 import { convex } from "@convex-dev/better-auth/plugins"
 import type { BetterAuthOptions } from "better-auth"
 import { betterAuth } from "better-auth"
-import { emailOTP, username, admin } from "better-auth/plugins"
+import { emailOTP, username } from "better-auth/plugins"
 import { v } from "convex/values"
 
 import { components, internal } from "./_generated/api"
@@ -69,10 +69,17 @@ export const authComponent = createClient<DataModel>(components.betterAuth, {
       onCreate: async (ctx, authUser) => {
         // Create the app user row with defaults. Identity fields live on the
         // Better Auth user record, not here.
-        await ctx.db.insert("users", {
-          authId: authUser._id,
-          updatedAt: Date.now(),
-        })
+        try {
+          console.log("[onCreate] Creating user for authId:", authUser._id);
+          await ctx.db.insert("users", {
+            authId: authUser._id,
+            role: "user",
+            updatedAt: Date.now(),
+          })
+        } catch (error) {
+          console.error("[onCreate] FAILED to insert into users table:", error);
+          throw error;
+        }
       },
       onDelete: async (ctx, authUser) => {
         const user = await getUserByAuthId(ctx, authUser._id)
@@ -190,7 +197,6 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) =>
           return USERNAME_FORMAT_REGEX.test(normalized)
         },
       }),
-      admin(),
     ],
   }) satisfies BetterAuthOptions
 
@@ -226,7 +232,7 @@ export async function safeGetAuthenticatedUser(
     displayUsername: (authUser as { displayUsername?: string | null }).displayUsername ?? null,
     avatarUrl,
     hasUploadedAvatar,
-    role: (authUser as { role?: string | null }).role ?? null,
+    role: user.role ?? "user",
   }
 }
 
