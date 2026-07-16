@@ -151,6 +151,7 @@ export const getActiveCreators = internalQuery({
     offlineImageUrl: v.optional(v.string()),
     country: v.optional(v.string()),
     language: v.optional(v.string()),
+    categories: v.optional(v.array(v.string())),
   })),
   handler: async (ctx) => {
     // 1. Efficiently query active events
