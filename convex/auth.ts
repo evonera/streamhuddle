@@ -57,7 +57,6 @@ export type AuthUser = Doc<"users"> & {
   displayUsername: string | null
   avatarUrl: string | null
   hasUploadedAvatar: boolean
-  role: string | null
 }
 
 // The component client has methods needed for integrating Convex with Better Auth,
@@ -231,7 +230,6 @@ export async function safeGetAuthenticatedUser(
     displayUsername: (authUser as { displayUsername?: string | null }).displayUsername ?? null,
     avatarUrl,
     hasUploadedAvatar,
-    role: (authUser as { role?: string | null }).role ?? null,
   }
 }
 
@@ -267,7 +265,6 @@ export const authUserValidator = v.object({
   hasUploadedAvatar: v.boolean(),
   isPro: v.optional(v.boolean()),
   dodoCustomerId: v.optional(v.string()),
-  role: v.union(v.string(), v.null()),
 })
 
 // ============================================================================
