@@ -519,7 +519,12 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
                 setAddStreamDialog({ isOpen: true, gridIndex });
                 setCustomUrlInput("");
               } else {
-                setLeftSidebarOpen(true);
+                const searchInput = document.querySelector('input[placeholder="Search creators..."]') as HTMLInputElement;
+                if (searchInput && window.innerWidth >= 768) {
+                  searchInput.focus();
+                } else {
+                  setLeftSidebarOpen(true);
+                }
               }
             }}
             onSwapStream={handleSwapStream}
