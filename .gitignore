@@ -31,3 +31,6 @@ __unconfig*
 !AGENTS.md
 !CLAUDE.md
 repomix-output.xml
+
+# Archive tests
+tests/
