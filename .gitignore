@@ -17,6 +17,7 @@ dist-ssr
 *.tsbuildinfo
 __unconfig*
 .agents
+.content-collections
 
 # keep shared VS Code recommendations even when user's global ignores .vscode/
 !.vscode/

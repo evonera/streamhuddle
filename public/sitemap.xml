@@ -1,32 +1,32 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://tanvex-demo.vercel.app/</loc>
+    <loc>https://streamhuddle.pages.dev/</loc>
     <changefreq>monthly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://tanvex-demo.vercel.app/blog</loc>
+    <loc>https://streamhuddle.pages.dev/blog</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://tanvex-demo.vercel.app/blog/twitch-vs-kick-vs-youtube</loc>
+    <loc>https://streamhuddle.pages.dev/blog/twitch-vs-kick-vs-youtube</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://tanvex-demo.vercel.app/blog/multistreaming-guide</loc>
+    <loc>https://streamhuddle.pages.dev/blog/multistreaming-guide</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://tanvex-demo.vercel.app/blog/watching-multiple-streams</loc>
+    <loc>https://streamhuddle.pages.dev/blog/watching-multiple-streams</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://tanvex-demo.vercel.app/blog/essential-tools</loc>
+    <loc>https://streamhuddle.pages.dev/blog/essential-tools</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>

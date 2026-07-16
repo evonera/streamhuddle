@@ -7,7 +7,7 @@
 
 import { v } from "convex/values"
 
-import { BIO_MAX_LENGTH } from "./constants"
+import { BIO_MAX_LENGTH, FAVORITE_STREAMER_MAX_LENGTH } from "./constants"
 
 /**
  * Paginated response structure.
@@ -65,6 +65,16 @@ export const paginatedUsersValidator = v.object({
 export function validateBio(bio: string): { valid: boolean; error?: string } {
   if (bio.length > BIO_MAX_LENGTH) {
     return { valid: false, error: `Bio must be ${BIO_MAX_LENGTH} characters or less` }
+  }
+  return { valid: true }
+}
+
+/**
+ * Validate a favoriteStreamer field.
+ */
+export function validateFavoriteStreamer(favoriteStreamer: string): { valid: boolean; error?: string } {
+  if (favoriteStreamer.length > FAVORITE_STREAMER_MAX_LENGTH) {
+    return { valid: false, error: `Favorite streamer name must be ${FAVORITE_STREAMER_MAX_LENGTH} characters or less` }
   }
   return { valid: true }
 }

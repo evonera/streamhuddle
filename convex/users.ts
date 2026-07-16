@@ -19,6 +19,7 @@ import {
   publicUserProfileValidator,
   userProfileUpdateFields,
   validateBio,
+  validateFavoriteStreamer,
 } from "./validators"
 
 // ============================================================================
@@ -159,7 +160,14 @@ export const updateProfile = authMutation({
       }
     }
 
-    const updates: Record<string, any> = { updatedAt: Date.now() }
+    if (args.favoriteStreamer !== undefined) {
+      const result = validateFavoriteStreamer(args.favoriteStreamer)
+      if (!result.valid) {
+        throw validationError(result.error!, "favoriteStreamer")
+      }
+    }
+
+    const updates: Partial<{ bio: string; favoriteStreamer: string; updatedAt: number }> = { updatedAt: Date.now() }
     if (args.bio !== undefined) updates.bio = args.bio
     if (args.favoriteStreamer !== undefined) updates.favoriteStreamer = args.favoriteStreamer
 

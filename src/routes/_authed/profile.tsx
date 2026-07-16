@@ -621,32 +621,33 @@ function ProfileContent({ preloadedUser }: { preloadedUser: PreloadedUser }) {
         </Card>
       </div>
 
-      {hasPassword ? (
-        <Card className="bg-card/50 border-border/50">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <HugeiconsIcon icon={SquareLock02Icon} strokeWidth={2} className="size-5 text-muted-foreground" />
-              Security
-            </CardTitle>
-            <CardDescription>Manage your password and active sessions across devices.</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-6">
-            {passwordSuccess && !isChangingPassword ? (
-              <Alert className="bg-primary/10 text-primary border-primary/20">
-                <AlertDescription>Password changed successfully. Other sessions have been signed out.</AlertDescription>
-              </Alert>
-            ) : null}
+      <Card className="bg-card/50 border-border/50">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <HugeiconsIcon icon={SquareLock02Icon} strokeWidth={2} className="size-5 text-muted-foreground" />
+            Security
+          </CardTitle>
+          <CardDescription>Manage your {hasPassword ? "password and " : ""}active sessions across devices.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-6">
+          {hasPassword && passwordSuccess && !isChangingPassword ? (
+            <Alert className="bg-primary/10 text-primary border-primary/20">
+              <AlertDescription>Password changed successfully. Other sessions have been signed out.</AlertDescription>
+            </Alert>
+          ) : null}
 
-            <div className="flex flex-col gap-4">
-              {!isChangingPassword ? (
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="text-sm font-medium">Password</h4>
-                    <p className="text-sm text-muted-foreground">Change your login password.</p>
+          <div className="flex flex-col gap-4">
+            {hasPassword ? (
+              <>
+                {!isChangingPassword ? (
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-medium">Password</h4>
+                      <p className="text-sm text-muted-foreground">Change your login password.</p>
+                    </div>
+                    <Button variant="outline" onClick={openPasswordForm}>Change</Button>
                   </div>
-                  <Button variant="outline" onClick={openPasswordForm}>Change</Button>
-                </div>
-              ) : (
+                ) : (
                 <form onSubmit={handleChangePassword} className="flex max-w-sm flex-col gap-4 p-4 border border-border rounded-lg bg-background/50">
                   <h4 className="text-sm font-medium">Change Password</h4>
                   <FieldGroup>
@@ -679,18 +680,19 @@ function ProfileContent({ preloadedUser }: { preloadedUser: PreloadedUser }) {
               )}
 
               <Separator />
+            </>
+            ) : null}
 
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="text-sm font-medium">Active Sessions</h4>
-                  <p className="text-sm text-muted-foreground">Sign out of all other browsers and devices.</p>
-                </div>
-                <Button variant="outline" onClick={handleRevokeOtherSessions} disabled={isRevokingSessions}>Sign out other devices</Button>
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-sm font-medium">Active Sessions</h4>
+                <p className="text-sm text-muted-foreground">Sign out of all other browsers and devices.</p>
               </div>
+              <Button variant="outline" onClick={handleRevokeOtherSessions} disabled={isRevokingSessions}>Sign out other devices</Button>
             </div>
-          </CardContent>
-        </Card>
-      ) : null}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
