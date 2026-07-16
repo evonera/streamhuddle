@@ -130,6 +130,21 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
   })
   
   const userLayouts = useQuery(api.roster.getUserLayouts)
+  const discoverLayouts = useQuery(api.roster.getDiscoverStreamLists)
+  
+  // Combine user layouts and discover layouts, avoiding duplicates (user layouts take precedence)
+  const allLayouts = (() => {
+    const combined = [...(userLayouts || [])]
+    if (discoverLayouts) {
+      discoverLayouts.forEach(dl => {
+        if (!combined.find(l => l._id === dl._id)) {
+          combined.push(dl as any)
+        }
+      })
+    }
+    return combined
+  })()
+
   const incrementViewsMutation = useMutation(api.roster.incrementStreamListViews)
   const sharedListQuery = useQuery(api.roster.getStreamListById, initialListId ? { id: initialListId as any } : "skip")
 
@@ -430,7 +445,7 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
                   <SelectValue placeholder="Category" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="all">All Categories</SelectItem>
                   <SelectItem value="Student">Student</SelectItem>
                   <SelectItem value="Professor">Professor</SelectItem>
                   <SelectItem value="Janitor">Janitor</SelectItem>
@@ -445,7 +460,7 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
                   <SelectValue placeholder="Language" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="all">All Languages</SelectItem>
                   {filtersQuery && filtersQuery.languages ? filtersQuery.languages.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>) : null}
                 </SelectContent>
               </Select>
@@ -626,8 +641,8 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
                 )}
               >
                 <span className="truncate">
-                  {activeLayoutId && userLayouts?.find(l => l._id === activeLayoutId)
-                    ? userLayouts.find(l => l._id === activeLayoutId)!.name
+                  {activeLayoutId && allLayouts.find(l => l._id === activeLayoutId)
+                    ? allLayouts.find(l => l._id === activeLayoutId)!.name
                     : "Load StreamList..."
                   }
                 </span>
@@ -652,16 +667,16 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
                   </div>
 
                   <div className="max-h-48 overflow-y-auto">
-                    {!userLayouts ? (
+                    {(!userLayouts || !discoverLayouts) ? (
                       <div className="px-3 py-4 text-xs text-zinc-500 text-center">Loading...</div>
-                    ) : userLayouts.length === 0 ? (
+                    ) : allLayouts.length === 0 ? (
                       <div className="px-3 py-4 text-xs text-zinc-500 text-center">
                         No saved layouts yet.<br />
                         <span className="text-zinc-600">Save one using the Save button above.</span>
                       </div>
                     ) : (
                       (() => {
-                        const filtered = userLayouts.filter(l =>
+                        const filtered = allLayouts.filter(l =>
                           l.name.toLowerCase().includes(layoutSearch.toLowerCase())
                         )
                         if (filtered.length === 0) return (
@@ -671,35 +686,32 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
                           <button
                             key={l._id}
                             onClick={() => {
-                              if (creatorsQuery) {
-                                const loadedStreams = l.streams.map((s, idx) => {
-                                  const creator = creatorsQuery.find(c => c._id === s.creatorId)
-                                  if (!creator) return null
-                                  return {
-                                    id: creator._id,
-                                    platform: creator.platform as any,
-                                    channel: creator.platform === "custom" && creator.platformId ? creator.platformId : creator.username,
-                                    displayName: creator.username,
-                                    type: s.type || "stream",
-                                    gridIndex: idx
-                                  }
-                                }).filter(Boolean) as StreamData[]
-                                setActiveLayoutId(l._id)
-                                setActiveStreams(loadedStreams)
-                                setGridSize("auto")
-                                toast.success(`Loaded "${l.name}"`)
-                              }
+                              setActiveLayoutId(l._id)
                               setLayoutPickerOpen(false)
+                              
+                              if (l.creatorIds) {
+                                // @ts-ignore
+                                const mapped = l.creatorIds.map(c => {
+                                  const cData = creatorsQuery?.find(cq => cq._id === (typeof c === 'string' ? c : c.id))
+                                  return cData ? { 
+                                    id: cData._id, 
+                                    platform: cData.platform, 
+                                    channel: cData.platformId || cData.username, 
+                                    displayName: cData.username,
+                                    type: typeof c === 'object' && c !== null && 'type' in c ? c.type : "stream" 
+                                  } : null
+                                }).filter(Boolean) as StreamData[]
+                                setActiveStreams(mapped)
+                              }
                             }}
                             className={cn(
-                              "w-full flex items-center justify-between px-3 py-2.5 text-xs text-left transition-colors hover:bg-zinc-800",
-                              activeLayoutId === l._id ? "text-primary bg-primary/5" : "text-zinc-300"
+                              "w-full text-left px-3 py-2 text-xs hover:bg-zinc-800 transition-colors flex items-center justify-between",
+                              activeLayoutId === l._id && "text-primary font-medium bg-zinc-800/50"
                             )}
                           >
                             <span className="truncate">{l.name}</span>
-                            {activeLayoutId === l._id && (
-                              <span className="text-primary text-[10px] font-bold ml-2 shrink-0">Active</span>
-                            )}
+                            {/* @ts-ignore */}
+                            <span className="text-[10px] text-zinc-500 ml-2 shrink-0">{l.creatorIds?.length || 0} streams</span>
                           </button>
                         ))
                       })()

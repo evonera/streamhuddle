@@ -16,9 +16,10 @@ export default function CreateStreamlistBar() {
   const navigate = useNavigate()
   
   const [search, setSearch] = useState("")
-  const [selected, setSelected] = useState<any[]>([])
+  const [selected, setSelected] = useState<typeof creators>([])
   const [listName, setListName] = useState("")
   const [isFocused, setIsFocused] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
   
   const searchRef = useRef<HTMLDivElement>(null)
 
@@ -61,32 +62,31 @@ export default function CreateStreamlistBar() {
       toast.error("Please enter a name for your StreamList")
       return
     }
+    if (isSaving) return
     
     try {
+      setIsSaving(true)
       const creatorIds = selected.map(s => ({ id: s._id, type: "stream" as const }))
       const { layoutId } = await saveLayout({ name: listName, creatorIds })
       toast.success("StreamList saved successfully!")
       navigate({ to: "/roster", search: { list: layoutId } })
     } catch (e: any) {
       toast.error(e.message || "Failed to save StreamList")
+    } finally {
+      setIsSaving(false)
     }
   }
 
   const handlePlayNow = () => {
-    // Just pass the usernames as a quick way if we want, but better to save and load, or pass via state.
-    // For now, if they don't want to save, they can just go to /roster?streams=user1,user2 
-    // Actually, roster layout handles ?list= or local storage.
-    // We'll just redirect and let them build manually, or save it first.
     if (selected.length === 0) {
       toast.error("Add at least one streamer to play")
       return
     }
     
-    // Save to local storage for quick play
     const streamsData = selected.map((c, i) => ({
         id: c._id,
         platform: c.platform,
-        channel: c.platformId || c.username,
+        channel: c.platform === "custom" && c.platformId ? c.platformId : c.username,
         displayName: c.username,
         type: "stream",
         gridIndex: i
@@ -177,10 +177,10 @@ export default function CreateStreamlistBar() {
           />
           <button 
             onClick={handleSave}
-            disabled={selected.length === 0}
+            disabled={selected.length === 0 || isSaving}
             className="h-10 px-4 bg-white/10 hover:bg-white/20 text-white font-bold text-xs uppercase tracking-wider rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <HugeiconsIcon icon={FloppyDiskIcon} className="w-4 h-4" /> Save
+            <HugeiconsIcon icon={FloppyDiskIcon} className="w-4 h-4" /> {isSaving ? "Saving..." : "Save"}
           </button>
           <button 
             onClick={handlePlayNow}
