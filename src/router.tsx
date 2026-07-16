@@ -16,7 +16,7 @@ export function getRouter() {
   }
 
   const convexQueryClient = new ConvexQueryClient(convexUrl, {
-    expectAuth: true,
+    expectAuth: false,
   })
 
   const queryClient = new QueryClient({
