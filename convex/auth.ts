@@ -69,10 +69,16 @@ export const authComponent = createClient<DataModel>(components.betterAuth, {
       onCreate: async (ctx, authUser) => {
         // Create the app user row with defaults. Identity fields live on the
         // Better Auth user record, not here.
-        await ctx.db.insert("users", {
-          authId: authUser._id,
-          updatedAt: Date.now(),
-        })
+        try {
+          console.log("[onCreate] Creating user for authId:", authUser._id, "Full authUser:", authUser);
+          await ctx.db.insert("users", {
+            authId: authUser._id,
+            updatedAt: Date.now(),
+          })
+        } catch (error) {
+          console.error("[onCreate] FAILED to insert into users table:", error);
+          throw error;
+        }
       },
       onDelete: async (ctx, authUser) => {
         const user = await getUserByAuthId(ctx, authUser._id)
@@ -184,11 +190,6 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) =>
       username({
         minUsernameLength: USERNAME_MIN_LENGTH,
         maxUsernameLength: USERNAME_MAX_LENGTH,
-        validationOrder: { username: "post-normalization" },
-        usernameValidator: (normalized) => {
-          if (isReservedUsername(normalized)) return false
-          return USERNAME_FORMAT_REGEX.test(normalized)
-        },
       }),
       admin(),
     ],
