@@ -54,6 +54,10 @@ const emailOnlySchema = z.object({
   email: z.string().email("Please enter a valid email address."),
 })
 
+const otpSchema = z.object({
+  otp: z.string().regex(/^\d{6}$/, "Enter the 6-digit code from your email."),
+})
+
 const resetPasswordSchema = z.object({
   otp: z.string().regex(/^\d{6}$/, "Enter the 6-digit code from your email."),
   password: z
@@ -508,35 +512,7 @@ function UnauthedView({ setPhase, defaultMode }: { setPhase: (phase: AuthPhase) 
                 </>
               ) : null}
 
-              {signInMethod === "otp" ? (
-                <signInOtpEmailForm.Field
-                  name="email"
-                  children={(field) => {
-                    const invalid = field.state.meta.isTouched && !field.state.meta.isValid
-                    return (
-                      <Field data-invalid={invalid || !!serverError || undefined}>
-                        <FieldLabel htmlFor={field.name}>Email</FieldLabel>
-                        <Input
-                          id={field.name}
-                          name={field.name}
-                          type="email"
-                          value={field.state.value}
-                          onBlur={field.handleBlur}
-                          onChange={(e) => field.handleChange(e.target.value)}
-                          aria-invalid={invalid || !!serverError}
-                          placeholder="you@example.com"
-                          autoComplete="email"
-                        />
-                        <FieldDescription>
-                          We'll email you a 6-digit code. No password needed.
-                        </FieldDescription>
-                        {invalid ? <FieldError errors={field.state.meta.errors} /> : null}
-                        {serverError ? <FieldError>{serverError}</FieldError> : null}
-                      </Field>
-                    )
-                  }}
-                />
-              ) : null}
+
 
               {signInMethod === "username" ? (
                 <>

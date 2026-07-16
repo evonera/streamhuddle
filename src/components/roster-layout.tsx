@@ -689,19 +689,20 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
                               setActiveLayoutId(l._id)
                               setLayoutPickerOpen(false)
                               
-                              if (l.creatorIds) {
-                                // @ts-ignore
-                                const mapped = l.creatorIds.map(c => {
-                                  const cData = creatorsQuery?.find(cq => cq._id === (typeof c === 'string' ? c : c.id))
-                                  return cData ? { 
-                                    id: cData._id, 
-                                    platform: cData.platform, 
-                                    channel: cData.platformId || cData.username, 
-                                    displayName: cData.username,
-                                    type: typeof c === 'object' && c !== null && 'type' in c ? c.type : "stream" 
-                                  } : null
+                              if (creatorsQuery) {
+                                const loadedStreams = l.streams.map((s, idx) => {
+                                  const creator = creatorsQuery.find(c => c._id === s.creatorId)
+                                  if (!creator) return null
+                                  return {
+                                    id: creator._id,
+                                    platform: creator.platform as any,
+                                    channel: creator.platform === "custom" && creator.platformId ? creator.platformId : creator.username,
+                                    displayName: creator.username,
+                                    type: s.type || "stream",
+                                    gridIndex: idx
+                                  }
                                 }).filter(Boolean) as StreamData[]
-                                setActiveStreams(mapped)
+                                setActiveStreams(loadedStreams)
                               }
                             }}
                             className={cn(
@@ -710,8 +711,7 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
                             )}
                           >
                             <span className="truncate">{l.name}</span>
-                            {/* @ts-ignore */}
-                            <span className="text-[10px] text-zinc-500 ml-2 shrink-0">{l.creatorIds?.length || 0} streams</span>
+                            <span className="text-[10px] text-zinc-500 ml-2 shrink-0">{l.streams?.length || 0} streams</span>
                           </button>
                         ))
                       })()
