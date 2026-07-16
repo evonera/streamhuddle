@@ -120,16 +120,13 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
   // Truncate active streams if gridSize is reduced below the current stream count
   useEffect(() => {
     if (gridSize !== "auto") {
-      setActiveStreams(prev => {
-        const outOfBounds = prev.some(s => (s.gridIndex ?? prev.indexOf(s)) >= gridSize);
-        if (outOfBounds) {
-          toast.info(`Grid shrunk to ${gridSize}. Extra streams were removed.`);
-          return prev.filter(s => (s.gridIndex ?? prev.indexOf(s)) < gridSize);
-        }
-        return prev;
-      });
+      const outOfBounds = activeStreams.some(s => (s.gridIndex ?? activeStreams.indexOf(s)) >= gridSize);
+      if (outOfBounds) {
+        toast.info(`Grid shrunk to ${gridSize}. Extra streams were removed.`);
+        setActiveStreams(prev => prev.filter(s => (s.gridIndex ?? prev.indexOf(s)) < gridSize));
+      }
     }
-  }, [gridSize]);
+  }, [gridSize, activeStreams]);
 
   const handleAddCell = (creator: any, type: "stream" | "chat") => {
     setActiveStreams(prev => {
@@ -143,7 +140,7 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
           return prev;
         }
         
-        let nextGridIndex = prev.length;
+        let nextGridIndex = 0;
         if (gridSize !== "auto") {
           const usedIndices = new Set(prev.map(s => s.gridIndex).filter(i => i !== undefined));
           for (let i = 0; i < gridSize; i++) {
@@ -157,6 +154,8 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
             return prev;
           }
         } else {
+          // Prevent collisions in auto mode if streams were removed from the middle
+          nextGridIndex = prev.length > 0 ? Math.max(...prev.map(s => s.gridIndex ?? 0)) + 1 : 0;
           if (prev.length === 8) {
             toast.warning("Warning: Loading more than 8 streams requires significant RAM and bandwidth. Your browser may experience lag.")
           }
