@@ -17,8 +17,10 @@ import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as DiscoverRouteImport } from './routes/discover'
 import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as BlogIndexRouteImport } from './routes/blog/index'
 import { Route as StreamerUsernameRouteImport } from './routes/streamer.$username'
 import { Route as CategoryCategoryIdRouteImport } from './routes/category.$categoryId'
+import { Route as BlogSlugRouteImport } from './routes/blog/$slug'
 import { Route as AuthedProfileRouteImport } from './routes/_authed/profile'
 import { Route as AuthedAdminRouteImport } from './routes/_authed/admin'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
@@ -62,6 +64,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BlogIndexRoute = BlogIndexRouteImport.update({
+  id: '/blog/',
+  path: '/blog/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const StreamerUsernameRoute = StreamerUsernameRouteImport.update({
   id: '/streamer/$username',
   path: '/streamer/$username',
@@ -70,6 +77,11 @@ const StreamerUsernameRoute = StreamerUsernameRouteImport.update({
 const CategoryCategoryIdRoute = CategoryCategoryIdRouteImport.update({
   id: '/category/$categoryId',
   path: '/category/$categoryId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BlogSlugRoute = BlogSlugRouteImport.update({
+  id: '/blog/$slug',
+  path: '/blog/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthedProfileRoute = AuthedProfileRouteImport.update({
@@ -98,8 +110,10 @@ export interface FileRoutesByFullPath {
   '/university': typeof UniversityRoute
   '/admin': typeof AuthedAdminRoute
   '/profile': typeof AuthedProfileRoute
+  '/blog/$slug': typeof BlogSlugRoute
   '/category/$categoryId': typeof CategoryCategoryIdRoute
   '/streamer/$username': typeof StreamerUsernameRoute
+  '/blog/': typeof BlogIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesByTo {
@@ -112,8 +126,10 @@ export interface FileRoutesByTo {
   '/university': typeof UniversityRoute
   '/admin': typeof AuthedAdminRoute
   '/profile': typeof AuthedProfileRoute
+  '/blog/$slug': typeof BlogSlugRoute
   '/category/$categoryId': typeof CategoryCategoryIdRoute
   '/streamer/$username': typeof StreamerUsernameRoute
+  '/blog': typeof BlogIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesById {
@@ -128,8 +144,10 @@ export interface FileRoutesById {
   '/university': typeof UniversityRoute
   '/_authed/admin': typeof AuthedAdminRoute
   '/_authed/profile': typeof AuthedProfileRoute
+  '/blog/$slug': typeof BlogSlugRoute
   '/category/$categoryId': typeof CategoryCategoryIdRoute
   '/streamer/$username': typeof StreamerUsernameRoute
+  '/blog/': typeof BlogIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRouteTypes {
@@ -144,8 +162,10 @@ export interface FileRouteTypes {
     | '/university'
     | '/admin'
     | '/profile'
+    | '/blog/$slug'
     | '/category/$categoryId'
     | '/streamer/$username'
+    | '/blog/'
     | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -158,8 +178,10 @@ export interface FileRouteTypes {
     | '/university'
     | '/admin'
     | '/profile'
+    | '/blog/$slug'
     | '/category/$categoryId'
     | '/streamer/$username'
+    | '/blog'
     | '/api/auth/$'
   id:
     | '__root__'
@@ -173,8 +195,10 @@ export interface FileRouteTypes {
     | '/university'
     | '/_authed/admin'
     | '/_authed/profile'
+    | '/blog/$slug'
     | '/category/$categoryId'
     | '/streamer/$username'
+    | '/blog/'
     | '/api/auth/$'
   fileRoutesById: FileRoutesById
 }
@@ -187,8 +211,10 @@ export interface RootRouteChildren {
   SignInRoute: typeof SignInRoute
   SignUpRoute: typeof SignUpRoute
   UniversityRoute: typeof UniversityRoute
+  BlogSlugRoute: typeof BlogSlugRoute
   CategoryCategoryIdRoute: typeof CategoryCategoryIdRoute
   StreamerUsernameRoute: typeof StreamerUsernameRoute
+  BlogIndexRoute: typeof BlogIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
@@ -250,6 +276,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/blog/': {
+      id: '/blog/'
+      path: '/blog'
+      fullPath: '/blog/'
+      preLoaderRoute: typeof BlogIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/streamer/$username': {
       id: '/streamer/$username'
       path: '/streamer/$username'
@@ -262,6 +295,13 @@ declare module '@tanstack/react-router' {
       path: '/category/$categoryId'
       fullPath: '/category/$categoryId'
       preLoaderRoute: typeof CategoryCategoryIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/blog/$slug': {
+      id: '/blog/$slug'
+      path: '/blog/$slug'
+      fullPath: '/blog/$slug'
+      preLoaderRoute: typeof BlogSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authed/profile': {
@@ -310,8 +350,10 @@ const rootRouteChildren: RootRouteChildren = {
   SignInRoute: SignInRoute,
   SignUpRoute: SignUpRoute,
   UniversityRoute: UniversityRoute,
+  BlogSlugRoute: BlogSlugRoute,
   CategoryCategoryIdRoute: CategoryCategoryIdRoute,
   StreamerUsernameRoute: StreamerUsernameRoute,
+  BlogIndexRoute: BlogIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport
