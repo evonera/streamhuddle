@@ -249,7 +249,7 @@ export const upgradeToPro = internalMutation({
     // Find the user with this customer ID (set by identify function)
     const user = await ctx.db
       .query("users")
-      .filter((q) => q.eq(q.field("dodoCustomerId"), args.dodoCustomerId))
+      .withIndex("by_dodoCustomerId", (q) => q.eq("dodoCustomerId", args.dodoCustomerId))
       .first()
       
     if (user) {

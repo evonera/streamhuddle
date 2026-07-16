@@ -183,16 +183,13 @@ export const getStreamListById = query({
   }
 });
 
-export const getEverything = query(async (ctx) => {
-  return await ctx.db.query("creators").collect();
-});
+
 
 export const incrementStreamListViews = mutation({
   args: { id: v.id("layouts") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    // Add rate limit by layout ID to prevent abuse
-    await rateLimitWithThrow(ctx, "apiRead", args.id);
+
     
     const layout = await ctx.db.get(args.id);
     if (!layout) return null;

@@ -29,7 +29,7 @@ export default defineSchema({
     isPro: userFields.isPro,
     dodoCustomerId: userFields.dodoCustomerId,
     updatedAt: userFields.updatedAt,
-  }).index("authId", ["authId"]),
+  }).index("authId", ["authId"]).index("by_dodoCustomerId", ["dodoCustomerId"]),
 
   // 1. Events: General containers for tournaments/shows
   events: defineTable({

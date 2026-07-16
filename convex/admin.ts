@@ -86,7 +86,7 @@ export const addCreator = mutation({
     await requireAdmin(ctx);
 
     // Get active event
-    const activeEvent = await ctx.db.query("events").filter(q => q.eq(q.field("isActive"), true)).first();
+    const activeEvent = await ctx.db.query("events").withIndex("by_active", q => q.eq("isActive", true)).first();
     if (!activeEvent) {
       throw new ConvexError("No active event found to assign this creator to.");
     }
