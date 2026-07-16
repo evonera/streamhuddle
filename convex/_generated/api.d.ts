@@ -23,6 +23,7 @@ import type * as polling from "../polling.js";
 import type * as rateLimit from "../rateLimit.js";
 import type * as roster from "../roster.js";
 import type * as seed from "../seed.js";
+import type * as syncAvatars from "../syncAvatars.js";
 import type * as testQuery from "../testQuery.js";
 import type * as twitch from "../twitch.js";
 import type * as users from "../users.js";
@@ -50,6 +51,7 @@ declare const fullApi: ApiFromModules<{
   rateLimit: typeof rateLimit;
   roster: typeof roster;
   seed: typeof seed;
+  syncAvatars: typeof syncAvatars;
   testQuery: typeof testQuery;
   twitch: typeof twitch;
   users: typeof users;

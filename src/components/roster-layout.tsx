@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from 'convex/react'
 import { api } from "@convex/_generated/api"
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { type StreamData } from '@/components/player/StreamPlayer'
 import { StreamGrid } from '@/components/player/StreamGrid'
 import { ChatBox } from '@/components/player/ChatBox'
@@ -20,17 +20,47 @@ import Search01Icon from "@hugeicons/core-free-icons/Search01Icon"
 import Share01Icon from "@hugeicons/core-free-icons/Share01Icon"
 import Tv01Icon from "@hugeicons/core-free-icons/Tv01Icon"
 import Maximize01Icon from "@hugeicons/core-free-icons/Maximize01Icon"
+import Delete02Icon from "@hugeicons/core-free-icons/Delete02Icon"
+import FloppyDiskIcon from "@hugeicons/core-free-icons/FloppyDiskIcon"
 import { toast } from 'sonner'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { useConvexAuth } from 'convex/react'
+
+const SESSION_STORAGE_KEY = 'streamhuddle-session'
+
+function loadSession(): StreamData[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const saved = localStorage.getItem(SESSION_STORAGE_KEY)
+    if (!saved) return []
+    return JSON.parse(saved) as StreamData[]
+  } catch {
+    return []
+  }
+}
+
+function saveSession(streams: StreamData[]) {
+  if (typeof window === 'undefined') return
+  try {
+    if (streams.length === 0) {
+      localStorage.removeItem(SESSION_STORAGE_KEY)
+    } else {
+      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(streams))
+    }
+  } catch {
+    // ignore quota errors
+  }
+}
 
 export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: string, autoLoadAll?: boolean }) {
+
+  const { isAuthenticated } = useConvexAuth()
 
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedLanguage, setSelectedLanguage] = useState<string | undefined>()
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>()
-  
 
   const [activeLayoutId, setActiveLayoutId] = useState<string | null>(initialListId || null)
   const [activeStreams, setActiveStreams] = useState<StreamData[]>([])
@@ -43,6 +73,12 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
 
   const [addStreamDialog, setAddStreamDialog] = useState<{isOpen: boolean; gridIndex?: number}>({ isOpen: false })
   const [customUrlInput, setCustomUrlInput] = useState("")
+
+  // Save layout dialog state
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false)
+  const [saveLayoutName, setSaveLayoutName] = useState("")
+  const saveLayoutMutation = useMutation(api.roster.saveLayout)
+  const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
     if (typeof window !== 'undefined' && window.innerWidth <= 768) {
@@ -76,11 +112,6 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
     language: selectedLanguage,
     category: selectedCategory
   })
-  
-  useEffect(() => {
-    console.log("CREATORS QUERY (convex/react):", creatorsQuery === undefined ? "undefined" : "loaded", creatorsQuery);
-    console.log("FILTERS QUERY (convex/react):", filtersQuery === undefined ? "undefined" : "loaded", filtersQuery);
-  }, [creatorsQuery, filtersQuery]);
   
   const userLayouts = useQuery(api.roster.getUserLayouts)
   const incrementViewsMutation = useMutation(api.roster.incrementStreamListViews)
@@ -121,6 +152,34 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
       setActiveStreams(loadedStreams)
     }
   }, [autoLoadAll, creatorsQuery, activeLayoutId, activeStreams.length])
+
+  // Restore anonymous session from localStorage (only when no initialListId and not autoLoadAll)
+  const sessionLoadedRef = useRef(false)
+  useEffect(() => {
+    if (sessionLoadedRef.current) return
+    if (initialListId || autoLoadAll) return
+    const saved = loadSession()
+    if (saved.length > 0) {
+      setActiveStreams(saved)
+      sessionLoadedRef.current = true
+      toast.info("Session restored from last visit", {
+        description: isAuthenticated ? "Save it permanently from the toolbar." : "Sign in to save it permanently.",
+        duration: 4000,
+      })
+    }
+  }, [initialListId, autoLoadAll, isAuthenticated])
+
+  // Auto-save session to localStorage whenever streams change
+  const isFirstRender = useRef(true)
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false
+      return
+    }
+    // Don't clobber a shared-list view
+    if (initialListId) return
+    saveSession(activeStreams)
+  }, [activeStreams, initialListId])
 
   // Truncate active streams if gridSize is reduced below the current stream count
   useEffect(() => {
@@ -238,7 +297,60 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
     });
   };
 
+  const handleClearAll = () => {
+    const prevStreams = [...activeStreams]
+    setActiveStreams([])
+    toast("All streams cleared", {
+      action: {
+        label: "Undo",
+        onClick: () => setActiveStreams(prevStreams)
+      },
+      duration: 5000,
+    })
+  }
 
+  const handleSaveLayout = async () => {
+    if (!isAuthenticated) {
+      toast.error("Sign in to save your layout permanently", {
+        action: {
+          label: "Sign in",
+          onClick: () => window.location.href = '/sign-in'
+        }
+      })
+      return
+    }
+    setSaveDialogOpen(true)
+    setSaveLayoutName("")
+  }
+
+  const handleConfirmSave = async () => {
+    if (!saveLayoutName.trim()) {
+      toast.error("Please enter a name for your layout.")
+      return
+    }
+    // Only roster creators (those with real Convex IDs) can be saved
+    const rosterStreams = activeStreams.filter(s => !s.id.startsWith('custom-'))
+    if (rosterStreams.length === 0) {
+      toast.error("No roster creators to save. Add some from the sidebar first.")
+      return
+    }
+    setIsSaving(true)
+    try {
+      const result = await saveLayoutMutation({
+        name: saveLayoutName.trim(),
+        creatorIds: rosterStreams.map(s => ({ id: s.id as any, type: s.type || "stream" }))
+      })
+      setSaveDialogOpen(false)
+      toast.success(`Layout "${saveLayoutName}" saved!`, {
+        description: "You can load it from the StreamLists dropdown."
+      })
+      setActiveLayoutId(result.layoutId)
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to save layout.")
+    } finally {
+      setIsSaving(false)
+    }
+  }
 
   // Filter to only actual video streams for the Universal Chat selector
   const videoStreams = activeStreams.filter(s => !s.type || s.type === "stream");
@@ -322,8 +434,10 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
           </div>
 
           <div className="flex-1 flex flex-col gap-2 mt-2 overflow-y-auto pr-1 no-scrollbar">
-            {filteredCreators === undefined ? (
+            {creatorsQuery === undefined ? (
               <div className="text-muted-foreground text-sm text-center pt-4">Loading creators...</div>
+            ) : filteredCreators.length === 0 ? (
+              <div className="text-muted-foreground text-sm text-center pt-4">No creators found.</div>
             ) : filteredCreators.map(creator => (
               <div 
                 key={creator._id}
@@ -409,6 +523,17 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
             <div className="h-4 w-px bg-border mx-1 hidden sm:block"></div>
             
             <div className="hidden md:flex items-center gap-2">
+              {/* Save Layout Button */}
+              <Button 
+                onClick={handleSaveLayout}
+                size="sm"
+                variant="outline"
+                className="h-8 gap-1.5 text-xs"
+                disabled={activeStreams.length === 0}
+                title="Save this layout"
+              >
+                <HugeiconsIcon icon={FloppyDiskIcon} className="w-3.5 h-3.5" /> Save
+              </Button>
 
               {activeLayoutId && (
                 <Button 
@@ -424,6 +549,19 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
                   title="Share StreamList"
                 >
                   <HugeiconsIcon icon={Share01Icon} className="w-4 h-4" />
+                </Button>
+              )}
+
+              {/* Clear All Button */}
+              {activeStreams.length > 0 && (
+                <Button
+                  onClick={handleClearAll}
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 w-8 p-0 text-muted-foreground hover:text-red-400 hover:bg-red-400/10"
+                  title="Clear all streams"
+                >
+                  <HugeiconsIcon icon={Delete02Icon} className="w-4 h-4" />
                 </Button>
               )}
             </div>
@@ -524,12 +662,7 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
                 setAddStreamDialog({ isOpen: true, gridIndex });
                 setCustomUrlInput("");
               } else {
-                const searchInput = document.querySelector('input[placeholder="Search creators..."]') as HTMLInputElement;
-                if (searchInput && window.innerWidth >= 768) {
-                  searchInput.focus();
-                } else {
-                  setLeftSidebarOpen(true);
-                }
+                setLeftSidebarOpen(true);
               }
             }}
             onSwapStream={handleSwapStream}
@@ -562,6 +695,35 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
                       setAddStreamDialog({ isOpen: false });
                     }
                   }}>Add</Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Save Layout Dialog */}
+          {saveDialogOpen && (
+            <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+              <div className="bg-zinc-950 border border-zinc-800 p-6 rounded-xl w-[400px] shadow-2xl flex flex-col gap-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="font-semibold text-lg">Save Layout</h3>
+                  <button onClick={() => setSaveDialogOpen(false)} className="text-muted-foreground hover:text-foreground">✕</button>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Give your layout a name. Only roster creators (not custom URLs) will be saved.
+                </p>
+                <Input
+                  placeholder="e.g. Night Stream, Study Session..."
+                  value={saveLayoutName}
+                  onChange={(e) => setSaveLayoutName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleConfirmSave() }}
+                  className="bg-muted border-border"
+                  autoFocus
+                />
+                <div className="flex gap-2 justify-end">
+                  <Button variant="ghost" onClick={() => setSaveDialogOpen(false)}>Cancel</Button>
+                  <Button onClick={handleConfirmSave} disabled={isSaving}>
+                    {isSaving ? "Saving..." : "Save Layout"}
+                  </Button>
                 </div>
               </div>
             </div>

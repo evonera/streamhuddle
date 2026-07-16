@@ -117,14 +117,8 @@ export function StreamGrid({
           </EmptyMedia>
           <EmptyTitle>No streams selected</EmptyTitle>
           <EmptyDescription>
-            Click the "Browse Roster" button to explore live creators and start building your ultimate viewing experience.
+            Pick a creator from the roster panel on the left to start building your ultimate viewing experience.
           </EmptyDescription>
-          <button 
-            onClick={() => onAddStreamClick?.()}
-            className="mt-6 w-full bg-primary/90 hover:bg-primary text-primary-foreground font-semibold py-2 px-4 rounded transition-colors"
-          >
-            Browse Roster
-          </button>
         </Empty>
       </div>
     );
@@ -142,27 +136,31 @@ export function StreamGrid({
               
               const reactKey = stream ? `${stream.id}-${stream.type || 'stream'}` : `empty-${gridIndex}`;
 
-              const dropProps = {
-                onDragOver: ((e: React.DragEvent) => e.preventDefault()) as any,
-                onDrop: ((e: React.DragEvent) => {
-                  e.preventDefault();
-                  const dragId = e.dataTransfer.getData("application/x-stream-id");
-                  const dragType = e.dataTransfer.getData("application/x-stream-type");
-                  if (dragId && onSwapStream) {
-                    onSwapStream(dragId, dragType as any, gridIndex);
-                  }
-                }) as any
+              const onDrop = (e: React.DragEvent) => {
+                e.preventDefault();
+                const dragId = e.dataTransfer.getData("application/x-stream-id");
+                const dragType = e.dataTransfer.getData("application/x-stream-type");
+                if (dragId && onSwapStream) {
+                  onSwapStream(dragId, dragType as any, gridIndex);
+                }
               };
 
-              const dragProps = {
-                ...dropProps,
+              const dropProps = {
+                onDragOver: ((e: React.DragEvent) => e.preventDefault()) as any,
+                onDrop: onDrop as any,
+              };
+
+              // Drag handle props — applied to the hover overlay header only, NOT the
+              // full motion.div. This prevents the iframe from swallowing drag events.
+              const dragHandleProps = {
                 draggable: true,
                 onDragStart: ((e: React.DragEvent) => {
                   if (stream) {
+                    e.dataTransfer.effectAllowed = "move";
                     e.dataTransfer.setData("application/x-stream-id", stream.id);
                     e.dataTransfer.setData("application/x-stream-type", stream.type || "stream");
                   }
-                }) as any
+                }) as any,
               };
 
               if (!stream) {
@@ -202,9 +200,13 @@ export function StreamGrid({
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
                     className="relative min-w-0 min-h-0 grow-0 shrink-0 group bg-zinc-950 border border-zinc-800 rounded overflow-hidden flex flex-col"
-                    {...dragProps}
+                    {...dropProps}
                   >
-                    <div className="absolute top-0 left-0 w-full p-2 bg-gradient-to-b from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex justify-between items-center z-50 cursor-grab active:cursor-grabbing">
+                    {/* Drag handle: only the header bar initiates drag, not the chat iframe */}
+                    <div
+                      className="absolute top-0 left-0 w-full p-2 bg-gradient-to-b from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex justify-between items-center z-50 cursor-grab active:cursor-grabbing"
+                      {...dragHandleProps}
+                    >
                       <div className="flex items-center gap-1 bg-black/50 px-2 py-1 rounded">
                         <HugeiconsIcon icon={Message01Icon} size={14} className="text-primary" />
                         <span className="text-white text-xs font-semibold truncate">
@@ -245,7 +247,7 @@ export function StreamGrid({
                   className={`relative min-w-0 min-h-0 grow-0 shrink-0 group bg-zinc-900 border rounded overflow-hidden cursor-pointer transition-colors ${
                     isFocused ? "border-primary shadow-[0_0_15px_rgba(var(--primary),0.3)] z-10" : "border-zinc-800"
                   }`}
-                  {...dragProps}
+                  {...dropProps}
                 >
                   <StreamPlayer 
                     stream={{
@@ -256,8 +258,12 @@ export function StreamGrid({
                     kickRemountKey={kickRemountKey}
                   />
                   
-                  {/* Toolbar Overlay (Hover) */}
-                  <div className="absolute top-0 left-0 w-full p-2 bg-gradient-to-b from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex justify-between items-center z-50 cursor-grab active:cursor-grabbing">
+                  {/* Toolbar Overlay (Hover) — drag is initiated from here, NOT the cell wrapper.
+                      This avoids the iframe swallowing drag events and makes dnd reliable. */}
+                  <div
+                    className="absolute top-0 left-0 w-full p-2 bg-gradient-to-b from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex justify-between items-center z-50 cursor-grab active:cursor-grabbing"
+                    {...dragHandleProps}
+                  >
                     <span className="text-white text-sm font-semibold truncate bg-black/50 px-2 py-1 rounded flex items-center gap-2">
                       {stream.displayName || stream.channel}
                       {!isMuted && stream.platform !== "custom" && (

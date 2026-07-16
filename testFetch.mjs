@@ -9,11 +9,9 @@ async function check() {
       const js = await jsRes.text();
       const convexUrl = js.match(/https:\/\/[a-zA-Z0-9-]+\.convex\.cloud/g);
       if (convexUrl) {
-        console.log("Found Convex URL:", convexUrl[0]);
-        return;
+        console.log("Found in", url, ":", convexUrl);
       }
     }
   }
-  console.log("Not found");
 }
 check();

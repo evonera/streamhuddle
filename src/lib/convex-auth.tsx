@@ -62,6 +62,8 @@ function useBetterAuthForConvex(initialToken: string | null) {
 
   const isAuthenticated = !!session?.session || (isPending && initialToken !== null)
   const isLoading = isPending && initialToken === null
+  
+  console.log("AUTH STATE:", { isPending, initialToken, isLoading, isAuthenticated });
 
   return useMemo(
     () => ({ isLoading, isAuthenticated, fetchAccessToken }),
