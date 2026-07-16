@@ -45,7 +45,7 @@ export default function Navbar() {
                 {/* Right side */}
                 <div className="hidden md:flex items-center gap-4">
                     <div className="flex items-center gap-2">
-                        <a href="https://github.com/StreamHuddleHQ/streamhuddle" target="_blank" rel="noreferrer" className="flex items-center justify-center h-10 w-10 border border-white/10 bg-transparent text-white/50 hover:text-white hover:bg-white/5 transition-colors">
+                        <a href="https://github.com/evonera/streamhuddle" target="_blank" rel="noreferrer" className="flex items-center justify-center h-10 w-10 border border-white/10 bg-transparent text-white/50 hover:text-white hover:bg-white/5 transition-colors">
                             <HugeiconsIcon icon={GithubIcon} className="w-4 h-4" />
                         </a>
                         <a href="https://x.com/streamhuddlehq" target="_blank" rel="noreferrer" className="flex items-center justify-center h-10 w-10 border border-white/10 bg-transparent text-white/50 hover:text-white hover:bg-white/5 transition-colors">
@@ -79,7 +79,7 @@ export default function Navbar() {
                 <div className="md:hidden absolute top-full left-0 right-0 bg-background border-b border-border/50 shadow-lg p-4 flex flex-col gap-4 animate-fade-in-up">
 
                     <div className="flex items-center justify-center gap-8 p-4 border-t border-border/50 mt-2">
-                        <a href="https://github.com/StreamHuddleHQ/streamhuddle" className="text-muted-foreground hover:text-foreground"><HugeiconsIcon icon={GithubIcon} className="w-6 h-6" /></a>
+                        <a href="https://github.com/evonera/streamhuddle" className="text-muted-foreground hover:text-foreground"><HugeiconsIcon icon={GithubIcon} className="w-6 h-6" /></a>
                         <a href="https://x.com/streamhuddlehq" className="text-muted-foreground hover:text-foreground"><HugeiconsIcon icon={NewTwitterIcon} className="w-6 h-6" /></a>
                     </div>
                     <Link to="/discover" className="w-full text-center bg-zinc-900 text-foreground font-mono font-bold tracking-widest uppercase px-4 py-4 text-xs hover:bg-zinc-800 transition-colors mt-2">
