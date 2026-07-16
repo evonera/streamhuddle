@@ -17,6 +17,7 @@ export const userFields = {
   avatar: v.optional(v.id("_storage")), // Convex storage id for uploaded avatars
   isPro: v.optional(v.boolean()),
   dodoCustomerId: v.optional(v.string()),
+  role: v.optional(v.string()),
   updatedAt: v.number(),
 }
 
@@ -28,6 +29,7 @@ export default defineSchema({
     avatar: userFields.avatar,
     isPro: userFields.isPro,
     dodoCustomerId: userFields.dodoCustomerId,
+    role: userFields.role,
     updatedAt: userFields.updatedAt,
   }).index("authId", ["authId"]).index("by_dodoCustomerId", ["dodoCustomerId"]),
 

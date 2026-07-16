@@ -57,6 +57,7 @@ export type AuthUser = Doc<"users"> & {
   displayUsername: string | null
   avatarUrl: string | null
   hasUploadedAvatar: boolean
+  role: string | null
 }
 
 // The component client has methods needed for integrating Convex with Better Auth,
@@ -72,6 +73,7 @@ export const authComponent = createClient<DataModel>(components.betterAuth, {
           console.log("[onCreate] Creating user for authId:", authUser._id);
           await ctx.db.insert("users", {
             authId: authUser._id,
+            role: "user",
             updatedAt: Date.now(),
           })
         } catch (error) {
@@ -230,6 +232,7 @@ export async function safeGetAuthenticatedUser(
     displayUsername: (authUser as { displayUsername?: string | null }).displayUsername ?? null,
     avatarUrl,
     hasUploadedAvatar,
+    role: user.role ?? "user",
   }
 }
 
@@ -265,6 +268,7 @@ export const authUserValidator = v.object({
   hasUploadedAvatar: v.boolean(),
   isPro: v.optional(v.boolean()),
   dodoCustomerId: v.optional(v.string()),
+  role: v.union(v.string(), v.null()),
 })
 
 // ============================================================================
