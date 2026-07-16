@@ -17,6 +17,7 @@ import PanelRightCloseIcon from "@hugeicons/core-free-icons/PanelRightCloseIcon"
 import PanelRightOpenIcon from "@hugeicons/core-free-icons/PanelRightOpenIcon"
 import Message01Icon from "@hugeicons/core-free-icons/Message01Icon"
 import Search01Icon from "@hugeicons/core-free-icons/Search01Icon"
+import Search02Icon from "@hugeicons/core-free-icons/Search02Icon"
 import Share01Icon from "@hugeicons/core-free-icons/Share01Icon"
 import Tv01Icon from "@hugeicons/core-free-icons/Tv01Icon"
 import Maximize01Icon from "@hugeicons/core-free-icons/Maximize01Icon"
@@ -532,10 +533,21 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
               aria-label="Home"
               className={cn(
                 buttonVariants({ variant: "ghost", size: "icon" }),
-                "h-8 w-8 [&_svg]:size-4 hidden sm:flex"
+                "h-8 w-8 [&_svg]:size-4 hidden sm:flex text-muted-foreground hover:text-foreground"
               )}
             >
               <HugeiconsIcon icon={Home01Icon} strokeWidth={2} />
+            </Link>
+            
+            <Link
+              to="/discover"
+              aria-label="Discover"
+              className={cn(
+                buttonVariants({ variant: "ghost", size: "icon" }),
+                "h-8 w-8 [&_svg]:size-4 hidden sm:flex text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <HugeiconsIcon icon={Search02Icon} strokeWidth={2} />
             </Link>
             
             <div className="h-4 w-px bg-border mx-1 hidden sm:block"></div>

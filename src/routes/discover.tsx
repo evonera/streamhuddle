@@ -6,6 +6,7 @@ import { motion } from 'motion/react'
 import Navbar from '@/components/home/navbar'
 import Footer from '@/components/home/footer'
 import Container from '@/components/home/container'
+import CreateStreamlistBar from '@/components/create-streamlist-bar'
 
 export const Route = createFileRoute('/discover')({
   component: DiscoverPage,
@@ -57,6 +58,10 @@ function DiscoverPage() {
               >
                 Open University
               </Link>
+            </div>
+            
+            <div className="mt-12 mb-8">
+              <CreateStreamlistBar />
             </div>
           </Container>
         </section>

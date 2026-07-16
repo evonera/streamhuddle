@@ -8,6 +8,7 @@ import Cancel01Icon from "@hugeicons/core-free-icons/Cancel01Icon";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { cn } from "@/lib/utils";
 import LogoIcon from "@/assets/logo-icon";
+import { UserMenu } from "@/components/user-menu";
 
 export default function Navbar() {
     const [scrolled, setScrolled] = useState(false);
@@ -51,9 +52,15 @@ export default function Navbar() {
                             <HugeiconsIcon icon={NewTwitterIcon} className="w-4 h-4" />
                         </a>
                     </div>
+                    <Link to="/discover" className="flex items-center h-10 bg-transparent text-foreground font-mono font-bold tracking-widest uppercase px-4 text-xs hover:bg-white/5 transition-colors">
+                        Discover
+                    </Link>
                     <Link to="/roster" className="flex items-center h-10 bg-primary text-background font-mono font-bold tracking-widest uppercase px-6 text-xs hover:bg-primary/90 transition-colors active:scale-[0.96]">
                         Get Started
                     </Link>
+                    <div className="pl-2 border-l border-white/10">
+                        <UserMenu />
+                    </div>
                 </div>
 
                 {/* Mobile Toggle */}
