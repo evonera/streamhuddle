@@ -114,9 +114,10 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
   }, [theaterMode])
 
   useEffect(() => {
-    if (activeStreams.length > 0 && (!activeChatId || !activeStreams.find(s => s.id === activeChatId))) {
-      setActiveChatId(activeStreams[0].id)
-    } else if (activeStreams.length === 0) {
+    const vStreams = activeStreams.filter(s => !s.type || s.type === "stream");
+    if (vStreams.length > 0 && (!activeChatId || !vStreams.find(s => s.id === activeChatId))) {
+      setActiveChatId(vStreams[0].id)
+    } else if (vStreams.length === 0) {
       setActiveChatId(null)
     }
   }, [activeStreams, activeChatId])
@@ -153,7 +154,9 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
   }, [sharedListQuery, creatorsQuery])
 
   // Auto-load all creators for specific routes (like /university)
+  const hasAutoLoadedRef = useRef(false)
   useEffect(() => {
+    if (hasAutoLoadedRef.current) return
     if (autoLoadAll && creatorsQuery && activeStreams.length === 0 && !activeLayoutId) {
       const loadedStreams = (creatorsQuery || []).slice(0, 20).map((creator, idx) => ({
         id: creator._id,
@@ -164,6 +167,7 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
         gridIndex: idx
       }))
       setActiveStreams(loadedStreams)
+      hasAutoLoadedRef.current = true
     }
   }, [autoLoadAll, creatorsQuery, activeLayoutId, activeStreams.length])
 
@@ -583,6 +587,7 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
 
           {/* Grid Size Selector */}
           <div className="hidden lg:flex items-center gap-1 bg-zinc-900/50 rounded-lg p-1 border border-border mx-2">
+            <span className="text-[10px] text-muted-foreground px-2 font-bold tracking-wider">GRID ({activeStreams.length})</span>
             {(["auto", 2, 4, 6, 8, 12, 16, 18, 20] as const).map(size => (
               <button
                 key={size}
@@ -618,7 +623,7 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
               </button>
 
               {layoutPickerOpen && (
-                <div className="absolute right-0 top-full mt-1 z-50 w-56 bg-zinc-950 border border-zinc-800 rounded-md shadow-xl overflow-hidden">
+                <div className="absolute right-0 top-full mt-1 z-[999] w-56 bg-zinc-950 border border-zinc-800 rounded-md shadow-xl overflow-hidden">
                   {/* Search input */}
                   <div className="p-2 border-b border-zinc-800">
                     <div className="relative">
