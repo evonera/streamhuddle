@@ -88,14 +88,14 @@ export default function Footer() {
                     {/* Right Side: Links (span 7) */}
                     <div className="grid grid-cols-2 gap-8 md:grid-cols-4 lg:col-span-7 lg:pl-8">
                         <FooterLinkColumn title="PRODUCT">
-                            <FooterLink href="/animated-components">Animated</FooterLink>
-                            <FooterLink href="/components">Components</FooterLink>
-                            <FooterLink href="/blocks">Blocks</FooterLink>
-                            <FooterLink href="/dashboards">Dashboards</FooterLink>
+                            <FooterLink href="/roster">Roster</FooterLink>
+                            <FooterLink href="/discover">Discover</FooterLink>
+                            <FooterLink href="/university">University</FooterLink>
+                            <FooterLink href="/pricing">Pro</FooterLink>
                         </FooterLinkColumn>
 
                         <FooterLinkColumn title="COMMUNITY">
-                            <FooterLink href="">Discord</FooterLink>
+                            <FooterLink href="https://ko-fi.com/streamhuddle">Ko-fi</FooterLink>
                             <FooterLink href="https://github.com/StreamHuddleHQ/streamhuddle">GitHub</FooterLink>
                             <FooterLink href="https://x.com/streamhuddlehq">X (Twitter)</FooterLink>
                         </FooterLinkColumn>
@@ -118,7 +118,7 @@ export default function Footer() {
                         <div className="flex items-center gap-3">
                             <div className="bg-primary h-2 w-2 animate-pulse rounded-full shadow-[0_0_8px_rgba(163,255,18,0.6)]" />
                             <span className="text-primary font-mono text-xs tracking-widest uppercase">
-                                Built for developers
+                                Built for viewers & creators
                             </span>
                         </div>
 
@@ -156,10 +156,10 @@ export default function Footer() {
 
                         <div className="hidden flex-col border-l border-white/10 pl-8 md:flex">
                             <span className="text-xs tracking-widest text-white/40">
-                                The foundational layer for apps.
+                                The ultimate multi-stream experience.
                             </span>
                             <span className="text-xs tracking-widest text-white/40">
-                                Fast. Animated. Technical.
+                                Free. Open Source. Customizable.
                             </span>
                         </div>
                     </div>
@@ -186,7 +186,17 @@ export default function Footer() {
                         <div className="flex items-center gap-4">
                             <SocialLink href="https://x.com/streamhuddlehq" icon={NewTwitterIcon} />
                             <SocialLink href="https://github.com/StreamHuddleHQ/streamhuddle" icon={GithubIcon} />
-                            <SocialLink href="#" icon={DiscordIcon} />
+                            <a
+                                href="https://ko-fi.com/streamhuddle"
+                                target="_blank"
+                                rel="noreferrer"
+                                className="flex h-8 w-8 items-center justify-center border border-white/10 bg-[#13C3FF]/10 text-[#13C3FF] transition-all hover:border-[#13C3FF]/30 hover:bg-[#13C3FF]/20"
+                                aria-label="Support on Ko-fi"
+                            >
+                                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                                  <path d="M23.881 8.948c-.773-4.085-4.859-4.593-4.859-4.593H.723c-.604 0-.679.798-.679.798s-.082 7.324-.022 11.822c.164 2.424 2.586 2.672 2.586 2.672s8.267-.023 11.966-.049c2.438-.426 2.683-2.566 2.658-3.734 4.352.24 7.422-2.831 6.649-6.916zm-11.062 3.511c-1.246 1.453-4.011 3.976-4.011 3.976s-.121.119-.31.023c-.076-.057-.108-.09-.108-.09-.443-.441-3.368-3.049-4.051-3.954-1.094-1.397-1.056-3.618.31-4.871.954-.875 2.548-.827 3.545.026.042.036.082.074.123.111.042-.037.081-.075.123-.111.996-.853 2.591-.901 3.545-.026 1.366 1.253 1.404 3.474.31 4.871z"/>
+                                </svg>
+                            </a>
                         </div>
                     </div>
                 </div>
