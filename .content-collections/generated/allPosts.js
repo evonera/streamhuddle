@@ -4,6 +4,7 @@ export default [
     "title": "The Top Essential Tools for Modern Streamers in 2026",
     "description": "A comprehensive, highly detailed breakdown of the software, hardware, and analytical tools every serious content creator needs.",
     "date": "2026-07-14",
+    "thumbnail": "/blog/blog_thumb_tools_1784243182030.jpg",
     "tags": [
       "tools",
       "software",
@@ -25,6 +26,7 @@ export default [
     "title": "The Ultimate Guide to Multistreaming (Streamer University Series)",
     "description": "Master the art of broadcasting to Twitch, YouTube, and Kick simultaneously without frying your PC or losing your chat.",
     "date": "2026-07-16",
+    "thumbnail": "/blog/blog_thumb_multistream_1784243162321.jpg",
     "tags": [
       "multistreaming",
       "obs",
@@ -46,6 +48,7 @@ export default [
     "title": "Twitch vs Kick vs YouTube: Where Should You Stream in 2026?",
     "description": "A comprehensive, data-driven comparison of the top streaming platforms to help you choose the right home for your content.",
     "date": "2026-07-17",
+    "thumbnail": "/blog/blog_thumb_platforms_1784243152818.jpg",
     "tags": [
       "streaming",
       "platforms",
@@ -67,6 +70,7 @@ export default [
     "title": "How to Watch Multiple Streams at Once (Without Losing Your Mind)",
     "description": "From esports tournaments to massive creator collaborations, here is the ultimate guide to managing multiple stream tabs without crashing your browser.",
     "date": "2026-07-15",
+    "thumbnail": "/blog/blog_thumb_watch_1784243171823.jpg",
     "tags": [
       "viewing",
       "esports",
