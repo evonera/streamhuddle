@@ -94,7 +94,7 @@ export const Route = createRootRouteWithContext<{
       { name: "mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-title", content: SITE_NAME },
       // Uncomment and fill in after registering in Google Search Console / Bing Webmaster.
-      // { name: "google-site-verification", content: "YOUR_TOKEN" },
+      { name: "google-site-verification", content: "T2VuXgr1p3bD8sFZo3x5DVMhdNwTx_gwEjh2mjbkX6M" },
       // { name: "msvalidate.01", content: "YOUR_TOKEN" },
       ...seo({
         title: SITE_TITLE,
