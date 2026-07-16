@@ -1,56 +1,18 @@
-# tanvex
+# StreamHuddle Context
 
-> TanStack Start + Convex + Better Auth starter on the latest majors. SSR auth, email OTP, user profiles, rate limiting, one-command setup. Vite 8 Rolldown+Oxc, Tailwind v4 + shadcn base-luma on Base UI, Oxlint + Oxfmt.
+StreamHuddle is an optimized multi-stream viewing platform that allows users to watch up to 20 live streams simultaneously across Twitch, YouTube, and Kick with a unified, draggable layout.
 
-## Stack
+> Note: For comprehensive architecture documentation, see `/llms-full.txt`.
 
-- TanStack Start + TanStack Router (file-based routing, SSR via Nitro 3)
-- Convex 1.37 backend with `@convex-dev/better-auth`, `@convex-dev/rate-limiter`, `@convex-dev/resend`
-- Better Auth 1.6 with the `emailOTP` and `username` plugins
-- Vite 8 (Rolldown bundler, Oxc toolchain)
-- React 19 with the automatic JSX transform
-- TypeScript 6, strict + verbatimModuleSyntax
-- Tailwind CSS v4 via @tailwindcss/vite
-- shadcn/ui base-luma theme on @base-ui/react primitives
-- HugeIcons + Geist Variable font
-- Oxlint 1.63 (240 rules, 8 plugins, type-aware via oxlint-tsgolint)
-- Oxfmt (native import + Tailwind + package.json sorting)
-- Vitest 4 + @testing-library/react + jsdom
-- Zod v4 on the client, Convex validators on the backend
-- Sonner toasts, theme provider with no-flash script, web vitals reporter
-- Any package manager (bun, pnpm, npm, yarn); scripts are runtime-agnostic node builtins
+## Tech Stack
+- **Frontend**: TanStack React Router, TailwindCSS, motion/react (Framer Motion), Vite, React
+- **Backend/Database**: Convex
+- **Authentication**: @convex-dev/better-auth
+- **Payments**: @dodopayments/convex
+- **Hosting**: Cloudflare Pages
 
-## Auth
-
-Email + password and username + password sign-in. Email verification via OTP through Better Auth's `emailOTP` plugin, delivered by Resend. Password reset and email change both use OTP. Sessions last 7 days with a 10-minute `freshAge` window for sensitive ops. Rate limits on `/sign-in/*`, `/sign-up/*`, `/email-otp/*`, and session endpoints. SSR auth resolves the token server-side via `createServerFn` and hands off to the client on hydrate.
-
-## Repository
-
-- GitHub: https://github.com/ramonclaudio/tanvex
-- License: MIT
-- Install: `bunx degit ramonclaudio/tanvex my-app`
-
-## Key files
-
-- `convex/auth.ts`: Better Auth config, user helpers
-- `convex/http.ts`: HTTP router with CORS + rate-limited public endpoints
-- `convex/email.ts`: Resend helpers + OTP templates
-- `convex/rateLimit.ts`: token-bucket limiter config
-- `convex/schema.ts`: users table (identity merged from Better Auth)
-- `src/routes/__root.tsx`: root layout (`shellComponent`), head, theme, Toaster, header bar, `<main id="main">`
-- `src/routes/sign-in.tsx`: auth UI (signin, signup, OTP, password reset)
-- `src/routes/_authed/profile.tsx`: profile editor with avatar upload and change-password
-- `src/lib/auth-client.ts` / `auth-server.ts`: Better Auth clients
-- `src/lib/site.ts`: SITE_URL, SITE_NAME, SITE_TITLE, SITE_DESCRIPTION
-- `src/lib/seo.ts`: head meta helper (og, twitter, description); canonical + json-ld live in the route heads
-- `src/components/theme-provider.tsx`: light/dark/system with no-flash script
-- `src/styles.css`: Tailwind v4 + base-luma + reduced-motion
-- `scripts/setup.ts`: one-command setup (wipe, install, Convex + Better Auth + Resend)
-
-## Conventions
-
-- Client-exposed env vars must be prefixed VITE_. Server-only go bare (on the Convex deployment).
-- Server secrets (SITE_URL, BETTER_AUTH_SECRET, RESEND_API_KEY, EMAIL_FROM, APP_NAME) live on the Convex deployment, not in `.env.local`.
-- shadcn style pinned to base-luma in components.json.
-- TypeScript strict; prefer early returns, small functions, no deep nesting.
-- Conventional commits. Oxlint + Oxfmt handle lint + format.
+## High-Level Architecture
+- **UI Architecture**: A responsive, 3-pane layout (`RosterLayout`) orchestrating a left sidebar (Roster), center canvas (Main Grid), and right sidebar (Universal Chat). The layout relies heavily on `StreamGrid` for dynamic positioning and `StreamPlayer` as a platform-agnostic factory.
+- **State Management**: Mixed between local component state (`activeStreams`), `localStorage` for anonymous session continuity, and the Convex backend for persistent named layouts.
+- **Backend Data**: Identity fields from Better Auth are dynamically merged with app-specific user fields (`users` table). The `creators` table heavily denormalizes live stream data (viewer count, title, status) for high-performance reading, updated by background cron polling every 10 minutes.
+- **Custom Components**: The app leans heavily on Convex official components for Authentication, Rate Limiting, Resend (Emails), and Dodo Payments.

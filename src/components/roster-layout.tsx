@@ -519,7 +519,7 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
         
         {/* Sleek Toolbar */}
         {!theaterMode && (
-          <div className="hidden md:flex items-center justify-between bg-card/50 backdrop-blur-md border border-border rounded-xl px-4 py-2 shrink-0 shadow-sm">
+          <div className="hidden md:flex items-center justify-between bg-card/50 backdrop-blur-md border border-border rounded-xl px-4 py-2 shrink-0 shadow-sm overflow-x-auto no-scrollbar gap-4">
           <div className="flex items-center gap-3">
             {!leftSidebarOpen && (
               <button onClick={() => setLeftSidebarOpen(true)} className="text-muted-foreground hover:text-foreground">
@@ -586,8 +586,8 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
           </div>
 
           {/* Grid Size Selector */}
-          <div className="hidden lg:flex items-center gap-1 bg-zinc-900/50 rounded-lg p-1 border border-border mx-2">
-            <span className="text-[10px] text-muted-foreground px-2 font-bold tracking-wider">GRID ({activeStreams.length})</span>
+          <div className="hidden lg:flex shrink-0 items-center gap-1 bg-zinc-900/50 rounded-lg p-1 border border-border mx-2">
+            <span className="text-[10px] text-muted-foreground px-2 font-bold tracking-wider">{activeStreams.length} / 20</span>
             {(["auto", 2, 4, 6, 8, 12, 16, 18, 20] as const).map(size => (
               <button
                 key={size}
@@ -833,13 +833,20 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
 
           {videoStreams.length > 0 && (
             <div className="p-2 border-b border-border bg-background shrink-0">
-              <Select value={activeChatId || ""} onValueChange={setActiveChatId}>
+              <Select value={activeChatId?.toString() || ""} onValueChange={setActiveChatId}>
                 <SelectTrigger className="w-full text-xs h-8">
-                  <SelectValue placeholder="Select stream chat" />
+                  <SelectValue placeholder="Select stream chat">
+                    {activeChatStream ? (
+                      <div className="flex items-center truncate">
+                        <span className="capitalize text-muted-foreground mr-1">[{activeChatStream.platform}]</span>
+                        <span className="truncate">{activeChatStream.displayName || activeChatStream.channel}</span>
+                      </div>
+                    ) : "Select stream chat"}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {videoStreams.map(s => (
-                    <SelectItem key={s.id} value={s.id}>
+                    <SelectItem key={s.id} value={s.id.toString()}>
                       <span className="capitalize text-muted-foreground mr-1">[{s.platform}]</span> 
                       {s.displayName || s.channel}
                     </SelectItem>
