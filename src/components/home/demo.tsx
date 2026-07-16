@@ -2,6 +2,7 @@ import Navbar from './navbar';
 import Hero from './hero';
 import Footer from './footer';
 import Features from './features';
+import LiveCreators from './live-creators';
 import { PricingTableOne } from '@/components/billingsdk/pricing-table-one';
 import { plans } from '@/lib/billingsdk-config';
 import Container from './container';
@@ -13,6 +14,7 @@ export default function Landing01Demo() {
         <main className="dark min-h-screen overflow-x-hidden bg-[#101010]">
             <Navbar />
             <Hero />
+            <LiveCreators />
             <Features />
             <section className="py-24 md:py-32" id="pricing">
                 <Container>

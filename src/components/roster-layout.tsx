@@ -61,6 +61,9 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedLanguage, setSelectedLanguage] = useState<string | undefined>()
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>()
+  const [layoutPickerOpen, setLayoutPickerOpen] = useState(false)
+  const [layoutSearch, setLayoutSearch] = useState("")
+  const layoutPickerRef = useRef<HTMLDivElement>(null)
 
   const [activeLayoutId, setActiveLayoutId] = useState<string | null>(initialListId || null)
   const [activeStreams, setActiveStreams] = useState<StreamData[]>([])
@@ -86,6 +89,17 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
       setRightSidebarOpen(false)
     }
   }, [])
+
+  // Close layout picker on outside click
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (layoutPickerRef.current && !layoutPickerRef.current.contains(e.target as Node)) {
+        setLayoutPickerOpen(false)
+      }
+    }
+    if (layoutPickerOpen) document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [layoutPickerOpen])
   
   const [theaterMode, setTheaterMode] = useState(false)
 
@@ -585,41 +599,98 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
           </div>
 
           <div className="flex items-center gap-3">
-            <Select 
-              value="none" 
-              onValueChange={(val) => {
-                if (val !== "none") {
-                  const layout = userLayouts?.find(l => l._id === val)
-                  if (layout && creatorsQuery) {
-                    const loadedStreams = layout.streams.map((s, idx) => {
-                      const creator = creatorsQuery.find(c => c._id === s.creatorId)
-                      if (!creator) return null
-                      return {
-                        id: creator._id,
-                        platform: creator.platform as any,
-                        channel: creator.platform === "custom" && creator.platformId ? creator.platformId : creator.username,
-                        displayName: creator.username,
-                        type: s.type || "stream",
-                        gridIndex: idx
-                      }
-                    }).filter(Boolean) as StreamData[]
-                    setActiveLayoutId(layout._id)
-                    setActiveStreams(loadedStreams)
-                    setGridSize("auto")
+            {/* Searchable StreamList Picker */}
+            <div className="relative" ref={layoutPickerRef}>
+              <button
+                onClick={() => { setLayoutPickerOpen(o => !o); setLayoutSearch("") }}
+                className={cn(
+                  "h-8 min-w-[140px] md:min-w-[160px] flex items-center justify-between gap-2 px-3 text-xs border rounded-md bg-background transition-colors",
+                  layoutPickerOpen ? "border-primary/50 text-foreground" : "border-border text-muted-foreground hover:text-foreground hover:border-border/80"
+                )}
+              >
+                <span className="truncate">
+                  {activeLayoutId && userLayouts?.find(l => l._id === activeLayoutId)
+                    ? userLayouts.find(l => l._id === activeLayoutId)!.name
+                    : "Load StreamList..."
                   }
-                }
-              }}
-            >
-              <SelectTrigger className="h-8 w-[140px] md:w-[160px] text-xs bg-background">
-                <SelectValue placeholder="Load StreamList..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Load StreamList...</SelectItem>
-                {userLayouts?.map(l => (
-                  <SelectItem key={l._id} value={l._id}>{l.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                </span>
+                <svg className={cn("w-3 h-3 shrink-0 transition-transform", layoutPickerOpen && "rotate-180")} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6"/></svg>
+              </button>
+
+              {layoutPickerOpen && (
+                <div className="absolute right-0 top-full mt-1 z-50 w-56 bg-zinc-950 border border-zinc-800 rounded-md shadow-xl overflow-hidden">
+                  {/* Search input */}
+                  <div className="p-2 border-b border-zinc-800">
+                    <div className="relative">
+                      <HugeiconsIcon icon={Search01Icon} className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500" />
+                      <input
+                        autoFocus
+                        type="text"
+                        placeholder="Search layouts..."
+                        value={layoutSearch}
+                        onChange={e => setLayoutSearch(e.target.value)}
+                        className="w-full pl-7 pr-2 py-1.5 text-xs bg-zinc-900 border border-zinc-800 rounded text-foreground placeholder:text-zinc-600 outline-none focus:border-primary/50"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="max-h-48 overflow-y-auto">
+                    {!userLayouts ? (
+                      <div className="px-3 py-4 text-xs text-zinc-500 text-center">Loading...</div>
+                    ) : userLayouts.length === 0 ? (
+                      <div className="px-3 py-4 text-xs text-zinc-500 text-center">
+                        No saved layouts yet.<br />
+                        <span className="text-zinc-600">Save one using the Save button above.</span>
+                      </div>
+                    ) : (
+                      (() => {
+                        const filtered = userLayouts.filter(l =>
+                          l.name.toLowerCase().includes(layoutSearch.toLowerCase())
+                        )
+                        if (filtered.length === 0) return (
+                          <div className="px-3 py-4 text-xs text-zinc-500 text-center">No results for "{layoutSearch}"</div>
+                        )
+                        return filtered.map(l => (
+                          <button
+                            key={l._id}
+                            onClick={() => {
+                              if (creatorsQuery) {
+                                const loadedStreams = l.streams.map((s, idx) => {
+                                  const creator = creatorsQuery.find(c => c._id === s.creatorId)
+                                  if (!creator) return null
+                                  return {
+                                    id: creator._id,
+                                    platform: creator.platform as any,
+                                    channel: creator.platform === "custom" && creator.platformId ? creator.platformId : creator.username,
+                                    displayName: creator.username,
+                                    type: s.type || "stream",
+                                    gridIndex: idx
+                                  }
+                                }).filter(Boolean) as StreamData[]
+                                setActiveLayoutId(l._id)
+                                setActiveStreams(loadedStreams)
+                                setGridSize("auto")
+                                toast.success(`Loaded "${l.name}"`)
+                              }
+                              setLayoutPickerOpen(false)
+                            }}
+                            className={cn(
+                              "w-full flex items-center justify-between px-3 py-2.5 text-xs text-left transition-colors hover:bg-zinc-800",
+                              activeLayoutId === l._id ? "text-primary bg-primary/5" : "text-zinc-300"
+                            )}
+                          >
+                            <span className="truncate">{l.name}</span>
+                            {activeLayoutId === l._id && (
+                              <span className="text-primary text-[10px] font-bold ml-2 shrink-0">Active</span>
+                            )}
+                          </button>
+                        ))
+                      })()
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
             
             <div className="h-4 w-px bg-border mx-1"></div>
             <button
