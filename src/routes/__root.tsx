@@ -7,7 +7,6 @@ import {
   useRouteContext,
 } from "@tanstack/react-router"
 import { createServerFn } from "@tanstack/react-start"
-import { lazy, Suspense } from "react"
 
 import { DefaultCatchBoundary } from "@/components/default-catch-boundary"
 import { NotFound } from "@/components/not-found"
@@ -30,7 +29,7 @@ import {
 
 import appCss from "../styles.css?url"
 
-const Devtools = null
+
 
 const getAuth = createServerFn({ method: "GET" }).handler(async () => {
   return await getToken()
@@ -148,11 +147,6 @@ function RootDocument({ children }: { children: React.ReactNode }) {
             <WebVitals />
             <main id="main">{children}</main>
             <Toaster />
-            {Devtools ? (
-              <Suspense fallback={null}>
-                <Devtools />
-              </Suspense>
-            ) : null}
           </ThemeProvider>
         </BetterAuthConvexProvider>
         <Scripts />
