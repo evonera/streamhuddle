@@ -667,7 +667,7 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
                   </div>
 
                   <div className="max-h-48 overflow-y-auto">
-                    {(!userLayouts || !discoverLayouts) ? (
+                    {(userLayouts === undefined && discoverLayouts === undefined) ? (
                       <div className="px-3 py-4 text-xs text-zinc-500 text-center">Loading...</div>
                     ) : allLayouts.length === 0 ? (
                       <div className="px-3 py-4 text-xs text-zinc-500 text-center">
@@ -688,6 +688,7 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
                             onClick={() => {
                               setActiveLayoutId(l._id)
                               setLayoutPickerOpen(false)
+                              setGridSize("auto")
                               
                               if (creatorsQuery) {
                                 const loadedStreams = l.streams.map((s, idx) => {
