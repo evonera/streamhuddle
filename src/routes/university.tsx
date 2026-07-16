@@ -7,8 +7,15 @@ export const Route = createFileRoute('/university')({
 
 function UniversityPage() {
   return (
-    <div className="min-h-screen bg-background w-full">
-      <RosterLayout autoLoadAll={true} />
+    <div className="min-h-screen bg-background w-full flex flex-col">
+      <div className="w-full bg-zinc-900 border-b border-border py-2 px-4 text-center">
+        <p className="text-xs text-muted-foreground font-mono">
+          <span className="text-primary font-bold">Note:</span> StreamHuddle is not affiliated with StreamerUniversity and KaiCenat, this is solely for users.
+        </p>
+      </div>
+      <div className="flex-1">
+        <RosterLayout autoLoadAll={true} />
+      </div>
     </div>
   )
 }

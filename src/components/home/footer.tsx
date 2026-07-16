@@ -94,10 +94,10 @@ export default function Footer() {
                             <FooterLink href="/pricing">Pro</FooterLink>
                         </FooterLinkColumn>
 
-                        <FooterLinkColumn title="COMMUNITY">
-                            <FooterLink href="https://ko-fi.com/streamhuddle">Ko-fi</FooterLink>
-                            <FooterLink href="https://github.com/StreamHuddleHQ/streamhuddle">GitHub</FooterLink>
-                            <FooterLink href="https://x.com/streamhuddlehq">X (Twitter)</FooterLink>
+                        <FooterLinkColumn title="Source">
+                            <FooterLink href="https://github.com/evonera/streamhuddle">GitHub</FooterLink>
+                            <FooterLink href="https://github.com/evonera/streamhuddle/issues">Issues</FooterLink>
+                            <FooterLink href="https://github.com/evonera/streamhuddle/blob/main/LICENSE">License</FooterLink>
                         </FooterLinkColumn>
 
                         <FooterLinkColumn title="COMPANY">
@@ -185,7 +185,7 @@ export default function Footer() {
                         </div>
                         <div className="flex items-center gap-4">
                             <SocialLink href="https://x.com/streamhuddlehq" icon={NewTwitterIcon} />
-                            <SocialLink href="https://github.com/StreamHuddleHQ/streamhuddle" icon={GithubIcon} />
+                            <SocialLink href="https://github.com/evonera/streamhuddle" icon={GithubIcon} />
                             <a
                                 href="https://ko-fi.com/streamhuddle"
                                 target="_blank"

@@ -17,6 +17,7 @@ import PanelRightCloseIcon from "@hugeicons/core-free-icons/PanelRightCloseIcon"
 import PanelRightOpenIcon from "@hugeicons/core-free-icons/PanelRightOpenIcon"
 import Message01Icon from "@hugeicons/core-free-icons/Message01Icon"
 import Search01Icon from "@hugeicons/core-free-icons/Search01Icon"
+import Search02Icon from "@hugeicons/core-free-icons/Search02Icon"
 import Share01Icon from "@hugeicons/core-free-icons/Share01Icon"
 import Tv01Icon from "@hugeicons/core-free-icons/Tv01Icon"
 import Maximize01Icon from "@hugeicons/core-free-icons/Maximize01Icon"
@@ -129,6 +130,21 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
   })
   
   const userLayouts = useQuery(api.roster.getUserLayouts)
+  const discoverLayouts = useQuery(api.roster.getDiscoverStreamLists)
+  
+  // Combine user layouts and discover layouts, avoiding duplicates (user layouts take precedence)
+  const allLayouts = (() => {
+    const combined = [...(userLayouts || [])]
+    if (discoverLayouts) {
+      discoverLayouts.forEach(dl => {
+        if (!combined.find(l => l._id === dl._id)) {
+          combined.push(dl as any)
+        }
+      })
+    }
+    return combined
+  })()
+
   const incrementViewsMutation = useMutation(api.roster.incrementStreamListViews)
   const sharedListQuery = useQuery(api.roster.getStreamListById, initialListId ? { id: initialListId as any } : "skip")
 
@@ -429,7 +445,7 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
                   <SelectValue placeholder="Category" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="all">All Categories</SelectItem>
                   <SelectItem value="Student">Student</SelectItem>
                   <SelectItem value="Professor">Professor</SelectItem>
                   <SelectItem value="Janitor">Janitor</SelectItem>
@@ -444,7 +460,7 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
                   <SelectValue placeholder="Language" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="all">All Languages</SelectItem>
                   {filtersQuery && filtersQuery.languages ? filtersQuery.languages.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>) : null}
                 </SelectContent>
               </Select>
@@ -532,10 +548,21 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
               aria-label="Home"
               className={cn(
                 buttonVariants({ variant: "ghost", size: "icon" }),
-                "h-8 w-8 [&_svg]:size-4 hidden sm:flex"
+                "h-8 w-8 [&_svg]:size-4 hidden sm:flex text-muted-foreground hover:text-foreground"
               )}
             >
               <HugeiconsIcon icon={Home01Icon} strokeWidth={2} />
+            </Link>
+            
+            <Link
+              to="/discover"
+              aria-label="Discover"
+              className={cn(
+                buttonVariants({ variant: "ghost", size: "icon" }),
+                "h-8 w-8 [&_svg]:size-4 hidden sm:flex text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <HugeiconsIcon icon={Search02Icon} strokeWidth={2} />
             </Link>
             
             <div className="h-4 w-px bg-border mx-1 hidden sm:block"></div>
@@ -614,8 +641,8 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
                 )}
               >
                 <span className="truncate">
-                  {activeLayoutId && userLayouts?.find(l => l._id === activeLayoutId)
-                    ? userLayouts.find(l => l._id === activeLayoutId)!.name
+                  {activeLayoutId && allLayouts.find(l => l._id === activeLayoutId)
+                    ? allLayouts.find(l => l._id === activeLayoutId)!.name
                     : "Load StreamList..."
                   }
                 </span>
@@ -640,16 +667,16 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
                   </div>
 
                   <div className="max-h-48 overflow-y-auto">
-                    {!userLayouts ? (
+                    {(!userLayouts || !discoverLayouts) ? (
                       <div className="px-3 py-4 text-xs text-zinc-500 text-center">Loading...</div>
-                    ) : userLayouts.length === 0 ? (
+                    ) : allLayouts.length === 0 ? (
                       <div className="px-3 py-4 text-xs text-zinc-500 text-center">
                         No saved layouts yet.<br />
                         <span className="text-zinc-600">Save one using the Save button above.</span>
                       </div>
                     ) : (
                       (() => {
-                        const filtered = userLayouts.filter(l =>
+                        const filtered = allLayouts.filter(l =>
                           l.name.toLowerCase().includes(layoutSearch.toLowerCase())
                         )
                         if (filtered.length === 0) return (
@@ -659,6 +686,9 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
                           <button
                             key={l._id}
                             onClick={() => {
+                              setActiveLayoutId(l._id)
+                              setLayoutPickerOpen(false)
+                              
                               if (creatorsQuery) {
                                 const loadedStreams = l.streams.map((s, idx) => {
                                   const creator = creatorsQuery.find(c => c._id === s.creatorId)
@@ -672,22 +702,16 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
                                     gridIndex: idx
                                   }
                                 }).filter(Boolean) as StreamData[]
-                                setActiveLayoutId(l._id)
                                 setActiveStreams(loadedStreams)
-                                setGridSize("auto")
-                                toast.success(`Loaded "${l.name}"`)
                               }
-                              setLayoutPickerOpen(false)
                             }}
                             className={cn(
-                              "w-full flex items-center justify-between px-3 py-2.5 text-xs text-left transition-colors hover:bg-zinc-800",
-                              activeLayoutId === l._id ? "text-primary bg-primary/5" : "text-zinc-300"
+                              "w-full text-left px-3 py-2 text-xs hover:bg-zinc-800 transition-colors flex items-center justify-between",
+                              activeLayoutId === l._id && "text-primary font-medium bg-zinc-800/50"
                             )}
                           >
                             <span className="truncate">{l.name}</span>
-                            {activeLayoutId === l._id && (
-                              <span className="text-primary text-[10px] font-bold ml-2 shrink-0">Active</span>
-                            )}
+                            <span className="text-[10px] text-zinc-500 ml-2 shrink-0">{l.streams?.length || 0} streams</span>
                           </button>
                         ))
                       })()
