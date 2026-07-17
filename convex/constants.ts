@@ -7,6 +7,7 @@
 // ============================================================================
 
 export const BIO_MAX_LENGTH = 500
+export const FAVORITE_STREAMER_MAX_LENGTH = 100
 
 // ============================================================================
 // Passwords (Better Auth `emailAndPassword`)

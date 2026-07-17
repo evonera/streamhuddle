@@ -2,6 +2,7 @@ import tailwindcss from "@tailwindcss/vite"
 import { devtools } from "@tanstack/devtools-vite"
 import { tanstackStart } from "@tanstack/react-start/plugin/vite"
 import viteReact from "@vitejs/plugin-react"
+import contentCollections from "@content-collections/vite"
 import { nitro } from "nitro/vite"
 import { visualizer } from "rollup-plugin-visualizer"
 import { defineConfig, loadEnv } from "vite"
@@ -82,6 +83,7 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [
       devtools(),
+      contentCollections(),
       tailwindcss(),
       tanstackStart({ srcDirectory: "src" }),
       viteReact(),

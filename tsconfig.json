@@ -25,7 +25,8 @@
     "allowJs": true,
     "paths": {
       "@/*": ["./src/*"],
-      "@convex/*": ["./convex/*"]
+      "@convex/*": ["./convex/*"],
+      "content-collections": ["./.content-collections/generated"]
     }
   }
 }
