@@ -11,18 +11,18 @@ const features = [
         visual: <PremiumComponent />
     },
     {
-        title: "Total Customization",
-        description: "Save unlimited custom layouts, arrange your chat sidebars, and tweak the theme to match your style.",
+        title: "Instant StreamLists",
+        description: "Save named layouts, share them publicly, and instantly load anyone's multi-stream setup in one click.",
         visual: <ThemingComponent />
     },
     {
         title: "100% Free Forever",
-        description: "Open source core designed by gamers, for gamers. No subscriptions required for the essentials.",
+        description: "No subscriptions, no paywalls. The core multi-viewer is free, forever. Open source and community-driven.",
         visual: <OpenSourceComponent />
     },
     {
-        title: "Production Ready",
-        description: "Built on high-performance streaming architecture for zero-latency multi-viewing.",
+        title: "Zero-Latency Viewing",
+        description: "Built on native browser embeds for the lowest possible stream delay — watch everything live, not buffered.",
         visual: <ProductionReadyComponent />
     }
 ];
