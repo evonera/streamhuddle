@@ -53,10 +53,15 @@ async function getTwitchToken(): Promise<string> {
   const clientSecret = process.env.TWITCH_CLIENT_SECRET
   if (!clientId || !clientSecret) throw new Error('Missing TWITCH_CLIENT_ID or TWITCH_CLIENT_SECRET')
 
-  const res = await fetch(
-    `https://id.twitch.tv/oauth2/token?client_id=${clientId}&client_secret=${clientSecret}&grant_type=client_credentials`,
-    { method: 'POST' }
-  )
+  const res = await fetch('https://id.twitch.tv/oauth2/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      grant_type: 'client_credentials',
+    }),
+  })
   if (!res.ok) throw new Error('Failed to get Twitch token')
   const data = await res.json()
   _cachedToken = { token: data.access_token, expiresAt: Date.now() + data.expires_in * 1000 }
@@ -89,18 +94,16 @@ const fetchStreamerData = createServerFn({ method: 'GET' })
     const user = usersData.data[0] as TwitchUser
     const broadcasterId = user.id
 
-    // 2. Get live status, channel info, clips, and follower count in parallel
-    const [streamsData, channelData, clipsData, followersData] = await Promise.all([
+    // 2. Get live status, channel info, clips in parallel
+    const [streamsData, channelData, clipsData] = await Promise.all([
       twitchFetch(`/streams?user_id=${broadcasterId}`),
       twitchFetch(`/channels?broadcaster_id=${broadcasterId}`),
       twitchFetch(`/clips?broadcaster_id=${broadcasterId}&first=6`),
-      twitchFetch(`/channels/followers?broadcaster_id=${broadcasterId}`),
     ])
 
     const stream = (streamsData.data?.[0] as TwitchStream | undefined) ?? null
     const channel = (channelData.data?.[0] as TwitchChannel | undefined) ?? ({} as TwitchChannel)
     const clips = (clipsData.data as TwitchClip[] | undefined) ?? []
-    const followerCount = (followersData.total as number | undefined) ?? 0
 
     return {
       user: {
@@ -130,7 +133,6 @@ const fetchStreamerData = createServerFn({ method: 'GET' })
         language: channel.broadcaster_language,
       },
       clips,
-      followerCount,
     }
   })
 
@@ -180,11 +182,7 @@ function formatViewerCount(n: number): string {
   return n.toString()
 }
 
-function formatFollowerCount(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
-  return n.toString()
-}
+
 
 function getStreamDuration(startedAt: string): string {
   const diff = Date.now() - new Date(startedAt).getTime()
@@ -206,7 +204,7 @@ function StreamerProfilePage() {
 
   if (!data) return null
 
-  const { user, stream, channel, clips, followerCount } = data
+  const { user, stream, channel, clips } = data
   const isLive = !!stream
 
   return (
@@ -291,10 +289,6 @@ function StreamerProfilePage() {
 
                 {/* Stats row */}
                 <div className="flex flex-wrap gap-4 mt-1">
-                  <div className="flex flex-col">
-                    <span className="text-white font-bold text-lg font-mono">{formatFollowerCount(followerCount)}</span>
-                    <span className="text-white/30 text-[10px] font-mono uppercase tracking-widest">Followers</span>
-                  </div>
                   <div className="flex flex-col">
                     <span className="text-white font-bold text-lg font-mono">{formatViewerCount(user.viewCount)}</span>
                     <span className="text-white/30 text-[10px] font-mono uppercase tracking-widest">Total Views</span>
