@@ -197,7 +197,7 @@ export default function Hero() {
                     >
                         <div className="flex items-center gap-3 font-mono text-xs tracking-widest text-white/40 uppercase">
                             <span className="h-px w-8 bg-white/10" />
-                            Trusted by developers worldwide
+                            Watch any stream. Any platform. All at once.
                             <span className="h-px w-8 bg-white/10" />
                         </div>
                         <motion.div
@@ -212,7 +212,7 @@ export default function Hero() {
                                 },
                             }}
                         >
-                            {['Any Platform', 'Unlimited Layouts', '100% Free'].map(
+                            {['Twitch', 'Kick', 'YouTube', 'Multi-Stream', '100% Free'].map(
                                 (stat) => (
                                     <motion.div
                                         key={stat}

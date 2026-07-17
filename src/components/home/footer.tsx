@@ -6,6 +6,7 @@ import DiscordIcon from "@hugeicons/core-free-icons/DiscordIcon";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { cn } from '@/lib/utils';
 import LogoIcon from '@/assets/logo-icon';
+import { TextHoverEffect } from "@/components/ui/text-hover-effect";
 
 function Crosshair({ position }: { position: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' }) {
     const isTop = position.startsWith('top');
@@ -56,6 +57,13 @@ function SocialLink({ href, icon: Icon }: { href: string; icon: any }) {
 export default function Footer() {
     return (
         <footer className="bg-background text-foreground relative mt-24 overflow-hidden border-t border-white/5 font-mono">
+            {/* STREAMHUDDLE Text Hover Effect */}
+            <div className="relative border-b border-white/5 py-2 overflow-hidden">
+              <div className="mx-auto max-w-5xl px-4" style={{ height: '100px' }}>
+                <TextHoverEffect text="STREAMHUDDLE" automatic />
+              </div>
+            </div>
+
             {/* Decorative Technical Crosshairs at the very edges */}
             <Crosshair position="top-left" />
             <Crosshair position="top-right" />
