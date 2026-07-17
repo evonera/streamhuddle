@@ -193,7 +193,6 @@ function getStreamDuration(startedAt: string): string {
 
 function StreamerProfilePage() {
   const data = Route.useLoaderData()
-  Route.useParams()
   const [parentDomain, setParentDomain] = useState('streamhuddle.pages.dev')
 
   useEffect(() => {
@@ -385,7 +384,7 @@ function StreamerProfilePage() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {clips.map((clip: any, i: number) => (
+                {clips.map((clip: TwitchClip, i: number) => (
                   <motion.a
                     key={clip.id}
                     href={clip.url}
@@ -421,7 +420,6 @@ function StreamerProfilePage() {
                         {clip.title}
                       </p>
                       <div className="flex items-center justify-between">
-                        <span className="text-white/30 text-[10px] font-mono">{clip.game_id ? channel.gameName : ''}</span>
                         <span className="text-white/30 text-[10px] font-mono">{formatViewerCount(clip.view_count)} views</span>
                       </div>
                     </div>

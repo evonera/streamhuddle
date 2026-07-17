@@ -97,7 +97,7 @@ export function PremiumComponent() {
                                 marginTop: -18,
                             }}
                             initial={{ x: cx, y: cy, opacity: 0, scale: 0 }}
-                            whileInView={{ x: cx, y: cy, opacity: 1, scale: 1 }}
+                            whileInView={{ opacity: 1, scale: 1 }}
                             animate={{
                                 x: [
                                     Math.cos((orbit.initialAngle * Math.PI) / 180) * orbit.radius,
