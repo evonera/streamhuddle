@@ -12,19 +12,28 @@ import Loading01Icon from "@hugeicons/core-free-icons/Loading01Icon";
 import Tv01Icon from "@hugeicons/core-free-icons/Tv01Icon";
 import Download01Icon from "@hugeicons/core-free-icons/Download01Icon";
 
-interface ClipModalProps {
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+interface BroadcasterData {
   broadcasterId: string;
   broadcasterName: string;
+}
+
+interface ClipModalProps {
+  broadcasters: BroadcasterData[];
   onClose: () => void;
   isPro: boolean;
 }
 
-export function ClipModal({ broadcasterId, broadcasterName, onClose, isPro }: ClipModalProps) {
+export function ClipModal({ broadcasters, onClose, isPro }: ClipModalProps) {
   const twitchToken = useQuery(api.twitchOAuth.getTwitchToken);
   const createClipJob = useMutation(api.clips.createClipJob);
   
   const [duration, setDuration] = useState<number>(30);
   const [removeWatermark, setRemoveWatermark] = useState<boolean>(false);
+  const [layout, setLayout] = useState<string>("9:16-vertical");
+  const [caption, setCaption] = useState<string>("");
   const [clipRecordId, setClipRecordId] = useState<Id<"clips"> | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -42,10 +51,11 @@ export function ClipModal({ broadcasterId, broadcasterName, onClose, isPro }: Cl
     try {
       setError(null);
       const id = await createClipJob({
-        broadcasterId,
-        broadcasterName,
+        broadcasters,
         duration,
         removeWatermark,
+        layout: layout as any,
+        caption: caption.trim() ? caption : undefined,
       });
       setClipRecordId(id);
     } catch (e: any) {
@@ -96,13 +106,13 @@ export function ClipModal({ broadcasterId, broadcasterName, onClose, isPro }: Cl
               
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label className="text-gray-300">Target Stream</Label>
+                  <Label className="text-gray-300">Target Streams</Label>
                   <div className="p-3 bg-black/50 rounded border border-[#333] text-white">
-                    {broadcasterName}
+                    {broadcasters.map(b => b.broadcasterName).join(", ")}
                   </div>
-                  {twitchToken.twitchUserId !== broadcasterId && (
-                    <p className="text-xs text-yellow-500 mt-1">
-                      Note: You can only download clips if you are the broadcaster.
+                  {broadcasters.length > 1 && (
+                    <p className="text-xs text-purple-400 mt-1">
+                      Multi-POV clip activated!
                     </p>
                   )}
                 </div>
@@ -122,6 +132,36 @@ export function ClipModal({ broadcasterId, broadcasterName, onClose, isPro }: Cl
                     ))}
                   </div>
                 </div>
+
+                <div className="space-y-2">
+                  <Label className="text-gray-300">Layout</Label>
+                  <Select value={layout} onValueChange={setLayout}>
+                    <SelectTrigger className="w-full bg-black/50 border-[#333] text-white">
+                      <SelectValue placeholder="Select Layout" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="9:16-vertical">Full Screen (9:16 Vertical)</SelectItem>
+                      {broadcasters.length > 1 && (
+                        <>
+                          <SelectItem value="split-screen">Split Screen (Top/Bottom)</SelectItem>
+                          <SelectItem value="sequential-ranking">Sequential Ranking</SelectItem>
+                        </>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {layout !== "9:16-vertical" && (
+                  <div className="space-y-2">
+                    <Label className="text-gray-300">Caption Text (Optional)</Label>
+                    <Input 
+                      placeholder="e.g. Rate this setup 1-10!"
+                      value={caption}
+                      onChange={(e) => setCaption(e.target.value)}
+                      className="bg-black/50 border-[#333] text-white placeholder:text-gray-600"
+                    />
+                  </div>
+                )}
 
                 <div className="flex items-center justify-between p-3 bg-black/30 border border-[#222] rounded-lg">
                   <div className="space-y-0.5">
@@ -173,8 +213,10 @@ export function ClipModal({ broadcasterId, broadcasterName, onClose, isPro }: Cl
                   
                   {/* Invisible compositor that triggers the auto-download once finished */}
                   <WebCodecsCompositor 
-                    videoUrl={videoUrl}
+                    videoUrls={videoUrl}
                     removeWatermark={removeWatermark}
+                    layout={clipStatus.layout as any}
+                    caption={clipStatus.caption}
                   />
                 </div>
               )}

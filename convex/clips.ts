@@ -7,10 +7,18 @@ import { workflow } from "./clipWorkflow";
 
 export const createClipJob = mutation({
   args: {
-    broadcasterId: v.string(),
-    broadcasterName: v.string(),
+    broadcasters: v.array(v.object({
+      broadcasterId: v.string(),
+      broadcasterName: v.string(),
+    })),
     duration: v.number(),
     removeWatermark: v.boolean(),
+    layout: v.union(
+      v.literal("split-screen"),
+      v.literal("sequential-ranking"),
+      v.literal("9:16-vertical")
+    ),
+    caption: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const user = await requireAuthenticatedUser(ctx);
@@ -30,28 +38,28 @@ export const createClipJob = mutation({
         throw new Error("Twitch authentication required or expired. Please connect Twitch.");
     }
 
-    // Check if the user is clipping their own stream (required for download endpoint)
-    if (tokenRecord.twitchUserId !== args.broadcasterId) {
-        throw new Error("You can only clip your own stream due to Twitch API limitations.");
-    }
+    // We no longer check if tokenRecord.twitchUserId === args.broadcasterId
+    // because we use the thumbnail trick to download the .mp4 without editor auth!
 
     // Create the clip record
     const clipRecordId = await ctx.db.insert("clips", {
         userId: user._id,
         status: "creating",
-        streams: [{
-            broadcasterId: args.broadcasterId,
-            broadcasterName: args.broadcasterName,
-        }],
+        streams: args.broadcasters.map(b => ({
+            broadcasterId: b.broadcasterId,
+            broadcasterName: b.broadcasterName,
+        })),
         duration: args.duration,
-        isMultiPov: false,
+        layout: args.layout,
+        caption: args.caption,
+        isMultiPov: args.broadcasters.length > 1,
         createdAt: Date.now(),
     });
 
     // Start the workflow asynchronously
     await workflow.start(ctx, internal.clipWorkflow.clipPipeline, {
         clipRecordId,
-        broadcasterId: args.broadcasterId,
+        broadcasterIds: args.broadcasters.map(b => b.broadcasterId),
     }, { startAsync: true });
     
     return clipRecordId;
@@ -86,9 +94,14 @@ export const getClipVideoUrl = query({
         throw new Error("Clip not found");
     }
 
-    const r2Key = clip.streams[0]?.r2Key;
-    if (!r2Key) return null;
-
-    return await r2.getUrl(r2Key);
+    const urls: string[] = [];
+    for (const stream of clip.streams) {
+        if (stream.r2Key) {
+            const url = await r2.getUrl(stream.r2Key);
+            if (url) urls.push(url);
+        }
+    }
+    
+    return urls;
   }
 });

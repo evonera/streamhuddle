@@ -1,5 +1,6 @@
 import { internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { getTwitchAccessToken } from "./twitch";
 import { v } from "convex/values";
 import { r2 } from "./r2";
 
@@ -48,60 +49,83 @@ export const createTwitchClip = internalAction({
   },
 });
 
-export const getClipDownloadUrl = internalAction({
+export const getClipDownloadUrlsViaThumbnail = internalAction({
   args: {
-    clipId: v.string(),
-    broadcasterId: v.string(),
+    clipIds: v.array(v.string()),
   },
-  handler: async (ctx, args): Promise<string> => {
-    const token: string = await ctx.runQuery(internal.clipActions.getTwitchTokenByBroadcaster, { broadcasterId: args.broadcasterId });
-    const response: Response = await fetch(
-      `https://api.twitch.tv/helix/clips/downloads?broadcaster_id=${args.broadcasterId}&editor_id=${args.broadcasterId}&clip_id=${args.clipId}`,
-      {
+  handler: async (ctx, args): Promise<string[]> => {
+    if (args.clipIds.length === 0) return [];
+    const token = await getTwitchAccessToken(ctx);
+    
+    // Split into chunks of 50 to avoid URL length limits
+    const chunkSize = 50;
+    const allUrls: string[] = [];
+    
+    for (let i = 0; i < args.clipIds.length; i += chunkSize) {
+      const chunk = args.clipIds.slice(i, i + chunkSize);
+      const url = new URL("https://api.twitch.tv/helix/clips");
+      chunk.forEach(id => url.searchParams.append("id", id));
+
+      const response = await fetch(url.toString(), {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
           "Client-Id": process.env.TWITCH_CLIENT_ID!,
         },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Twitch Get Clips Error:", errorText);
+        throw new Error(`Failed to get clips metadata: ${response.status}`);
       }
-    );
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Twitch Get Clip Download Error:", errorText);
-      throw new Error(`Failed to get clip download url: ${response.status}`);
+      const data = await response.json();
+      
+      // Order the URLs to match the input clipIds array
+      for (const id of chunk) {
+        const clipData = data.data.find((c: any) => c.id === id);
+        if (!clipData || !clipData.thumbnail_url) {
+          throw new Error(`Clip metadata or thumbnail not found for ${id}`);
+        }
+        // Thumbnail URL trick: replace -preview...jpg with .mp4
+        const mp4Url = clipData.thumbnail_url.replace(/-preview-.*\.jpg$/, ".mp4");
+        allUrls.push(mp4Url);
+      }
     }
-
-    const data = await response.json();
-    const clipData = data.data.find((c: any) => c.clip_id === args.clipId);
-    if (!clipData || !clipData.landscape_download_url) {
-      throw new Error("Download URL not found in response");
-    }
-
-    return clipData.landscape_download_url as string;
+    
+    return allUrls;
   },
 });
 
 export const downloadAndStoreInR2 = internalAction({
   args: {
-    downloadUrl: v.string(),
+    downloadUrls: v.array(v.string()),
   },
   handler: async (ctx, args) => {
-    const response = await fetch(args.downloadUrl);
-    if (!response.ok) {
-      throw new Error(`Failed to download clip from Twitch: ${response.status}`);
-    }
+    const keys: string[] = [];
 
-    const blob = await response.blob();
-    
-    // Store in R2
-    const key = `clips/${crypto.randomUUID()}.mp4`;
-    await r2.store(ctx, blob, {
-        key,
-        type: "video/mp4"
-    });
+    // Download and store concurrently
+    await Promise.all(
+      args.downloadUrls.map(async (url) => {
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`Failed to download clip from Twitch: ${response.status}`);
+        }
 
-    return key;
+        const blob = await response.blob();
+        
+        // Store in R2
+        const key = `clips/${crypto.randomUUID()}.mp4`;
+        await r2.store(ctx, blob, {
+            key,
+            type: "video/mp4"
+        });
+        keys.push(key);
+      })
+    );
+
+    return keys;
   },
 });
 
@@ -114,8 +138,8 @@ export const updateClipStatus = internalMutation({
       v.literal("ready"),
       v.literal("failed")
     ),
-    clipId: v.optional(v.string()),
-    r2Key: v.optional(v.string()),
+    clipIds: v.optional(v.array(v.string())),
+    r2Keys: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     const patch: any = { status: args.status };
@@ -123,14 +147,13 @@ export const updateClipStatus = internalMutation({
     const clip = await ctx.db.get(args.clipRecordId);
     if (!clip) throw new Error("Clip not found");
 
-    if (args.clipId || args.r2Key) {
-        // Since we only do single-stream clips now, update the first stream in the array
+    if (args.clipIds || args.r2Keys) {
         const streams = [...clip.streams];
-        if (streams.length > 0) {
-            if (args.clipId) streams[0].clipId = args.clipId;
-            if (args.r2Key) streams[0].r2Key = args.r2Key;
-            patch.streams = streams;
+        for (let i = 0; i < streams.length; i++) {
+            if (args.clipIds && args.clipIds[i]) streams[i].clipId = args.clipIds[i];
+            if (args.r2Keys && args.r2Keys[i]) streams[i].r2Key = args.r2Keys[i];
         }
+        patch.streams = streams;
     }
 
     await ctx.db.patch(args.clipRecordId, patch);

@@ -128,7 +128,12 @@ export default defineSchema({
       r2Key: v.optional(v.string()),       // R2 storage key for downloaded .mp4
     })),
     duration: v.number(),         // Clip duration in seconds
-    layout: v.optional(v.string()), // e.g. "9:16-vertical"
+    layout: v.optional(v.union(
+      v.literal("split-screen"),
+      v.literal("sequential-ranking"),
+      v.literal("9:16-vertical")
+    )),
+    caption: v.optional(v.string()), // Custom dynamic text for the clip
     isMultiPov: v.boolean(),
     createdAt: v.number(),
   })

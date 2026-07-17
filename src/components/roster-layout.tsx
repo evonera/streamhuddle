@@ -852,11 +852,18 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
             </div>
           )}
 
-          {/* Clip Modal Overlay */}
           {clipModalOpen && (
             <ClipModal 
-              broadcasterId={twitchToken?.twitchUserId || ""}
-              broadcasterName={twitchToken?.twitchUsername || ""}
+              broadcasters={activeStreams
+                .filter(s => s.platform === 'twitch' && (!s.type || s.type === 'stream'))
+                .map(s => {
+                  const creator = creatorsQuery?.find(c => c._id === s.id);
+                  return {
+                    broadcasterId: creator?.platformId || s.channel,
+                    broadcasterName: s.channel
+                  };
+                })
+              }
               isPro={isPro}
               onClose={() => setClipModalOpen(false)}
             />
