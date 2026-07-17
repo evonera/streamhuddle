@@ -4,24 +4,35 @@ import { getTwitchAccessToken } from "./twitch";
 import { v } from "convex/values";
 import { r2 } from "./r2";
 
-export const getTwitchTokenByBroadcaster = internalQuery({
-  args: { broadcasterId: v.string() },
+export const getClipUserId = internalQuery({
+  args: { clipRecordId: v.id("clips") },
+  handler: async (ctx, args) => {
+    const clip = await ctx.db.get(args.clipRecordId);
+    return clip ? { userId: clip.userId } : null;
+  }
+});
+
+export const getTwitchTokenByUser = internalQuery({
+  args: { userId: v.string() },
   handler: async (ctx, args) => {
     const tokenRecord = await ctx.db
       .query("twitchUserTokens")
-      .withIndex("by_twitchUserId", (q) => q.eq("twitchUserId", args.broadcasterId))
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
       .first();
-    if (!tokenRecord) throw new Error("No token for this broadcaster");
+    if (!tokenRecord) throw new Error("No Twitch token connected for this user");
     return tokenRecord.accessToken;
   }
 });
 
 export const createTwitchClip = internalAction({
   args: {
+    clipRecordId: v.id("clips"),
     broadcasterId: v.string(),
   },
   handler: async (ctx, args): Promise<string> => {
-    const token: string = await ctx.runQuery(internal.clipActions.getTwitchTokenByBroadcaster, { broadcasterId: args.broadcasterId });
+    const clip = await ctx.runQuery(internal.clipActions.getClipUserId, { clipRecordId: args.clipRecordId });
+    if (!clip) throw new Error("Clip not found");
+    const token: string = await ctx.runQuery(internal.clipActions.getTwitchTokenByUser, { userId: clip.userId });
 
     // 1. Create Clip
     const response = await fetch(
@@ -103,10 +114,8 @@ export const downloadAndStoreInR2 = internalAction({
     downloadUrls: v.array(v.string()),
   },
   handler: async (ctx, args) => {
-    const keys: string[] = [];
-
-    // Download and store concurrently
-    await Promise.all(
+    // Download and store concurrently, preserving array order
+    const keys = await Promise.all(
       args.downloadUrls.map(async (url) => {
         const response = await fetch(url);
         if (!response.ok) {
@@ -121,7 +130,7 @@ export const downloadAndStoreInR2 = internalAction({
             key,
             type: "video/mp4"
         });
-        keys.push(key);
+        return key;
       })
     );
 

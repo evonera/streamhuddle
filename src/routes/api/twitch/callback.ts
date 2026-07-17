@@ -69,6 +69,10 @@ export const Route = createFileRoute("/api/twitch/callback")({
             }
 
             const userData = await userRes.json();
+            if (!userData.data || userData.data.length === 0) {
+                console.error("Twitch API returned empty user data", userData);
+                return Response.redirect(new URL("/roster?error=twitch_user_not_found", request.url).toString());
+            }
             const twitchUser = userData.data[0];
 
             // 3. Get the Convex Auth Token
