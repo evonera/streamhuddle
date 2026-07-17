@@ -1,6 +1,41 @@
-// @ts-nocheck
 import { createFileRoute, Link, notFound } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
+import { useEffect, useState } from 'react'
+
+interface TwitchUser {
+  id: string
+  login: string
+  display_name: string
+  profile_image_url: string
+  offline_image_url: string
+  description: string
+  view_count: number
+}
+
+interface TwitchStream {
+  title: string
+  game_name: string
+  viewer_count: number
+  started_at: string
+  thumbnail_url: string
+  tags: string[]
+}
+
+interface TwitchChannel {
+  game_name: string
+  title: string
+  broadcaster_language: string
+}
+
+interface TwitchClip {
+  id: string
+  url: string
+  title: string
+  thumbnail_url: string
+  duration: number
+  view_count: number
+  game_id: string
+}
 import { motion } from 'motion/react'
 import Navbar from '@/components/home/navbar'
 import Footer from '@/components/home/footer'
@@ -51,21 +86,21 @@ const fetchStreamerData = createServerFn({ method: 'GET' })
     // 1. Get user
     const usersData = await twitchFetch(`/users?login=${username}`)
     if (!usersData.data?.length) throw notFound()
-    const user = usersData.data[0]
+    const user = usersData.data[0] as TwitchUser
     const broadcasterId = user.id
 
     // 2. Get live status, channel info, clips, and follower count in parallel
     const [streamsData, channelData, clipsData, followersData] = await Promise.all([
       twitchFetch(`/streams?user_id=${broadcasterId}`),
       twitchFetch(`/channels?broadcaster_id=${broadcasterId}`),
-      twitchFetch(`/clips?broadcaster_id=${broadcasterId}&first=6&sort=views`),
+      twitchFetch(`/clips?broadcaster_id=${broadcasterId}&first=6`),
       twitchFetch(`/channels/followers?broadcaster_id=${broadcasterId}`),
     ])
 
-    const stream = streamsData.data?.[0] ?? null
-    const channel = channelData.data?.[0] ?? {}
-    const clips = clipsData.data ?? []
-    const followerCount = followersData.total ?? 0
+    const stream = (streamsData.data?.[0] as TwitchStream | undefined) ?? null
+    const channel = (channelData.data?.[0] as TwitchChannel | undefined) ?? ({} as TwitchChannel)
+    const clips = (clipsData.data as TwitchClip[] | undefined) ?? []
+    const followerCount = (followersData.total as number | undefined) ?? 0
 
     return {
       user: {
@@ -107,7 +142,7 @@ export const Route = createFileRoute('/streamer/$username')({
   },
   head: ({ loaderData, params }) => {
     if (!loaderData) return { meta: [] }
-    const { user, stream, channel } = loaderData
+    const { user, stream } = loaderData
     const title = stream
       ? `${user.displayName} is LIVE — Watch on StreamHuddle`
       : `${user.displayName} — Streamer Profile · StreamHuddle`
@@ -160,7 +195,14 @@ function getStreamDuration(startedAt: string): string {
 
 function StreamerProfilePage() {
   const data = Route.useLoaderData()
-  const { username } = Route.useParams()
+  Route.useParams()
+  const [parentDomain, setParentDomain] = useState('streamhuddle.pages.dev')
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setParentDomain(window.location.hostname)
+    }
+  }, [])
 
   if (!data) return null
 
@@ -263,6 +305,7 @@ function StreamerProfilePage() {
                 <div className="flex flex-wrap gap-3 mt-2">
                   <Link
                     to="/roster"
+                    // @ts-expect-error - search param typing for streams
                     search={{ streams: user.login }}
                     className="inline-flex items-center gap-2 bg-primary text-background font-mono font-bold tracking-widest uppercase px-5 py-2.5 text-xs hover:bg-primary/90 transition-colors active:scale-[0.97]"
                   >
@@ -304,8 +347,9 @@ function StreamerProfilePage() {
                 transition={{ delay: 0.2, duration: 0.5 }}
               >
                 <iframe
+                  key={parentDomain}
                   className="absolute inset-0 h-full w-full"
-                  src={`https://player.twitch.tv/?channel=${user.login}&parent=streamhuddle.pages.dev&parent=localhost&autoplay=false`}
+                  src={`https://player.twitch.tv/?channel=${user.login}&parent=${parentDomain}&autoplay=false`}
                   allowFullScreen
                   title={`${user.displayName} live stream`}
                 />
@@ -416,6 +460,7 @@ function StreamerProfilePage() {
               </p>
               <Link
                 to="/roster"
+                // @ts-expect-error - search param typing for streams
                 search={{ streams: user.login }}
                 className="inline-flex items-center gap-2 bg-primary text-background font-mono font-bold tracking-widest uppercase px-8 py-3.5 text-sm hover:bg-primary/90 transition-colors active:scale-[0.97]"
               >

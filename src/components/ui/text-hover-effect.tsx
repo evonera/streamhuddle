@@ -58,7 +58,7 @@ export const TextHoverEffect = ({
       className="select-none"
     >
       <defs>
-        <linearGradient
+        <radialGradient
           id="textGradient"
           gradientUnits="userSpaceOnUse"
           cx="50%"
@@ -74,7 +74,7 @@ export const TextHoverEffect = ({
               <stop offset="100%" stopColor="#a3ff12" />
             </>
           )}
-        </linearGradient>
+        </radialGradient>
 
         <motion.radialGradient
           id="revealMask"

@@ -38,11 +38,6 @@ const PLATFORM_ICONS = {
   ),
 }
 
-function getPlatformFromType(type: string, username: string) {
-  if (type === 'chat') return null
-  // basic heuristic — in real data this would be a field
-  return 'twitch'
-}
 
 function StreamListCard({ list, index }: { list: any; index: number }) {
   const platformBreakdown: Record<string, number> = {}
