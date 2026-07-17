@@ -105,9 +105,46 @@ export default defineSchema({
     .index("by_user", ["authId"])
     .index("by_views", ["views"]),
 
-  // 6. Twitch Tokens: Cached OAuth tokens
+  // 6. Twitch Tokens: Cached OAuth tokens (App Access Tokens)
   twitchTokens: defineTable({
     token: v.string(),
     expiresAt: v.number(), // timestamp ms
   }),
+
+  // 7. Clips: Records of clips being created/processed
+  clips: defineTable({
+    userId: v.string(),           // Better Auth user authId
+    workflowId: v.optional(v.string()), // Convex Workflow ID
+    status: v.union(
+      v.literal("creating"),      // Twitch API creating clips
+      v.literal("downloading"),   // Downloading from Twitch CDN to R2
+      v.literal("ready"),         // Clips available for client compositing
+      v.literal("failed"),
+    ),
+    streams: v.array(v.object({   // Which streams were clipped
+      broadcasterId: v.string(),
+      broadcasterName: v.string(),
+      clipId: v.optional(v.string()),      // Twitch clip ID
+      r2Key: v.optional(v.string()),       // R2 storage key for downloaded .mp4
+    })),
+    duration: v.number(),         // Clip duration in seconds
+    layout: v.optional(v.string()), // e.g. "9:16-vertical"
+    isMultiPov: v.boolean(),
+    createdAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_status", ["status"]),
+
+  // 8. Twitch User Tokens: User OAuth tokens for clip creation
+  twitchUserTokens: defineTable({
+    userId: v.string(),           // Better Auth user authId
+    twitchUserId: v.string(),     // Twitch user ID
+    twitchUsername: v.string(),
+    accessToken: v.string(),      // OAuth access token
+    refreshToken: v.string(),     // OAuth refresh token
+    scopes: v.string(),           // Space-separated scopes
+    expiresAt: v.number(),        // Token expiry timestamp
+  })
+    .index("by_user", ["userId"])
+    .index("by_twitchUserId", ["twitchUserId"]),
 })

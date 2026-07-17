@@ -28,6 +28,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { useConvexAuth } from 'convex/react'
+import Video01Icon from "@hugeicons/core-free-icons/Video01Icon"
+import { ClipModal } from "./clip/ClipModal"
+import { authClient } from "@/lib/auth-client"
 
 const SESSION_STORAGE_KEY = 'streamhuddle-session'
 
@@ -83,6 +86,14 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
   const [saveLayoutName, setSaveLayoutName] = useState("")
   const saveLayoutMutation = useMutation(api.roster.saveLayout)
   const [isSaving, setIsSaving] = useState(false)
+
+  // Clip state
+  const [clipModalOpen, setClipModalOpen] = useState(false)
+  const twitchToken = useQuery(api.twitchOAuth.getTwitchToken)
+  
+  // User isPro check (via BetterAuth or Convex)
+  const { data: session } = authClient.useSession()
+  const isPro = session?.user?.isPro || false
 
   useEffect(() => {
     if (typeof window !== 'undefined' && window.innerWidth <= 768) {
@@ -568,6 +579,17 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
             <div className="h-4 w-px bg-border mx-1 hidden sm:block"></div>
             
             <div className="hidden md:flex items-center gap-2">
+              {/* Clip Feature Button */}
+              <Button 
+                onClick={() => setClipModalOpen(true)}
+                size="sm"
+                variant="outline"
+                className="h-8 gap-1.5 text-xs border-purple-500/30 text-purple-400 hover:text-purple-300 hover:bg-purple-500/10"
+                title="Create a Clip"
+              >
+                <HugeiconsIcon icon={Video01Icon} className="w-3.5 h-3.5" /> Clip
+              </Button>
+
               {/* Save Layout Button */}
               <Button 
                 onClick={handleSaveLayout}
@@ -828,6 +850,16 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
                 </div>
               </div>
             </div>
+          )}
+
+          {/* Clip Modal Overlay */}
+          {clipModalOpen && (
+            <ClipModal 
+              broadcasterId={twitchToken?.twitchUserId || ""}
+              broadcasterName={twitchToken?.twitchUsername || ""}
+              isPro={isPro}
+              onClose={() => setClipModalOpen(false)}
+            />
           )}
 
           {/* Escape Theater Mode Overlay */}
