@@ -56,10 +56,10 @@ export const createClipJob = mutation({
         createdAt: Date.now(),
     });
 
-    // Start the workflow asynchronously
     const workflowId = await workflow.start(ctx, internal.clipWorkflow.clipPipeline, {
         clipRecordId,
         broadcasterIds: args.broadcasters.map(b => b.broadcasterId),
+        duration: args.duration,
     });
     
     await ctx.db.patch(clipRecordId, { workflowId });

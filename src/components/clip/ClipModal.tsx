@@ -217,6 +217,7 @@ export function ClipModal({ broadcasters, onClose, isPro }: ClipModalProps) {
                     removeWatermark={removeWatermark}
                     layout={clipStatus.layout as any}
                     caption={clipStatus.caption}
+                    duration={clipStatus.duration}
                   />
                 </div>
               )}

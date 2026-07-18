@@ -28,6 +28,7 @@ export const createTwitchClip = internalAction({
   args: {
     clipRecordId: v.id("clips"),
     broadcasterId: v.string(),
+    duration: v.number(),
   },
   handler: async (ctx, args): Promise<string> => {
     const clip = await ctx.runQuery(internal.clipActions.getClipUserId, { clipRecordId: args.clipRecordId });
@@ -36,7 +37,7 @@ export const createTwitchClip = internalAction({
 
     // 1. Create Clip
     const response = await fetch(
-      `https://api.twitch.tv/helix/clips?broadcaster_id=${args.broadcasterId}`,
+      `https://api.twitch.tv/helix/clips?broadcaster_id=${args.broadcasterId}&duration=${args.duration}`,
       {
         method: "POST",
         headers: {

@@ -8,6 +8,7 @@ export const clipPipeline = workflow.define({
   args: {
     clipRecordId: v.id("clips"),
     broadcasterIds: v.array(v.string()),
+    duration: v.number(),
   },
   handler: async (step, args) => {
     try {
@@ -16,7 +17,7 @@ export const clipPipeline = workflow.define({
       args.broadcasterIds.map(broadcasterId =>
         step.runAction(
           internal.clipActions.createTwitchClip,
-          { broadcasterId, clipRecordId: args.clipRecordId },
+          { broadcasterId, clipRecordId: args.clipRecordId, duration: args.duration },
           { retry: { maxAttempts: 3, initialBackoffMs: 2000, base: 2 } }
         )
       )

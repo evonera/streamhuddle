@@ -5,9 +5,10 @@ interface WebCodecsCompositorProps {
   removeWatermark: boolean;
   layout?: "9:16-vertical" | "split-screen" | "sequential-ranking";
   caption?: string;
+  duration?: number;
 }
 
-export function WebCodecsCompositor({ videoUrls, removeWatermark, layout = "9:16-vertical", caption }: WebCodecsCompositorProps) {
+export function WebCodecsCompositor({ videoUrls, removeWatermark, layout = "9:16-vertical", caption, duration }: WebCodecsCompositorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isProcessing, setIsProcessing] = useState(true);
@@ -183,6 +184,14 @@ export function WebCodecsCompositor({ videoUrls, removeWatermark, layout = "9:16
     const playVideos = () => {
       startRecording();
       
+      if (duration && duration > 0) {
+        setTimeout(() => {
+          if (mediaRecorder && mediaRecorder.state !== "inactive") {
+            mediaRecorder.stop();
+          }
+        }, duration * 1000);
+      }
+      
       if (layout === "split-screen") {
           // Play first two videos simultaneously
           videos[0]?.play();
@@ -220,7 +229,7 @@ export function WebCodecsCompositor({ videoUrls, removeWatermark, layout = "9:16
       if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
       videos.forEach(v => { v.pause(); v.src = ""; });
     };
-  }, [videoUrls, removeWatermark, layout, caption]);
+  }, [videoUrls, removeWatermark, layout, caption, duration]);
 
   if (!isProcessing) {
       return <div className="text-sm text-green-400 mt-2 font-medium">Export complete! Check your downloads.</div>;
