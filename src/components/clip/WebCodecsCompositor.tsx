@@ -11,8 +11,10 @@ export function WebCodecsCompositor({ videoUrls, removeWatermark, layout = "9:16
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isProcessing, setIsProcessing] = useState(true);
+  const isCancelledRef = useRef(false);
 
   useEffect(() => {
+    isCancelledRef.current = false;
     if (!videoUrls || videoUrls.length === 0) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -151,6 +153,7 @@ export function WebCodecsCompositor({ videoUrls, removeWatermark, layout = "9:16
       mediaRecorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 5000000 });
       mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
       mediaRecorder.onstop = () => {
+        if (isCancelledRef.current) return;
         const blob = new Blob(chunks, { type: mimeType });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
@@ -212,6 +215,7 @@ export function WebCodecsCompositor({ videoUrls, removeWatermark, layout = "9:16
     }
 
     return () => {
+      isCancelledRef.current = true;
       cancelAnimationFrame(animationFrameId);
       if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
       videos.forEach(v => { v.pause(); v.src = ""; });
