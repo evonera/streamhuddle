@@ -184,7 +184,9 @@ export function WebCodecsCompositor({ videoUrls, removeWatermark, layout = "9:16
 
     const playVideoSequentially = (index: number) => {
         if (index >= videos.length) {
-            mediaRecorder.stop();
+            if (mediaRecorder && mediaRecorder.state !== "inactive") {
+                mediaRecorder.stop();
+            }
             return;
         }
         currentVideoIndex = index;
@@ -214,7 +216,9 @@ export function WebCodecsCompositor({ videoUrls, removeWatermark, layout = "9:16
           const onVideoEnd = () => {
               endedCount++;
               if (endedCount === Math.min(2, videos.length)) {
-                  mediaRecorder.stop();
+                  if (mediaRecorder && mediaRecorder.state !== "inactive") {
+                      mediaRecorder.stop();
+                  }
               }
           };
           if (videos[0]) videos[0].onended = onVideoEnd;
@@ -224,7 +228,9 @@ export function WebCodecsCompositor({ videoUrls, removeWatermark, layout = "9:16
       } else {
           // Default 9:16
           videos[0]?.play();
-          if (videos[0]) videos[0].onended = () => mediaRecorder.stop();
+          if (videos[0]) videos[0].onended = () => {
+              if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
+          };
       }
     };
 
