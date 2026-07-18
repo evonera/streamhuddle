@@ -102,6 +102,11 @@ export const getClipDownloadUrlsViaThumbnail = internalAction({
         }
         // Thumbnail URL trick: replace -preview...jpg with .mp4
         const mp4Url = clipData.thumbnail_url.replace(/-preview-.*\.jpg$/, ".mp4");
+        
+        if (!mp4Url.endsWith(".mp4")) {
+          throw new Error(`Failed to extract MP4 URL from thumbnail for clip ${id}: ${clipData.thumbnail_url}`);
+        }
+        
         allUrls.push(mp4Url);
       }
     }
