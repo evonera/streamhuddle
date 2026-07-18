@@ -76,7 +76,7 @@ export const Route = createFileRoute("/api/twitch/callback")({
             const twitchUser = userData.data[0];
 
             // 3. Get the Convex Auth Token
-            const convexToken = getToken(request);
+            const convexToken = await getToken();
             if (!convexToken) {
                 // Not logged in to StreamHuddle
                 return Response.redirect(new URL("/sign-in?redirect=/roster", request.url).toString());

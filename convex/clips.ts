@@ -57,10 +57,12 @@ export const createClipJob = mutation({
     });
 
     // Start the workflow asynchronously
-    await workflow.start(ctx, internal.clipWorkflow.clipPipeline, {
+    const workflowId = await workflow.start(ctx, internal.clipWorkflow.clipPipeline, {
         clipRecordId,
         broadcasterIds: args.broadcasters.map(b => b.broadcasterId),
-    }, { startAsync: true });
+    });
+    
+    await ctx.db.patch(clipRecordId, { workflowId });
     
     return clipRecordId;
   },
@@ -85,6 +87,7 @@ export const getClipStatus = query({
 export const getClipVideoUrl = query({
   args: {
     clipRecordId: v.id("clips"),
+    ts: v.optional(v.number()), // Cache buster
   },
   handler: async (ctx, args) => {
     const user = await requireAuthenticatedUser(ctx);

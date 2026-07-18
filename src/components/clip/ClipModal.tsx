@@ -44,7 +44,7 @@ export function ClipModal({ broadcasters, onClose, isPro }: ClipModalProps) {
 
   const videoUrl = useQuery(
     api.clips.getClipVideoUrl,
-    clipRecordId && clipStatus?.status === "ready" ? { clipRecordId } : "skip"
+    clipRecordId && clipStatus?.status === "ready" ? { clipRecordId, ts: Math.floor(Date.now() / (1000 * 60 * 5)) } : "skip"
   );
 
   const handleClip = async () => {
@@ -135,7 +135,7 @@ export function ClipModal({ broadcasters, onClose, isPro }: ClipModalProps) {
 
                 <div className="space-y-2">
                   <Label className="text-gray-300">Layout</Label>
-                  <Select value={layout} onValueChange={setLayout}>
+                  <Select value={layout} onValueChange={(val) => setLayout(val as string)}>
                     <SelectTrigger className="w-full bg-black/50 border-[#333] text-white">
                       <SelectValue placeholder="Select Layout" />
                     </SelectTrigger>

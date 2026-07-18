@@ -49,7 +49,7 @@ export const saveTwitchToken = mutation({
 
 export const getTwitchToken = query({
   args: {},
-  handler: async (ctx, args) => {
+  handler: async (ctx) => {
     const user = await requireAuthenticatedUser(ctx);
     const token = await ctx.db
       .query("twitchUserTokens")
@@ -67,7 +67,7 @@ export const getTwitchToken = query({
 
 export const disconnectTwitch = mutation({
   args: {},
-  handler: async (ctx, args) => {
+  handler: async (ctx) => {
     const user = await requireAuthenticatedUser(ctx);
     const existing = await ctx.db
       .query("twitchUserTokens")

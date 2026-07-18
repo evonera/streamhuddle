@@ -57,7 +57,13 @@ export function WebCodecsCompositor({ videoUrls, removeWatermark, layout = "9:16
               const w = canvas.width;
               const dh = topVideo.videoHeight * scale;
               const dy = (h - dh) / 2;
+              
+              ctx.save();
+              ctx.beginPath();
+              ctx.rect(0, 0, canvas.width, h);
+              ctx.clip();
               ctx.drawImage(topVideo, 0, dy, w, dh);
+              ctx.restore();
           }
           if (!bottomVideo.paused && !bottomVideo.ended) {
               const h = canvas.height / 2;
@@ -65,7 +71,13 @@ export function WebCodecsCompositor({ videoUrls, removeWatermark, layout = "9:16
               const w = canvas.width;
               const dh = bottomVideo.videoHeight * scale;
               const dy = h + (h - dh) / 2;
+              
+              ctx.save();
+              ctx.beginPath();
+              ctx.rect(0, h, canvas.width, h);
+              ctx.clip();
               ctx.drawImage(bottomVideo, 0, dy, w, dh);
+              ctx.restore();
           }
           
           // Draw dividing line
@@ -98,8 +110,6 @@ export function WebCodecsCompositor({ videoUrls, removeWatermark, layout = "9:16
         
         // Draw background box for text
         ctx.font = "bold 80px Montserrat, Inter, sans-serif";
-        const textMetrics = ctx.measureText(caption);
-        const textWidth = textMetrics.width;
         
         // The Y position changes based on layout
         let textY = layout === "split-screen" ? canvas.height / 2 : canvas.height / 2 - 400;

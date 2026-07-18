@@ -89,11 +89,10 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
 
   // Clip state
   const [clipModalOpen, setClipModalOpen] = useState(false)
-  const twitchToken = useQuery(api.twitchOAuth.getTwitchToken)
   
   // User isPro check (via BetterAuth or Convex)
   const { data: session } = authClient.useSession()
-  const isPro = session?.user?.isPro || false
+  const isPro = (session?.user as any)?.isPro || false
 
   useEffect(() => {
     if (typeof window !== 'undefined' && window.innerWidth <= 768) {
