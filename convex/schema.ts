@@ -134,6 +134,7 @@ export default defineSchema({
       v.literal("9:16-vertical")
     )),
     caption: v.optional(v.string()), // Custom dynamic text for the clip
+    removeWatermark: v.optional(v.boolean()), // Pro feature tracking
     isMultiPov: v.boolean(),
     createdAt: v.number(),
   })

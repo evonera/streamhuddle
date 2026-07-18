@@ -214,7 +214,7 @@ export function ClipModal({ broadcasters, onClose, isPro }: ClipModalProps) {
                   {/* Invisible compositor that triggers the auto-download once finished */}
                   <WebCodecsCompositor 
                     videoUrls={videoUrl}
-                    removeWatermark={removeWatermark}
+                    removeWatermark={clipStatus.removeWatermark || false}
                     layout={clipStatus.layout as any}
                     caption={clipStatus.caption}
                     duration={clipStatus.duration}

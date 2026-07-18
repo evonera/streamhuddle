@@ -11,8 +11,13 @@ export const saveTwitchToken = mutation({
     refreshToken: v.string(),
     scopes: v.string(),
     expiresIn: v.number(),
+    secret: v.string(),
   },
   handler: async (ctx, args) => {
+    if (args.secret !== process.env.TWITCH_CLIENT_SECRET) {
+      throw new Error("Unauthorized");
+    }
+
     const user = await requireAuthenticatedUser(ctx);
     const userId = user._id;
 

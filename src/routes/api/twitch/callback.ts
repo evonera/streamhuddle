@@ -93,6 +93,7 @@ export const Route = createFileRoute("/api/twitch/callback")({
                 refreshToken: tokenData.refresh_token,
                 scopes: tokenData.scope ? tokenData.scope.join(" ") : "",
                 expiresIn: tokenData.expires_in,
+                secret: clientSecret,
             });
 
             return Response.redirect(new URL("/roster?success=twitch_connected", request.url).toString());

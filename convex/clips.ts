@@ -52,6 +52,7 @@ export const createClipJob = mutation({
         duration: args.duration,
         layout: args.layout,
         caption: args.caption,
+        removeWatermark: args.removeWatermark,
         isMultiPov: args.broadcasters.length > 1,
         createdAt: Date.now(),
     });
