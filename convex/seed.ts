@@ -35,6 +35,7 @@ export const seedSUData = internalAction({
     });
 
     await ctx.runMutation(internal.seed.commitSeedData, { creators: enrichedCreators });
+    await ctx.runMutation(internal.seed.fixCategories, {});
     return { success: true, count: enrichedCreators.length };
   }
 });
@@ -64,14 +65,17 @@ export const commitSeedData = internalMutation({
       });
     }
 
+    const existingCreators = await ctx.db.query("creators").collect();
+    const creatorMap = new Map(existingCreators.map(c => [`${c.platform}:${c.username.toLowerCase()}`, c]));
+
+    const existingRosters = eventId 
+      ? await ctx.db.query("roster").withIndex("by_event", q => q.eq("eventId", eventId!)).collect()
+      : [];
+    const rosterSet = new Set(existingRosters.map(r => `${r.creatorId}:${r.category}`));
+
     for (const c of args.creators) {
-      const existing = await ctx.db
-        .query("creators")
-        .withIndex("by_platform_and_username", q => 
-          q.eq("platform", c.platform as any).eq("username", c.username)
-        )
-        .first();
-      
+      const key = `${c.platform}:${c.username.toLowerCase()}`;
+      let existing = creatorMap.get(key);
       let creatorId = existing?._id;
       if (!creatorId) {
         creatorId = await ctx.db.insert("creators", {
@@ -81,20 +85,19 @@ export const commitSeedData = internalMutation({
           avatarUrl: c.avatarUrl,
           description: c.description,
           offlineImageUrl: c.offlineImageUrl,
+          categories: [c.category],
         });
+        creatorMap.set(key, { _id: creatorId, platform: c.platform, username: c.username } as any);
       }
 
-      const existingRoster = await ctx.db.query("roster")
-        .withIndex("by_event", q => q.eq("eventId", eventId!))
-        .filter(q => q.eq(q.field("creatorId"), creatorId!))
-        .first();
-      
-      if (!existingRoster) {
+      const rosterKey = `${creatorId}:${c.category}`;
+      if (!rosterSet.has(rosterKey)) {
         await ctx.db.insert("roster", {
           eventId: eventId!,
           creatorId: creatorId!,
           category: c.category,
         });
+        rosterSet.add(rosterKey);
       }
     }
     return null;
@@ -113,12 +116,18 @@ export const fixCategories = internalMutation({
   args: {},
   handler: async (ctx) => {
     const creators = await ctx.db.query("creators").collect();
+    const allRosters = await ctx.db.query("roster").collect();
+    const rostersByCreator = new Map<string, Set<string>>();
+    
+    for (const r of allRosters) {
+      if (!rostersByCreator.has(r.creatorId)) {
+        rostersByCreator.set(r.creatorId, new Set<string>());
+      }
+      rostersByCreator.get(r.creatorId)!.add(r.category);
+    }
+
     for (const c of creators) {
-      const rosters = await ctx.db
-        .query("roster")
-        .withIndex("by_creator", (q) => q.eq("creatorId", c._id))
-        .collect();
-      const categories = Array.from(new Set(rosters.map((r) => r.category)));
+      const categories: string[] = Array.from(rostersByCreator.get(c._id) || new Set<string>());
       await ctx.db.patch(c._id, { categories });
     }
   },

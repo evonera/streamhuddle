@@ -456,6 +456,7 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Categories</SelectItem>
+                  <SelectItem value="Alumni 2025">Alumni 2025</SelectItem>
                   <SelectItem value="Student">Student</SelectItem>
                   <SelectItem value="Professor">Professor</SelectItem>
                   <SelectItem value="Janitor">Janitor</SelectItem>
