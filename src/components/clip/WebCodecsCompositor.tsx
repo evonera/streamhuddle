@@ -12,10 +12,12 @@ export function WebCodecsCompositor({ videoUrls, removeWatermark, layout = "9:16
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isProcessing, setIsProcessing] = useState(true);
+  const [captureError, setCaptureError] = useState<string | null>(null);
   const isCancelledRef = useRef(false);
 
   useEffect(() => {
     isCancelledRef.current = false;
+    setCaptureError(null);
     if (!videoUrls || videoUrls.length === 0) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -146,13 +148,19 @@ export function WebCodecsCompositor({ videoUrls, removeWatermark, layout = "9:16
     };
 
     const startRecording = () => {
-      const stream = canvas.captureStream(30);
-      const mimeType = MediaRecorder.isTypeSupported("video/mp4") 
-        ? "video/mp4" 
-        : "video/webm;codecs=vp9";
-        
-      mediaRecorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 5000000 });
-      mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+      if (typeof canvas.captureStream !== "function") {
+        setCaptureError("Your browser does not support video rendering (captureStream). Please try Chrome, Firefox, or Edge.");
+        setIsProcessing(false);
+        return;
+      }
+      try {
+        const stream = canvas.captureStream(30);
+        const mimeType = MediaRecorder.isTypeSupported("video/mp4") 
+          ? "video/mp4" 
+          : "video/webm;codecs=vp9";
+          
+        mediaRecorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 5000000 });
+        mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
       mediaRecorder.onstop = () => {
         if (isCancelledRef.current) return;
         const blob = new Blob(chunks, { type: mimeType });
@@ -168,6 +176,10 @@ export function WebCodecsCompositor({ videoUrls, removeWatermark, layout = "9:16
       };
       mediaRecorder.start();
       drawFrame();
+      } catch (err: any) {
+        setCaptureError(`Failed to start recording: ${err.message}`);
+        setIsProcessing(false);
+      }
     };
 
     const playVideoSequentially = (index: number) => {
@@ -230,6 +242,10 @@ export function WebCodecsCompositor({ videoUrls, removeWatermark, layout = "9:16
       videos.forEach(v => { v.pause(); v.src = ""; });
     };
   }, [videoUrls, removeWatermark, layout, caption, duration]);
+
+  if (captureError) {
+      return <div className="text-sm text-red-400 mt-2 font-medium">{captureError}</div>;
+  }
 
   if (!isProcessing) {
       return <div className="text-sm text-green-400 mt-2 font-medium">Export complete! Check your downloads.</div>;
