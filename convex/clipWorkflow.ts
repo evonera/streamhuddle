@@ -16,7 +16,7 @@ export const clipPipeline = workflow.define({
       args.broadcasterIds.map(broadcasterId =>
         step.runAction(
           internal.clipActions.createTwitchClip,
-          { broadcasterId },
+          { broadcasterId, clipRecordId: args.clipRecordId },
           { retry: { maxAttempts: 3, initialBackoffMs: 2000, base: 2 } }
         )
       )
