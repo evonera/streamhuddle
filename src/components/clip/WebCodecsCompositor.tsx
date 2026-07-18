@@ -238,6 +238,10 @@ export function WebCodecsCompositor({ videoUrls, removeWatermark, layout = "9:16
       playVideos();
     } else {
       watermarkImg.onload = playVideos;
+      watermarkImg.onerror = () => {
+        setCaptureError("Failed to load watermark. Please check your network and try again.");
+        setIsProcessing(false);
+      };
       watermarkImg.src = "/watermark.svg";
     }
 

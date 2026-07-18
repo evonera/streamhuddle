@@ -858,10 +858,11 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
                 .map(s => {
                   const creator = creatorsQuery?.find(c => c._id === s.id);
                   return {
-                    broadcasterId: creator?.platformId || s.channel,
+                    broadcasterId: creator?.platformId || "",
                     broadcasterName: s.channel
                   };
                 })
+                .filter(b => b.broadcasterId && /^\d+$/.test(b.broadcasterId))
               }
               isPro={isPro}
               onClose={() => setClipModalOpen(false)}
