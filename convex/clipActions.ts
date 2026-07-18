@@ -35,9 +35,11 @@ export const createTwitchClip = internalAction({
     if (!clip) throw new Error("Clip not found");
     const token: string = await ctx.runQuery(internal.clipActions.getTwitchTokenByUser, { userId: clip.userId });
 
-    // 1. Create Clip
+    // 1. Create Clip (Note: Twitch POST /helix/clips only accepts broadcaster_id and has_delay.
+    // Every clip created via Twitch API captures ~30 seconds by default. The user-selected duration
+    // is applied during the client-side compositing/trimming stage in WebCodecsCompositor.)
     const response = await fetch(
-      `https://api.twitch.tv/helix/clips?broadcaster_id=${args.broadcasterId}&duration=${args.duration}`,
+      `https://api.twitch.tv/helix/clips?broadcaster_id=${args.broadcasterId}`,
       {
         method: "POST",
         headers: {

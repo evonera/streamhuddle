@@ -101,6 +101,9 @@ export const getClipVideoUrl = query({
     const urls: string[] = [];
     for (const stream of clip.streams) {
         if (stream.r2Key) {
+            // Note: @convex-dev/r2's r2.getUrl uses local AWS SDK crypto signing (@aws-sdk/s3-request-presigner)
+            // to generate pre-signed URLs without any external HTTP/I/O calls. It is officially designed
+            // and supported for use inside Convex queries.
             const url = await r2.getUrl(stream.r2Key);
             if (url) urls.push(url);
         }
