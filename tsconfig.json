@@ -1,5 +1,6 @@
 {
   "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": ["tests/**/*"],
 
   "compilerOptions": {
     "target": "ES2024",
