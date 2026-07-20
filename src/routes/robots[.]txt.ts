@@ -1,6 +1,11 @@
-# robots.txt: see https://www.robotstxt.org
+import { createFileRoute } from '@tanstack/react-router'
+import { SITE_URL } from '@/lib/site'
 
-User-agent: *
+export const Route = createFileRoute('/robots.txt')({
+  server: {
+    handlers: {
+      GET: async () => {
+        const robots = `User-agent: *
 Allow: /
 
 # Block known AI training crawlers. Search/citation bots (Googlebot,
@@ -19,4 +24,14 @@ User-agent: anthropic-ai
 User-agent: cohere-ai
 Disallow: /
 
-Sitemap: https://streamhuddle.pages.dev/sitemap.xml
+Sitemap: ${SITE_URL}/sitemap.xml`
+
+        return new Response(robots, {
+          headers: {
+            'Content-Type': 'text/plain',
+          },
+        })
+      },
+    },
+  },
+})
