@@ -205,6 +205,14 @@ function StreamerProfilePage() {
     username: data?.user?.login ?? "",
   })
 
+  const currentUser = useQuery(api.users.getMe)
+  const isStreamer = currentUser && creator && (
+    currentUser.username?.toLowerCase() === creator.username.toLowerCase() ||
+    // @ts-ignore - BetterAuth type fallback
+    currentUser.displayUsername?.toLowerCase() === creator.username.toLowerCase() ||
+    currentUser.role === "admin"
+  )
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       setParentDomain(window.location.hostname)
@@ -365,7 +373,7 @@ function StreamerProfilePage() {
         {isLive && creator && (
           <section className="border-b border-white/5 py-12">
             <Container>
-              <ChatQueueListener channelName={data.user.login} creatorId={creator._id} />
+              {isStreamer && <ChatQueueListener channelName={data.user.login} creatorId={creator._id} />}
               <ClipQueueWidget creatorId={creator._id} />
             </Container>
           </section>

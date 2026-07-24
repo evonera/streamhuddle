@@ -95,7 +95,7 @@ export const submitClip = authMutation({
       clipUrl: args.clipUrl,
       title: args.title,
       thumbnailUrl: args.thumbnailUrl,
-      status: "approved",
+      status: "pending",
       upvotes: 0,
       createdAt: Date.now(),
     })
