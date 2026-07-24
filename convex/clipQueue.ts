@@ -1,6 +1,6 @@
 import { v } from "convex/values"
 import { query } from "./_generated/server"
-import { authMutation } from "./functions"
+import { authMutation, optionalAuthQuery } from "./functions"
 import { rateLimitWithThrow } from "./rateLimit"
 
 // ============================================================================
@@ -12,7 +12,7 @@ import { rateLimitWithThrow } from "./rateLimit"
  * Returns approved clips sorted by upvotes (most popular first).
  * Used by ClipQueueWidget on /streamer/$username.
  */
-export const getLiveQueue = query({
+export const getLiveQueue = optionalAuthQuery({
   args: { creatorId: v.id("creators") },
   handler: async (ctx, args) => {
     const items = await ctx.db
@@ -21,8 +21,24 @@ export const getLiveQueue = query({
         q.eq("creatorId", args.creatorId).eq("status", "approved")
       )
       .collect()
-    // Sort by upvotes descending (most popular first)
-    return items.sort((a, b) => b.upvotes - a.upvotes)
+    
+    const sorted = items.sort((a, b) => b.upvotes - a.upvotes)
+
+    if (!ctx.user) {
+      return sorted.map(item => ({ ...item, hasVoted: false }))
+    }
+
+    return await Promise.all(
+      sorted.map(async (item) => {
+        const vote = await ctx.db
+          .query("clipQueueVotes")
+          .withIndex("by_item_and_user", (q) =>
+            q.eq("queueItemId", item._id).eq("userId", ctx.user!._id)
+          )
+          .first()
+        return { ...item, hasVoted: !!vote }
+      })
+    )
   },
 })
 
@@ -41,6 +57,7 @@ export const submitClip = authMutation({
     clipUrl: v.string(),
     title: v.string(),
     thumbnailUrl: v.optional(v.string()),
+    submitterTwitchName: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     // Rate limit: prevent chat spam from draining Convex bill
@@ -49,10 +66,9 @@ export const submitClip = authMutation({
     // Dedup: same URL on same creator → boost upvote instead of duplicate
     const existing = await ctx.db
       .query("clipQueue")
-      .withIndex("by_creator_and_createdAt", (q) =>
-        q.eq("creatorId", args.creatorId)
+      .withIndex("by_creator_and_url", (q) =>
+        q.eq("creatorId", args.creatorId).eq("clipUrl", args.clipUrl)
       )
-      .filter((q) => q.eq(q.field("clipUrl"), args.clipUrl))
       .first()
 
     if (existing && existing.status !== "played") {
@@ -60,10 +76,22 @@ export const submitClip = authMutation({
       return existing._id
     }
 
+    // Determine correct submitter name
+    const creator = await ctx.db.get(args.creatorId)
+    const isStreamer = creator && (
+      ctx.user.username?.toLowerCase() === creator.username.toLowerCase() ||
+      ctx.user.displayUsername?.toLowerCase() === creator.username.toLowerCase() ||
+      ctx.user.role === "admin"
+    )
+    
+    const submitterName = (isStreamer && args.submitterTwitchName) 
+      ? args.submitterTwitchName 
+      : (ctx.user.name ?? "Anonymous")
+
     return await ctx.db.insert("clipQueue", {
       creatorId: args.creatorId,
       submitterId: ctx.user._id,
-      submitterName: ctx.user.name ?? "Anonymous",
+      submitterName,
       clipUrl: args.clipUrl,
       title: args.title,
       thumbnailUrl: args.thumbnailUrl,
@@ -131,6 +159,18 @@ export const setClipStatus = authMutation({
   handler: async (ctx, args) => {
     const item = await ctx.db.get(args.queueItemId)
     if (!item) throw new Error("Queue item not found")
+
+    const creator = await ctx.db.get(item.creatorId)
+    if (!creator) throw new Error("Creator not found")
+
+    const isStreamer = 
+      ctx.user.username?.toLowerCase() === creator.username.toLowerCase() ||
+      ctx.user.displayUsername?.toLowerCase() === creator.username.toLowerCase() ||
+      ctx.user.role === "admin"
+
+    if (!isStreamer) {
+      throw new Error("Unauthorized: Only the streamer can moderate their queue")
+    }
 
     await ctx.db.patch(args.queueItemId, { status: args.status })
   },

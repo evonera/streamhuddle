@@ -172,7 +172,8 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_creator_and_status", ["creatorId", "status"])
-    .index("by_creator_and_createdAt", ["creatorId", "createdAt"]),
+    .index("by_creator_and_createdAt", ["creatorId", "createdAt"])
+    .index("by_creator_and_url", ["creatorId", "clipUrl"]),
 
   // 10. Clip Queue Votes: One vote per user per queue item
   clipQueueVotes: defineTable({

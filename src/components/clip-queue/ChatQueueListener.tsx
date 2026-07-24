@@ -46,10 +46,13 @@ export function ChatQueueListener({ channelName, creatorId }: ChatQueueListenerP
       const url = extractTwitchClipUrl(message)
       if (!url) return
 
+      const submitterTwitchName = tags["display-name"] ?? "viewer"
+
       submitClip({
         creatorId,
         clipUrl: url,
-        title: `Clip from ${tags["display-name"] ?? "viewer"}`,
+        title: `Clip from ${submitterTwitchName}`,
+        submitterTwitchName,
       }).catch((err) => {
         // Silently handle auth errors (viewer not logged in) and rate limits
         console.warn("[ChatQueueListener] Failed to submit clip:", err.message)

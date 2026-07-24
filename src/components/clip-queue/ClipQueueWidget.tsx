@@ -82,16 +82,28 @@ export function ClipQueueWidget({ creatorId }: ClipQueueWidgetProps) {
               {/* Upvote Button */}
               <button
                 onClick={() => upvote({ queueItemId: item._id }).catch(console.error)}
-                className="flex flex-col items-center gap-0.5 px-2.5 py-1.5 border border-white/10 hover:border-primary/30 hover:bg-primary/5 transition-all group shrink-0"
+                className={`flex flex-col items-center gap-0.5 px-2.5 py-1.5 border hover:border-primary/30 transition-all group shrink-0 ${
+                  item.hasVoted
+                    ? "border-primary/30 bg-primary/10"
+                    : "border-white/10 hover:bg-primary/5"
+                }`}
               >
                 <svg
-                  className="h-3 w-3 text-white/40 group-hover:text-primary transition-colors"
+                  className={`h-3 w-3 transition-colors ${
+                    item.hasVoted
+                      ? "text-primary"
+                      : "text-white/40 group-hover:text-primary"
+                  }`}
                   fill="currentColor"
                   viewBox="0 0 24 24"
                 >
                   <path d="M12 4l-8 8h5v8h6v-8h5z" />
                 </svg>
-                <span className="text-white font-mono text-[11px] font-bold group-hover:text-primary transition-colors">
+                <span className={`font-mono text-[11px] font-bold transition-colors ${
+                  item.hasVoted
+                    ? "text-primary"
+                    : "text-white group-hover:text-primary"
+                }`}>
                   {item.upvotes}
                 </span>
               </button>
