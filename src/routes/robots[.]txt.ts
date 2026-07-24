@@ -1,10 +1,12 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { SITE_URL } from '@/lib/site'
 
 export const Route = createFileRoute('/robots.txt')({
   server: {
     handlers: {
       GET: async () => {
+        // Use process.env.SITE_URL injected by vite.config.ts to perfectly match the sitemap plugin
+        const siteUrl = process.env.SITE_URL || "http://localhost:3000"
+        
         const robots = `User-agent: *
 Allow: /
 
@@ -24,7 +26,7 @@ User-agent: anthropic-ai
 User-agent: cohere-ai
 Disallow: /
 
-Sitemap: ${SITE_URL}/sitemap.xml`
+Sitemap: ${siteUrl}/sitemap.xml`
 
         return new Response(robots, {
           headers: {
