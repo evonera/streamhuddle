@@ -31,6 +31,9 @@ import { useConvexAuth } from 'convex/react'
 import Video01Icon from "@hugeicons/core-free-icons/Video01Icon"
 import { ClipModal } from "./clip/ClipModal"
 import { authClient } from "@/lib/auth-client"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { MultiClipQueueWidget } from "./clip-queue/ClipQueueWidget"
+import type { Id } from "@convex/_generated/dataModel"
 
 const SESSION_STORAGE_KEY = 'streamhuddle-session'
 
@@ -881,59 +884,74 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
         </div>
       </div>
 
-      {/* Right Sidebar: Chat */}
+      {/* Right Sidebar */}
       {rightSidebarOpen && !theaterMode && (
         <>
           <div className="md:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[60]" onClick={() => setRightSidebarOpen(false)} />
           <div className="fixed md:relative top-0 right-0 md:top-auto md:right-auto z-[70] md:z-40 w-[85vw] max-w-[340px] md:w-80 shrink-0 h-full md:h-[calc(100vh-1rem)] flex flex-col bg-card border-l md:border border-border md:rounded-xl shadow-2xl md:shadow-xl overflow-hidden">
-          <div className="flex items-center justify-between p-3 border-b border-border bg-card/80 backdrop-blur shrink-0">
-            <div className="flex items-center gap-2">
-              <HugeiconsIcon icon={Message01Icon} size={16} className="text-primary" />
-              <h2 className="font-bold text-foreground text-sm">Universal Chat</h2>
-            </div>
-            <button onClick={() => setRightSidebarOpen(false)} className="text-muted-foreground hover:text-foreground">
-              <HugeiconsIcon icon={PanelRightCloseIcon} size={18} />
-            </button>
-          </div>
-
-          {videoStreams.length > 0 && (
-            <div className="p-2 border-b border-border bg-background shrink-0">
-              <Select value={activeChatId?.toString() || ""} onValueChange={setActiveChatId}>
-                <SelectTrigger className="w-full text-xs h-8">
-                  <SelectValue placeholder="Select stream chat">
-                    {activeChatStream ? (
-                      <div className="flex items-center truncate">
-                        <span className="capitalize text-muted-foreground mr-1">[{activeChatStream.platform}]</span>
-                        <span className="truncate">{activeChatStream.displayName || activeChatStream.channel}</span>
-                      </div>
-                    ) : "Select stream chat"}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {videoStreams.map(s => (
-                    <SelectItem key={s.id} value={s.id.toString()}>
-                      <span className="capitalize text-muted-foreground mr-1">[{s.platform}]</span> 
-                      {s.displayName || s.channel}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-          
-          <div className="flex-1 bg-background overflow-hidden relative">
-            {videoStreams.length > 0 && activeChatStream ? (
-              <ChatBox 
-                platform={activeChatStream.platform} 
-                channel={activeChatStream.channel} 
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-zinc-600 text-sm">
-                Add streams to view chat
+            <Tabs defaultValue="chat" className="flex flex-col h-full">
+              <div className="flex items-center justify-between p-2 border-b border-border bg-card/80 backdrop-blur shrink-0">
+                <TabsList className="bg-zinc-900 border border-border">
+                  <TabsTrigger value="chat" className="text-xs px-3">Chat</TabsTrigger>
+                  <TabsTrigger value="queue" className="text-xs px-3">Clips</TabsTrigger>
+                </TabsList>
+                <button onClick={() => setRightSidebarOpen(false)} className="text-muted-foreground hover:text-foreground mr-1">
+                  <HugeiconsIcon icon={PanelRightCloseIcon} size={18} />
+                </button>
               </div>
-            )}
+
+              {/* Chat Tab Content */}
+              <TabsContent value="chat" className="flex-1 flex flex-col m-0 p-0 overflow-hidden outline-none data-[state=inactive]:hidden">
+                {videoStreams.length > 0 && (
+                  <div className="p-2 border-b border-border bg-background shrink-0">
+                    <Select value={activeChatId?.toString() || ""} onValueChange={setActiveChatId}>
+                      <SelectTrigger className="w-full text-xs h-8">
+                        <SelectValue placeholder="Select stream chat">
+                          {activeChatStream ? (
+                            <div className="flex items-center truncate">
+                              <span className="capitalize text-muted-foreground mr-1">[{activeChatStream.platform}]</span>
+                              <span className="truncate">{activeChatStream.displayName || activeChatStream.channel}</span>
+                            </div>
+                          ) : "Select stream chat"}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {videoStreams.map(s => (
+                          <SelectItem key={s.id} value={s.id.toString()}>
+                            <span className="capitalize text-muted-foreground mr-1">[{s.platform}]</span> 
+                            {s.displayName || s.channel}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                
+                <div className="flex-1 bg-background overflow-hidden relative">
+                  {videoStreams.length > 0 && activeChatStream ? (
+                    <ChatBox 
+                      platform={activeChatStream.platform} 
+                      channel={activeChatStream.channel} 
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-zinc-600 text-sm">
+                      Add streams to view chat
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+
+              {/* Clip Queue Tab Content */}
+              <TabsContent value="queue" className="flex-1 flex flex-col m-0 p-0 overflow-hidden outline-none data-[state=inactive]:hidden bg-[#141414]">
+                <MultiClipQueueWidget 
+                  creatorIds={activeStreams
+                    .filter(s => !s.id.startsWith("custom-")) // Only Convex creator IDs
+                    .map(s => s.id as Id<"creators">)
+                  } 
+                />
+              </TabsContent>
+            </Tabs>
           </div>
-        </div>
         </>
       )}
     </div>
