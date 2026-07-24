@@ -304,7 +304,7 @@ export const deleteClip = authMutation({
     // Delete any associated votes to keep the database clean
     const votes = await ctx.db
       .query("clipQueueVotes")
-      .withIndex("by_item_and_user", (q) => q.eq("queueItemId", args.queueItemId))
+      .withIndex("by_item", (q) => q.eq("queueItemId", args.queueItemId))
       .collect()
       
     await Promise.all(votes.map(vote => ctx.db.delete(vote._id)))

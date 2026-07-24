@@ -95,7 +95,10 @@ export function StreamerControlPanel({ creatorId }: StreamerControlPanelProps) {
               {/* Moderation Controls */}
               <div className="flex items-center gap-2 shrink-0">
                 <button
-                  onClick={() => setStatus({ queueItemId: item._id, status: "played" }).catch(console.error)}
+                  onClick={() => setStatus({ queueItemId: item._id, status: "played" }).catch((err) => {
+                    console.error(err)
+                    alert("Failed to mark as played. Please try again.")
+                  })}
                   title="Mark as played (Removes from live queue)"
                   className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-green-500/10 border border-white/10 hover:border-green-500/30 text-white/60 hover:text-green-400 transition-all font-mono text-[10px] uppercase font-bold tracking-wider"
                 >
@@ -103,7 +106,14 @@ export function StreamerControlPanel({ creatorId }: StreamerControlPanelProps) {
                   Played
                 </button>
                 <button
-                  onClick={() => deleteClip({ queueItemId: item._id }).catch(console.error)}
+                  onClick={() => {
+                    if (window.confirm("Are you sure you want to permanently delete this clip from the queue?")) {
+                      deleteClip({ queueItemId: item._id }).catch((err) => {
+                        console.error(err)
+                        alert("Failed to delete clip. Please try again.")
+                      })
+                    }
+                  }}
                   title="Delete clip permanently"
                   className="flex items-center justify-center w-8 h-8 bg-white/5 hover:bg-red-500/10 border border-white/10 hover:border-red-500/30 text-white/40 hover:text-red-400 transition-all"
                 >
