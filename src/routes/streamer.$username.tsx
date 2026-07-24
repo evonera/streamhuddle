@@ -42,6 +42,7 @@ import Footer from '@/components/home/footer'
 import Container from '@/components/home/container'
 
 import { ClipQueueWidget } from "@/components/clip-queue/ClipQueueWidget"
+import { StreamerControlPanel } from "@/components/clip-queue/StreamerControlPanel"
 import { ChatQueueListener } from "@/components/clip-queue/ChatQueueListener"
 import { useQuery } from "convex/react"
 import { api } from "@convex/_generated/api"
@@ -374,7 +375,11 @@ function StreamerProfilePage() {
           <section className="border-b border-white/5 py-12">
             <Container>
               {isStreamer && <ChatQueueListener channelName={data.user.login} creatorId={creator._id} />}
-              <ClipQueueWidget creatorId={creator._id} />
+              {isStreamer ? (
+                <StreamerControlPanel creatorId={creator._id} />
+              ) : (
+                <ClipQueueWidget creatorId={creator._id} />
+              )}
             </Container>
           </section>
         )}

@@ -276,3 +276,39 @@ export const setClipStatus = authMutation({
     await ctx.db.patch(args.queueItemId, { status: args.status })
   },
 })
+
+/**
+ * Delete a queue item (for streamer moderation controls).
+ * Used to permanently remove troll or irrelevant clips from the queue.
+ */
+export const deleteClip = authMutation({
+  args: {
+    queueItemId: v.id("clipQueue"),
+  },
+  handler: async (ctx, args) => {
+    const item = await ctx.db.get(args.queueItemId)
+    if (!item) throw new Error("Queue item not found")
+
+    const creator = await ctx.db.get(item.creatorId)
+    if (!creator) throw new Error("Creator not found")
+
+    const isStreamer = 
+      ctx.user.username?.toLowerCase() === creator.username.toLowerCase() ||
+      ctx.user.displayUsername?.toLowerCase() === creator.username.toLowerCase() ||
+      ctx.user.role === "admin"
+
+    if (!isStreamer) {
+      throw new Error("Unauthorized: Only the streamer can delete their queue items")
+    }
+
+    // Delete any associated votes to keep the database clean
+    const votes = await ctx.db
+      .query("clipQueueVotes")
+      .withIndex("by_item_and_user", (q) => q.eq("queueItemId", args.queueItemId))
+      .collect()
+      
+    await Promise.all(votes.map(vote => ctx.db.delete(vote._id)))
+
+    await ctx.db.delete(args.queueItemId)
+  },
+})
