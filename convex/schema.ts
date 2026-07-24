@@ -153,4 +153,32 @@ export default defineSchema({
   })
     .index("by_user", ["userId"])
     .index("by_twitchUserId", ["twitchUserId"]),
+
+  // 9. Clip Queue: Viewer-submitted clips for streamer pages
+  clipQueue: defineTable({
+    creatorId: v.id("creators"),
+    submitterId: v.optional(v.id("users")),
+    submitterName: v.string(),
+    clipUrl: v.string(),
+    thumbnailUrl: v.optional(v.string()),
+    title: v.string(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("approved"),
+      v.literal("playing"),
+      v.literal("played")
+    ),
+    upvotes: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_creator_and_status", ["creatorId", "status"])
+    .index("by_creator_and_createdAt", ["creatorId", "createdAt"])
+    .index("by_creator_and_url", ["creatorId", "clipUrl"]),
+
+  // 10. Clip Queue Votes: One vote per user per queue item
+  clipQueueVotes: defineTable({
+    queueItemId: v.id("clipQueue"),
+    userId: v.id("users"),
+  })
+    .index("by_item_and_user", ["queueItemId", "userId"]),
 })

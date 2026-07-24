@@ -30,7 +30,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "")
   const convexUrl = env.VITE_CONVEX_URL
   const convexSiteUrl = env.VITE_CONVEX_SITE_URL || getConvexSiteUrl(env.CONVEX_DEPLOYMENT)
-  const siteUrl = env.SITE_URL || "http://localhost:3000"
+  const siteUrl = env.VITE_SITE_URL || env.SITE_URL || "http://localhost:3000"
 
   return {
     server: {
