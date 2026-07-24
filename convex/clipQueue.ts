@@ -1,5 +1,6 @@
 import { v } from "convex/values"
 import { query } from "./_generated/server"
+import type { Id } from "./_generated/dataModel"
 import { authMutation, optionalAuthQuery } from "./functions"
 import { rateLimitWithThrow } from "./rateLimit"
 
@@ -39,6 +40,92 @@ export const getLiveQueue = optionalAuthQuery({
         return { ...item, hasVoted: !!vote }
       })
     )
+  },
+})
+
+/**
+ * Get the live clip queue for a multi-stream layout (squad view).
+ * Returns approved clips from multiple creators, deduplicating identical URLs
+ * and combining their upvotes.
+ */
+export const getLiveQueueMulti = optionalAuthQuery({
+  args: { creatorIds: v.array(v.id("creators")) },
+  handler: async (ctx, args) => {
+    // 1. Fetch approved clips for all creators concurrently
+    const allClipsNested = await Promise.all(
+      args.creatorIds.map(creatorId => 
+        ctx.db.query("clipQueue")
+          .withIndex("by_creator_and_status", q => 
+            q.eq("creatorId", creatorId).eq("status", "approved")
+          ).collect()
+      )
+    )
+    
+    const allClips = allClipsNested.flat()
+
+    // 2. Cross-Stream Deduplication (Merge by URL)
+    const mergedClipsMap = new Map()
+    
+    for (const clip of allClips) {
+      if (mergedClipsMap.has(clip.clipUrl)) {
+        // If it already exists, combine the upvotes
+        const existing = mergedClipsMap.get(clip.clipUrl)
+        existing.upvotes += clip.upvotes
+        // Combine submitter names if different
+        if (!existing.submitterName.includes(clip.submitterName)) {
+          existing.submitterName += `, ${clip.submitterName}`
+        }
+        // Track original item IDs so we can check if the user voted on ANY of them
+        existing._sourceItemIds.push(clip._id)
+      } else {
+        mergedClipsMap.set(clip.clipUrl, { 
+          ...clip, 
+          _sourceItemIds: [clip._id] 
+        })
+      }
+    }
+
+    // 3. Sort the global leaderboard and take top 50
+    const sorted = Array.from(mergedClipsMap.values())
+      .sort((a, b) => b.upvotes - a.upvotes)
+      .slice(0, 50)
+
+    if (!ctx.user) {
+      return sorted.map(item => {
+        const { _sourceItemIds, ...rest } = item
+        return { ...rest, hasVoted: false, votedItemId: null }
+      })
+    }
+
+    // 4. Resolve `hasVoted` for the authenticated user using a single flat batch
+    const allSourceIds = sorted.flatMap(item => item._sourceItemIds)
+    const votes = await Promise.all(
+      allSourceIds.map((itemId: Id<"clipQueue">) =>
+        ctx.db
+          .query("clipQueueVotes")
+          .withIndex("by_item_and_user", (q) =>
+            q.eq("queueItemId", itemId).eq("userId", ctx.user!._id)
+          )
+          .first()
+      )
+    )
+    
+    // Create a set of all queueItemIds the user has actually voted on
+    const votedSourceIds = new Set(
+      votes.filter(vote => vote !== null).map(v => v!.queueItemId)
+    )
+
+    return sorted.map(item => {
+      // Identify the exact source clip the user voted on
+      const votedItemId = item._sourceItemIds.find((id: Id<"clipQueue">) => votedSourceIds.has(id)) || null
+      
+      const { _sourceItemIds, ...rest } = item
+      return { 
+        ...rest, 
+        hasVoted: !!votedItemId, 
+        votedItemId // Frontend uses this to toggle the specific vote
+      }
+    })
   },
 })
 
