@@ -85,7 +85,17 @@ export default defineConfig(({ mode }) => {
       devtools(),
       contentCollections(),
       tailwindcss(),
-      tanstackStart({ srcDirectory: "src" }),
+      tanstackStart({
+        srcDirectory: "src",
+        prerender: {
+          enabled: true,
+          crawlLinks: true,
+        },
+        sitemap: {
+          enabled: true,
+          host: siteUrl,
+        },
+      }),
       viteReact(),
       nitro({
         preset: "cloudflare-pages",
