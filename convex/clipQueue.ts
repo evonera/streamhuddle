@@ -60,8 +60,32 @@ export const submitClip = authMutation({
     submitterTwitchName: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    // Validate clip URL (Prevent stored XSS)
+    const isValidUrl = args.clipUrl.startsWith("https://clips.twitch.tv/") || /^https:\/\/(www\.)?twitch\.tv\/.*\/clip\//.test(args.clipUrl);
+    if (!isValidUrl) {
+      throw new Error("Invalid Twitch clip URL");
+    }
+
+    // Determine correct submitter name
+    const creator = await ctx.db.get(args.creatorId)
+    const isStreamer = creator && (
+      ctx.user.username?.toLowerCase() === creator.username.toLowerCase() ||
+      // @ts-ignore - BetterAuth type fallback
+      ctx.user.displayUsername?.toLowerCase() === creator.username.toLowerCase() ||
+      ctx.user.role === "admin"
+    )
+    
+    const submitterName = (isStreamer && args.submitterTwitchName) 
+      ? args.submitterTwitchName 
+      : (ctx.user.name ?? "Anonymous")
+
     // Rate limit: prevent chat spam from draining Convex bill
-    await rateLimitWithThrow(ctx, "userAction", ctx.user._id.toString())
+    // If streamer is proxying for chat, use the chatter's name for the rate limit key
+    const rateLimitKey = (isStreamer && args.submitterTwitchName) 
+      ? `chat_${args.submitterTwitchName}` 
+      : ctx.user._id.toString();
+    
+    await rateLimitWithThrow(ctx, "userAction", rateLimitKey)
 
     // Dedup: same URL on same creator → boost upvote instead of duplicate
     const existing = await ctx.db
@@ -76,17 +100,7 @@ export const submitClip = authMutation({
       return existing._id
     }
 
-    // Determine correct submitter name
-    const creator = await ctx.db.get(args.creatorId)
-    const isStreamer = creator && (
-      ctx.user.username?.toLowerCase() === creator.username.toLowerCase() ||
-      ctx.user.displayUsername?.toLowerCase() === creator.username.toLowerCase() ||
-      ctx.user.role === "admin"
-    )
-    
-    const submitterName = (isStreamer && args.submitterTwitchName) 
-      ? args.submitterTwitchName 
-      : (ctx.user.name ?? "Anonymous")
+
 
     return await ctx.db.insert("clipQueue", {
       creatorId: args.creatorId,
