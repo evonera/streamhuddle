@@ -180,5 +180,6 @@ export default defineSchema({
     queueItemId: v.id("clipQueue"),
     userId: v.id("users"),
   })
-    .index("by_item_and_user", ["queueItemId", "userId"]),
+    .index("by_item_and_user", ["queueItemId", "userId"])
+    .index("by_item", ["queueItemId"]),
 })
