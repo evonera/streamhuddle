@@ -193,7 +193,7 @@ export function MultiClipQueueWidget({ creatorIds }: MultiClipQueueWidgetProps) 
 
               {/* Upvote Button */}
               <button
-                onClick={() => upvote({ queueItemId: item._id }).catch(console.error)}
+                onClick={() => upvote({ queueItemId: item.votedItemId || item._id }).catch(console.error)}
                 className={`flex flex-col items-center justify-center gap-0.5 w-10 h-10 border rounded transition-all group shrink-0 ${
                   item.hasVoted
                     ? "border-primary/30 bg-primary/10"

@@ -91,30 +91,41 @@ export const getLiveQueueMulti = optionalAuthQuery({
       .slice(0, 50)
 
     if (!ctx.user) {
-      return sorted.map(item => ({ ...item, hasVoted: false }))
+      return sorted.map(item => {
+        const { _sourceItemIds, ...rest } = item
+        return { ...rest, hasVoted: false, votedItemId: null }
+      })
     }
 
-    // 4. Resolve `hasVoted` for the authenticated user
-    return await Promise.all(
-      sorted.map(async (item) => {
-        // Check if the user voted on ANY of the underlying source items for this clip
-        const votes = await Promise.all(
-          item._sourceItemIds.map((itemId: Id<"clipQueue">) =>
-            ctx.db
-              .query("clipQueueVotes")
-              .withIndex("by_item_and_user", (q) =>
-                q.eq("queueItemId", itemId).eq("userId", ctx.user!._id)
-              )
-              .first()
+    // 4. Resolve `hasVoted` for the authenticated user using a single flat batch
+    const allSourceIds = sorted.flatMap(item => item._sourceItemIds)
+    const votes = await Promise.all(
+      allSourceIds.map((itemId: Id<"clipQueue">) =>
+        ctx.db
+          .query("clipQueueVotes")
+          .withIndex("by_item_and_user", (q) =>
+            q.eq("queueItemId", itemId).eq("userId", ctx.user!._id)
           )
-        )
-        const hasVoted = votes.some(v => v !== null)
-        
-        // Return without the internal _sourceItemIds array to keep the payload clean
-        const { _sourceItemIds, ...rest } = item
-        return { ...rest, hasVoted, originalItemIds: _sourceItemIds } // Expose originalItemIds so frontend can upvote the primary one
-      })
+          .first()
+      )
     )
+    
+    // Create a set of all queueItemIds the user has actually voted on
+    const votedSourceIds = new Set(
+      votes.filter(vote => vote !== null).map(v => v!.queueItemId)
+    )
+
+    return sorted.map(item => {
+      // Identify the exact source clip the user voted on
+      const votedItemId = item._sourceItemIds.find((id: Id<"clipQueue">) => votedSourceIds.has(id)) || null
+      
+      const { _sourceItemIds, ...rest } = item
+      return { 
+        ...rest, 
+        hasVoted: !!votedItemId, 
+        votedItemId // Frontend uses this to toggle the specific vote
+      }
+    })
   },
 })
 
