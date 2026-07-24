@@ -41,6 +41,11 @@ import Navbar from '@/components/home/navbar'
 import Footer from '@/components/home/footer'
 import Container from '@/components/home/container'
 
+import { ClipQueueWidget } from "@/components/clip-queue/ClipQueueWidget"
+import { ChatQueueListener } from "@/components/clip-queue/ChatQueueListener"
+import { useQuery } from "convex/react"
+import { api } from "@convex/_generated/api"
+
 // ─── Twitch API helpers ──────────────────────────────────────────────────────
 
 let _cachedToken: { token: string; expiresAt: number } | null = null
@@ -195,6 +200,11 @@ function StreamerProfilePage() {
   const data = Route.useLoaderData()
   const [parentDomain, setParentDomain] = useState('streamhuddle.pages.dev')
 
+  const creator = useQuery(api.creators.getByUsername, {
+    platform: "twitch",
+    username: data?.user?.login ?? "",
+  })
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       setParentDomain(window.location.hostname)
@@ -347,6 +357,16 @@ function StreamerProfilePage() {
                   title={`${user.displayName} live stream`}
                 />
               </motion.div>
+            </Container>
+          </section>
+        )}
+
+        {/* ── Clip Queue (only when live + creator exists) ── */}
+        {isLive && creator && (
+          <section className="border-b border-white/5 py-12">
+            <Container>
+              <ChatQueueListener channelName={data.user.login} creatorId={creator._id} />
+              <ClipQueueWidget creatorId={creator._id} />
             </Container>
           </section>
         )}

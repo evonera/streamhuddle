@@ -1,0 +1,137 @@
+import { v } from "convex/values"
+import { query } from "./_generated/server"
+import { authMutation } from "./functions"
+import { rateLimitWithThrow } from "./rateLimit"
+
+// ============================================================================
+// Public Queries (no auth required — viewers see the queue without logging in)
+// ============================================================================
+
+/**
+ * Get the live clip queue for a specific creator's streamer page.
+ * Returns approved clips sorted by upvotes (most popular first).
+ * Used by ClipQueueWidget on /streamer/$username.
+ */
+export const getLiveQueue = query({
+  args: { creatorId: v.id("creators") },
+  handler: async (ctx, args) => {
+    const items = await ctx.db
+      .query("clipQueue")
+      .withIndex("by_creator_and_status", (q) =>
+        q.eq("creatorId", args.creatorId).eq("status", "approved")
+      )
+      .collect()
+    // Sort by upvotes descending (most popular first)
+    return items.sort((a, b) => b.upvotes - a.upvotes)
+  },
+})
+
+// ============================================================================
+// Authenticated Mutations
+// ============================================================================
+
+/**
+ * Submit a clip to a streamer's queue.
+ * Deduplicates by URL: if the same clip URL already exists and is active,
+ * it boosts the upvote count instead of creating a duplicate entry.
+ */
+export const submitClip = authMutation({
+  args: {
+    creatorId: v.id("creators"),
+    clipUrl: v.string(),
+    title: v.string(),
+    thumbnailUrl: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // Rate limit: prevent chat spam from draining Convex bill
+    await rateLimitWithThrow(ctx, "userAction", ctx.user._id.toString())
+
+    // Dedup: same URL on same creator → boost upvote instead of duplicate
+    const existing = await ctx.db
+      .query("clipQueue")
+      .withIndex("by_creator_and_createdAt", (q) =>
+        q.eq("creatorId", args.creatorId)
+      )
+      .filter((q) => q.eq(q.field("clipUrl"), args.clipUrl))
+      .first()
+
+    if (existing && existing.status !== "played") {
+      await ctx.db.patch(existing._id, { upvotes: existing.upvotes + 1 })
+      return existing._id
+    }
+
+    return await ctx.db.insert("clipQueue", {
+      creatorId: args.creatorId,
+      submitterId: ctx.user._id,
+      submitterName: ctx.user.name ?? "Anonymous",
+      clipUrl: args.clipUrl,
+      title: args.title,
+      thumbnailUrl: args.thumbnailUrl,
+      status: "approved",
+      upvotes: 0,
+      createdAt: Date.now(),
+    })
+  },
+})
+
+/**
+ * Toggle upvote on a queue item. One vote per user.
+ * If already voted, removes the vote (toggle behavior).
+ */
+export const upvoteClip = authMutation({
+  args: { queueItemId: v.id("clipQueue") },
+  handler: async (ctx, args) => {
+    await rateLimitWithThrow(ctx, "userAction", ctx.user._id.toString())
+
+    const item = await ctx.db.get(args.queueItemId)
+    if (!item) throw new Error("Queue item not found")
+
+    const existing = await ctx.db
+      .query("clipQueueVotes")
+      .withIndex("by_item_and_user", (q) =>
+        q.eq("queueItemId", args.queueItemId).eq("userId", ctx.user._id)
+      )
+      .first()
+
+    if (existing) {
+      // Remove vote (toggle off)
+      await ctx.db.delete(existing._id)
+      await ctx.db.patch(args.queueItemId, {
+        upvotes: Math.max(0, item.upvotes - 1),
+      })
+      return { voted: false }
+    } else {
+      // Add vote
+      await ctx.db.insert("clipQueueVotes", {
+        queueItemId: args.queueItemId,
+        userId: ctx.user._id,
+      })
+      await ctx.db.patch(args.queueItemId, {
+        upvotes: item.upvotes + 1,
+      })
+      return { voted: true }
+    }
+  },
+})
+
+/**
+ * Set the status of a queue item (for streamer moderation controls).
+ * Used to mark clips as "playing", "played", or moderate them.
+ */
+export const setClipStatus = authMutation({
+  args: {
+    queueItemId: v.id("clipQueue"),
+    status: v.union(
+      v.literal("playing"),
+      v.literal("played"),
+      v.literal("approved"),
+      v.literal("pending")
+    ),
+  },
+  handler: async (ctx, args) => {
+    const item = await ctx.db.get(args.queueItemId)
+    if (!item) throw new Error("Queue item not found")
+
+    await ctx.db.patch(args.queueItemId, { status: args.status })
+  },
+})
