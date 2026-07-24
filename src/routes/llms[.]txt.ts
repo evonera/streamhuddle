@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { SITE_URL, SITE_NAME, SITE_DESCRIPTION } from '@/lib/site'
+import { SITE_URL, SITE_NAME, SITE_DESCRIPTION, REPO_URL } from '@/lib/site'
 
 export const Route = createFileRoute('/llms.txt')({
   server: {
@@ -17,7 +17,7 @@ export const Route = createFileRoute('/llms.txt')({
 
 ## Contact
 - Website: ${SITE_URL}
-- GitHub: https://github.com/ramonclaudio/tanvex
+- GitHub: ${REPO_URL}
 `
 
         return new Response(content, {
