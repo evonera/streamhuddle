@@ -93,6 +93,11 @@ export default defineConfig(({ mode }) => {
     ssr: {
       // Bundle everything for Cloudflare Pages worker, since it doesn't have node_modules
       noExternal: true,
+      target: "webworker",
+      resolve: {
+        conditions: ["workerd", "worker", "browser", "import", "require"],
+        externalConditions: ["workerd", "worker", "browser", "import", "require"],
+      }
     },
     define: {
       "process.env.VITE_CONVEX_URL": JSON.stringify(convexUrl),
