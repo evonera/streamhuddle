@@ -1,6 +1,4 @@
-import { defineCollection, defineConfig } from "@content-collections/core";
-import { compileMDX } from "@content-collections/mdx";
-
+import { defineCollection, defineConfig, createDefaultImport } from "@content-collections/core";
 import { z } from "zod";
 
 const posts = defineCollection({
@@ -14,11 +12,13 @@ const posts = defineCollection({
     thumbnail: z.string().optional(),
     tags: z.array(z.string()).optional(),
   }),
-  transform: async (document, context) => {
-    const mdx = await compileMDX(context, document);
+  transform: async (document) => {
+    // Generate static import path for Vite MDX plugin to handle compilation,
+    // thereby avoiding dynamic EvalError in Cloudflare Workers environment.
+    const mdxContent = createDefaultImport(`../../content/posts/${document._meta.filePath}`);
     return {
       ...document,
-      mdx,
+      mdxContent,
       slug: document._meta.path,
     };
   },

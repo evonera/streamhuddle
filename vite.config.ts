@@ -7,6 +7,9 @@ import { nitro } from "nitro/vite"
 import { visualizer } from "rollup-plugin-visualizer"
 import { defineConfig, loadEnv } from "vite"
 import fs from "fs"
+import mdx from "@mdx-js/rollup"
+import remarkFrontmatter from "remark-frontmatter"
+import remarkMdxFrontmatter from "remark-mdx-frontmatter"
 
 const securityHeaders: Record<string, string> = {
   "strict-transport-security": "max-age=63072000; includeSubDomains",
@@ -104,6 +107,12 @@ export default defineConfig(({ mode }) => {
       "import.meta.env.VITE_SITE_URL": JSON.stringify(siteUrl),
     },
     plugins: [
+      {
+        enforce: "pre",
+        ...mdx({
+          remarkPlugins: [remarkFrontmatter, remarkMdxFrontmatter],
+        }),
+      },
       devtools(),
       contentCollections(),
       tailwindcss(),
@@ -125,13 +134,12 @@ export default defineConfig(({ mode }) => {
           "/**": { headers: securityHeaders },
         },
       }),
-      process.env.ANALYZE &&
-        visualizer({
+      process.env.ANALYZE ? visualizer({
           filename: ".output/stats.html",
           open: true,
           gzipSize: true,
           brotliSize: true,
-        }),
-    ].filter(Boolean),
+        }) : undefined,
+    ].filter(Boolean) as any,
   }
 })
