@@ -35,4 +35,3 @@ repomix-output.xml
 
 # Archive tests
 tests/
-.env.production
