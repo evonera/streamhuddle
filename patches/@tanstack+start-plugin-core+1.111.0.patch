@@ -1,5 +1,5 @@
---- node_modules/@tanstack/start-plugin-core/dist/esm/vite/prerender.js	2026-07-25 14:28:39
-+++ node_modules/@tanstack/start-plugin-core/dist/esm/vite/prerender.js.new	2026-07-25 16:05:06
+--- a/dist/esm/vite/prerender.js
++++ b/dist/esm/vite/prerender.js
 @@ -11,7 +11,7 @@
  	process.env.TSS_CLIENT_OUTPUT_DIR = outputDir;
  	const previewServer = await startPreviewServer(serverEnv.config);
