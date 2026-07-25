@@ -14,7 +14,7 @@
  		}
  	});
 +	return p.finally(() => {
-+		try { import('child_process').then(cp => cp.execSync("pkill -f 'wrangler pages dev'")) } catch (e) {}
++		import('child_process').then(cp => { try { cp.execSync("pkill -f 'wrangler pages dev'") } catch(e){} }).catch(() => {});
 +	});
  }
  async function startPreviewServer(viteConfig) {
