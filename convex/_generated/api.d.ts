@@ -11,9 +11,11 @@
 import type * as admin from "../admin.js";
 import type * as auth from "../auth.js";
 import type * as clipActions from "../clipActions.js";
+import type * as clipQueue from "../clipQueue.js";
 import type * as clipWorkflow from "../clipWorkflow.js";
 import type * as clips from "../clips.js";
 import type * as constants from "../constants.js";
+import type * as creators from "../creators.js";
 import type * as crons from "../crons.js";
 import type * as dodo from "../dodo.js";
 import type * as email from "../email.js";
@@ -43,9 +45,11 @@ declare const fullApi: ApiFromModules<{
   admin: typeof admin;
   auth: typeof auth;
   clipActions: typeof clipActions;
+  clipQueue: typeof clipQueue;
   clipWorkflow: typeof clipWorkflow;
   clips: typeof clips;
   constants: typeof constants;
+  creators: typeof creators;
   crons: typeof crons;
   dodo: typeof dodo;
   email: typeof email;

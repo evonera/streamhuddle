@@ -1,5 +1,5 @@
 import { v } from "convex/values"
-import { query } from "./_generated/server"
+
 import type { Id } from "./_generated/dataModel"
 import { authMutation, optionalAuthQuery } from "./functions"
 import { rateLimitWithThrow } from "./rateLimit"

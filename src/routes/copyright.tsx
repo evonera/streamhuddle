@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { Container } from "@/components/ui/container"
+import Container from "@/components/home/container"
 
 export const Route = createFileRoute("/copyright")({
   component: CopyrightPage,
