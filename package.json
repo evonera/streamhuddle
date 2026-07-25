@@ -127,7 +127,7 @@
     "oxlint": "1.72.0",
     "oxlint-tsgolint": "0.24.0",
     "rollup-plugin-visualizer": "^7.0.1",
-    "shadcn": "^4.13.0",
+    "shadcn": "^3.8.3",
     "tailwindcss": "^4.3.2",
     "trash-cli": "^7.2.0",
     "tsx": "^4.23.0",
