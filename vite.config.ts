@@ -111,6 +111,20 @@ export default defineConfig(({ mode }) => {
           remarkPlugins: [remarkFrontmatter, remarkMdxFrontmatter],
         }),
       },
+      {
+        name: "fix-convex-better-auth-dynamic-import",
+        enforce: "pre",
+        transform(code, id) {
+          if (id.includes("@convex-dev/better-auth") && code.includes('@tanstack/react-start/server')) {
+            const staticImport = `import { getRequestHeaders as _getRequestHeaders } from "@tanstack/react-start/server";\n`;
+            const modifiedCode = code.replace(
+              /const \{ getRequestHeaders \} = await import\("@tanstack\/react-start\/server"\);/g,
+              `const getRequestHeaders = _getRequestHeaders;`
+            );
+            return staticImport + modifiedCode;
+          }
+        }
+      },
       devtools(),
       contentCollections(),
       tailwindcss(),
