@@ -9,3 +9,11 @@
  		"localhost"
  	], {
  		stdio: "inherit",
+@@ -121,6 +121,7 @@
+ 			}, req, socket, head, opts);
+ 		},
+ 		async close() {
++			import('child_process').then(cp => cp.execSync("pkill -f 'wrangler pages dev'")).catch(()=>{});
+ 			killChild("SIGTERM");
+ 		}
+ 	};
