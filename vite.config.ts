@@ -4,6 +4,7 @@ import { tanstackStart } from "@tanstack/react-start/plugin/vite"
 import viteReact from "@vitejs/plugin-react"
 import contentCollections from "@content-collections/vite"
 import { cloudflare } from "@cloudflare/vite-plugin"
+// removed due to prerendering conflict on pages
 import { visualizer } from "rollup-plugin-visualizer"
 import { defineConfig, loadEnv } from "vite"
 import fs from "fs"
@@ -128,7 +129,6 @@ export default defineConfig(({ mode }) => {
       devtools(),
       contentCollections(),
       tailwindcss(),
-      cloudflare({ viteEnvironment: { name: "ssr" } }),
       tanstackStart({
         srcDirectory: "src",
         prerender: {
