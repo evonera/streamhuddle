@@ -3,8 +3,6 @@ import { devtools } from "@tanstack/devtools-vite"
 import { tanstackStart } from "@tanstack/react-start/plugin/vite"
 import viteReact from "@vitejs/plugin-react"
 import contentCollections from "@content-collections/vite"
-import { cloudflare } from "@cloudflare/vite-plugin"
-// removed due to prerendering conflict on pages
 import { visualizer } from "rollup-plugin-visualizer"
 import { defineConfig, loadEnv } from "vite"
 import fs from "fs"
@@ -93,8 +91,9 @@ export default defineConfig(({ mode }) => {
       ],
     },
     ssr: {
-      // Prevent AsyncLocalStorage context loss for Better Auth on the server.
-      noExternal: ["@convex-dev/better-auth"],
+      // Bundle everything for Cloudflare Pages worker, since it doesn't have node_modules
+      noExternal: true,
+      target: "webworker",
     },
     define: {
       "process.env.VITE_CONVEX_URL": JSON.stringify(convexUrl),

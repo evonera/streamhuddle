@@ -95,17 +95,30 @@ const fetchStreamerData = createServerFn({ method: 'GET' })
     const { username } = data
 
     // 1. Get user
-    const usersData = await twitchFetch(`/users?login=${username}`)
+    let usersData
+    try {
+      usersData = await twitchFetch(`/users?login=${username}`)
+    } catch (err) {
+      console.error("TWITCH_FETCH_ERROR", err)
+      throw notFound()
+    }
     if (!usersData.data?.length) throw notFound()
     const user = usersData.data[0] as TwitchUser
     const broadcasterId = user.id
 
     // 2. Get live status, channel info, clips in parallel
-    const [streamsData, channelData, clipsData] = await Promise.all([
-      twitchFetch(`/streams?user_id=${broadcasterId}`),
-      twitchFetch(`/channels?broadcaster_id=${broadcasterId}`),
-      twitchFetch(`/clips?broadcaster_id=${broadcasterId}&first=6`),
-    ])
+    let streamsData: any = { data: [] }
+    let channelData: any = { data: [] }
+    let clipsData: any = { data: [] }
+    try {
+      ;[streamsData, channelData, clipsData] = await Promise.all([
+        twitchFetch(`/streams?user_id=${broadcasterId}`),
+        twitchFetch(`/channels?broadcaster_id=${broadcasterId}`),
+        twitchFetch(`/clips?broadcaster_id=${broadcasterId}&first=6`),
+      ])
+    } catch (err) {
+      console.error("TWITCH_FETCH_PARALLEL_ERROR", err)
+    }
 
     const stream = (streamsData.data?.[0] as TwitchStream | undefined) ?? null
     const channel = (channelData.data?.[0] as TwitchChannel | undefined) ?? ({} as TwitchChannel)

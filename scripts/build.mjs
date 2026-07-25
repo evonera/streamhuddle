@@ -1,32 +1,70 @@
-#!/usr/bin/env node
-/**
- * build.mjs — Clean Cloudflare Pages build runner.
- *
- * Strategy:
- * On Cloudflare Pages (CF_PAGES=1), prerendering is disabled in vite.config.ts,
- * so the build is just client + SSR + Nitro bundling. We run it via Vite's
- * createBuilder().buildApp() so we hold the Promise and can call process.exit(0)
- * after everything finishes, preventing any lingering handles from keeping the
- * Node event loop alive.
- *
- * Locally (CF_PAGES unset), prerendering IS enabled, so the same approach
- * works — buildApp() resolves after prerender + sitemap complete, then we exit.
- */
+import { execSync } from "child_process";
+import fs from "fs";
+import path from "path";
 
-import { createBuilder } from "vite"
+console.log("🚀 Starting build…");
+try {
+  // 1. Run Vite build
+  execSync("npx vite build", { stdio: "inherit" });
 
-async function runBuild() {
-  console.log("🚀 Starting build…")
-  try {
-    const builder = await createBuilder()
-    await builder.buildApp()
-    console.log("✅ Build complete. Exiting cleanly.")
-    // Force-exit to reap any dangling handles (wrangler/workerd, etc.)
-    process.exit(0)
-  } catch (err) {
-    console.error("❌ Build failed:", err)
-    process.exit(1)
+  // 2. Prepare Cloudflare Pages output directory structure
+  console.log("📦 Structuring output for Cloudflare Pages...");
+  const distDir = path.resolve("dist");
+  const tmpDir = path.resolve("dist-tmp");
+  
+  if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
+  fs.mkdirSync(tmpDir);
+
+  // Move client assets to the root of the output directory
+  fs.renameSync(path.join(distDir, "client"), tmpDir);
+
+  // Move server build to _worker.js directory
+  const workerDir = path.join(tmpDir, "_worker.js");
+  fs.renameSync(path.join(distDir, "server"), workerDir);
+
+  // 3. Create Cloudflare Pages entrypoint with static asset fallback
+  const workerEntry = `
+import server from "./server.js";
+
+export default {
+  async fetch(request, env, ctx) {
+    const url = new URL(request.url);
+    
+    // Try fetching static assets first
+    try {
+      const assetResponse = await env.ASSETS.fetch(request);
+      if (assetResponse.status !== 404) {
+        return assetResponse;
+      }
+    } catch (err) {
+      // Ignore errors from asset fetch
+    }
+
+    // Pass environment variables to globalThis so they are accessible 
+    // via process.env polyfills if needed (e.g., Better Auth).
+    Object.assign(globalThis, env);
+    if (!globalThis.process) {
+      globalThis.process = { env: env };
+    } else if (!globalThis.process.env) {
+      globalThis.process.env = env;
+    } else {
+      Object.assign(globalThis.process.env, env);
+    }
+
+    // Fallback to SSR
+    return server.fetch(request, env, ctx);
   }
-}
+};
+`;
+  fs.writeFileSync(path.join(workerDir, "index.js"), workerEntry.trim());
 
-runBuild()
+  // 4. Replace dist with the restructured output
+  fs.rmSync(distDir, { recursive: true, force: true });
+  fs.renameSync(tmpDir, distDir);
+
+  console.log("✅ Build complete. Output structured for Cloudflare Pages.");
+  process.exit(0);
+} catch (err) {
+  console.error("❌ Build failed:", err);
+  process.exit(1);
+}
