@@ -34,7 +34,7 @@ export function ClipQueueWidget({ creatorId }: ClipQueueWidgetProps) {
       {/* Queue Items */}
       <div className="border border-white/10 bg-[#141414] overflow-hidden">
         <AnimatePresence mode="popLayout">
-          {queue.map((item, i) => (
+          {queue.map((item: any, i: number) => (
             <motion.div
               key={item._id}
               layout
@@ -146,7 +146,7 @@ export function MultiClipQueueWidget({ creatorIds }: MultiClipQueueWidgetProps) 
       {/* Queue Items */}
       <div className="flex-1 overflow-y-auto no-scrollbar">
         <AnimatePresence mode="popLayout">
-          {queue.map((item, i) => (
+          {queue.map((item: any, i: number) => (
             <motion.div
               key={item._id}
               layout

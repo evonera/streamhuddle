@@ -42,7 +42,7 @@ export function StreamerControlPanel({ creatorId }: StreamerControlPanelProps) {
       {/* Queue Items */}
       <div className="border border-white/10 bg-[#141414] overflow-hidden">
         <AnimatePresence mode="popLayout">
-          {queue.map((item, i) => (
+          {queue.map((item: any, i: number) => (
             <motion.div
               key={item._id}
               layout
