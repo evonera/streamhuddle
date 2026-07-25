@@ -1,12 +1,12 @@
 import { ConvexQueryClient } from "@convex-dev/react-query"
 import { notifyManager, QueryClient } from "@tanstack/react-query"
-import { createRouter as createTanStackRouter } from "@tanstack/react-router"
+import { createBrowserHistory, createMemoryHistory, createRouter as createTanStackRouter } from "@tanstack/react-router"
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query"
 
 import { routeTree } from "./routeTree.gen"
 
 export function getRouter() {
-  if (typeof document !== "undefined") {
+  if (typeof window !== "undefined" && typeof window.requestAnimationFrame !== "undefined") {
     notifyManager.setScheduler(window.requestAnimationFrame)
   }
 
@@ -31,6 +31,7 @@ export function getRouter() {
   convexQueryClient.connect(queryClient)
 
   const router = createTanStackRouter({
+    history: import.meta.env.SSR ? createMemoryHistory() : createBrowserHistory(),
     routeTree,
     scrollRestoration: true,
     defaultPreload: "intent",
