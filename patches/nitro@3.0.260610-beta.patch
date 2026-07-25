@@ -1,0 +1,11 @@
+--- a/dist/_chunks/nitro2.mjs
++++ b/dist/_chunks/nitro2.mjs
+@@ -81,7 +81,7 @@
+ 		...args,
+ 		"--port",
+ 		String(randomPort),
+-		"--host",
++		"--ip",
+ 		"localhost"
+ 	], {
+ 		stdio: "inherit",
