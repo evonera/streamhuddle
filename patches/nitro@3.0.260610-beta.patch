@@ -1,0 +1,11 @@
+--- a/dist/_chunks/nitro2.mjs	2026-07-25 17:12:57
++++ b/dist/_chunks/nitro2.mjs	2026-07-25 17:13:21
+@@ -81,8 +81,6 @@
+ 		...args,
+ 		"--port",
+ 		String(randomPort),
+-		"--host",
+-		"localhost"
+ 	], {
+ 		stdio: "inherit",
+ 		cwd: opts.rootDir,
