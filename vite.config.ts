@@ -6,6 +6,7 @@ import contentCollections from "@content-collections/vite"
 import { nitro } from "nitro/vite"
 import { visualizer } from "rollup-plugin-visualizer"
 import { defineConfig, loadEnv } from "vite"
+import fs from "fs"
 
 const securityHeaders: Record<string, string> = {
   "strict-transport-security": "max-age=63072000; includeSubDomains",
@@ -28,9 +29,27 @@ function getConvexSiteUrl(deployment: string | undefined) {
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "")
-  const convexUrl = env.VITE_CONVEX_URL
-  const convexSiteUrl = env.VITE_CONVEX_SITE_URL || getConvexSiteUrl(env.CONVEX_DEPLOYMENT)
-  const siteUrl = env.VITE_SITE_URL || env.SITE_URL || "http://localhost:3000"
+
+  // Parse wrangler.toml for fallback vars (Cloudflare Pages doesn't pass [vars] to build script)
+  let wranglerVars: Record<string, string> = {};
+  try {
+    const wrangler = fs.readFileSync("wrangler.toml", "utf-8");
+    const varsMatch = wrangler.match(/\[vars\]([\s\S]*?)(?:\[|$)/);
+    if (varsMatch) {
+      const varsBlock = varsMatch[1];
+      const regex = /([A-Z_]+)\s*=\s*"([^"]+)"/g;
+      let m;
+      while ((m = regex.exec(varsBlock)) !== null) {
+        wranglerVars[m[1]] = m[2];
+      }
+    }
+  } catch (e) {
+    // Ignore
+  }
+
+  const convexUrl = env.VITE_CONVEX_URL || wranglerVars.VITE_CONVEX_URL
+  const convexSiteUrl = env.VITE_CONVEX_SITE_URL || wranglerVars.VITE_CONVEX_SITE_URL || getConvexSiteUrl(env.CONVEX_DEPLOYMENT)
+  const siteUrl = env.VITE_SITE_URL || wranglerVars.VITE_SITE_URL || env.SITE_URL || wranglerVars.SITE_URL || "http://localhost:3000"
 
   return {
     server: {
@@ -80,6 +99,9 @@ export default defineConfig(({ mode }) => {
       "process.env.VITE_CONVEX_SITE_URL": JSON.stringify(convexSiteUrl),
       "process.env.CONVEX_SITE_URL": JSON.stringify(convexSiteUrl),
       "process.env.SITE_URL": JSON.stringify(siteUrl),
+      "import.meta.env.VITE_CONVEX_URL": JSON.stringify(convexUrl),
+      "import.meta.env.VITE_CONVEX_SITE_URL": JSON.stringify(convexSiteUrl),
+      "import.meta.env.VITE_SITE_URL": JSON.stringify(siteUrl),
     },
     plugins: [
       devtools(),
