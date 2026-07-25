@@ -50,7 +50,7 @@
     "convex:logs:prod": "convex logs --prod",
     "convex:env": "convex env list",
     "convex:env:prod": "convex env list --prod",
-    "build": "vite build && tsc --noEmit && (pkill -f 'wrangler pages dev' || true)",
+    "build": "vite build && tsc --noEmit",
     "deploy": "npm run build && wrangler pages deploy dist",
     "start": "node .output/server/index.mjs",
     "preview": "vite preview",
