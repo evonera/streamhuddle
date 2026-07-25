@@ -32,7 +32,12 @@ import appCss from "../styles.css?url"
 
 
 const getAuth = createServerFn({ method: "GET" }).handler(async () => {
-  return await getToken()
+  try {
+    return await getToken()
+  } catch (err: any) {
+    console.error("GET_AUTH_ERROR", err)
+    return { token: null, error: err?.message || "Unknown error" }
+  }
 })
 
 const jsonLd = {
