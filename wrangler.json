@@ -1,0 +1,16 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "streamhuddle",
+  "compatibility_date": "2026-07-25",
+  "compatibility_flags": ["nodejs_compat"],
+  "main": "@tanstack/react-start/server-entry",
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "VITE_CONVEX_URL": "https://sincere-clownfish-686.convex.cloud",
+    "VITE_CONVEX_SITE_URL": "https://sincere-clownfish-686.convex.site",
+    "SITE_URL": "https://streamhuddle.pages.dev",
+    "VITE_SITE_URL": "https://streamhuddle.pages.dev"
+  }
+}

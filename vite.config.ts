@@ -3,7 +3,7 @@ import { devtools } from "@tanstack/devtools-vite"
 import { tanstackStart } from "@tanstack/react-start/plugin/vite"
 import viteReact from "@vitejs/plugin-react"
 import contentCollections from "@content-collections/vite"
-import { nitro } from "nitro/vite"
+import { cloudflare } from "@cloudflare/vite-plugin"
 import { visualizer } from "rollup-plugin-visualizer"
 import { defineConfig, loadEnv } from "vite"
 import fs from "fs"
@@ -30,38 +30,18 @@ function getConvexSiteUrl(deployment: string | undefined) {
   return `https://${projectName}.convex.site`
 }
 
-// Cloudflare Pages injects CF_PAGES=1 into every build environment.
-// We use it to skip prerendering (which spawns wrangler pages dev and hangs CI).
-// The Cloudflare Worker handles all routes dynamically via SSR — prerendering
-// is a performance optimisation, not a requirement for the site to work.
-const isCloudflareCI = process.env.CF_PAGES === "1"
-
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "")
 
-  // Parse wrangler.toml for fallback vars (Cloudflare Pages doesn't pass [vars] to build script)
+  // Parse wrangler.json for fallback vars (Cloudflare Pages doesn't pass [vars] to build script)
   let wranglerVars: Record<string, string> = {};
   try {
-    const lines = fs.readFileSync("wrangler.toml", "utf-8").split("\n");
-    let inVars = false;
-    for (const line of lines) {
-      if (line.trim().startsWith("[vars]")) {
-        inVars = true;
-        continue;
-      }
-      if (inVars && line.trim().startsWith("[")) {
-        inVars = false; // exited vars block
-      }
-      if (inVars) {
-        const regex = /([A-Z_]+)\s*=\s*(?:"([^"\\]*(?:\\.[^"\\]*)*)"|'([^']*)')/;
-        const m = regex.exec(line);
-        if (m) {
-          wranglerVars[m[1]] = m[2] || m[3];
-        }
-      }
+    const wranglerConfig = JSON.parse(fs.readFileSync("wrangler.json", "utf-8"));
+    if (wranglerConfig.vars) {
+      wranglerVars = wranglerConfig.vars;
     }
   } catch (e) {
-    console.warn("⚠️  Failed to read or parse wrangler.toml:", e);
+    console.warn("⚠️  Failed to read or parse wrangler.json:", e);
   }
 
   const convexUrl = env.VITE_CONVEX_URL || wranglerVars.VITE_CONVEX_URL
@@ -69,7 +49,7 @@ export default defineConfig(({ mode }) => {
   const siteUrl = env.VITE_SITE_URL || wranglerVars.VITE_SITE_URL || env.SITE_URL || wranglerVars.SITE_URL || "http://localhost:3000"
 
   if (!convexUrl) {
-    throw new Error("❌ Build failed: VITE_CONVEX_URL is missing. Ensure it is set in env vars or [vars] within wrangler.toml.");
+    throw new Error("❌ Build failed: VITE_CONVEX_URL is missing. Ensure it is set in env vars or vars within wrangler.json.");
   }
 
   return {
@@ -134,27 +114,19 @@ export default defineConfig(({ mode }) => {
       devtools(),
       contentCollections(),
       tailwindcss(),
+      cloudflare({ viteEnvironment: { name: "ssr" } }),
       tanstackStart({
         srcDirectory: "src",
         prerender: {
-          // Disable prerendering on Cloudflare Pages CI to prevent the
-          // wrangler pages dev preview server from hanging the build.
-          // The Cloudflare Worker handles all routes via SSR.
-          enabled: !isCloudflareCI,
+          enabled: true,
           crawlLinks: true,
         },
         sitemap: {
-          enabled: !isCloudflareCI,
+          enabled: true,
           host: siteUrl,
         },
       }),
       viteReact(),
-      nitro({
-        preset: "cloudflare-pages",
-        routeRules: {
-          "/**": { headers: securityHeaders },
-        },
-      }),
       process.env.ANALYZE ? visualizer({
           filename: ".output/stats.html",
           open: true,
