@@ -1,6 +1,5 @@
 import { createFileRoute, notFound } from '@tanstack/react-router'
 import { allPosts } from 'content-collections'
-import { MDXContent } from '@content-collections/mdx/react'
 import { Card, CardContent } from '@/components/ui/card'
 import { HugeiconsIcon } from '@hugeicons/react'
 import ArrowLeft01Icon from '@hugeicons/core-free-icons/ArrowLeft01Icon'
@@ -26,6 +25,7 @@ export const Route = createFileRoute('/blog/$slug')({
 
 function BlogPostComponent() {
   const post = Route.useLoaderData()
+  const Content = post.mdxContent as any
 
   return (
     <div className="min-h-screen bg-background relative pb-24">
@@ -66,7 +66,7 @@ function BlogPostComponent() {
             </header>
             
             <article className="prose prose-invert prose-lg max-w-none prose-headings:font-heading prose-a:text-primary hover:prose-a:text-primary/80">
-              <MDXContent code={post.mdx} />
+              <Content />
             </article>
           </CardContent>
         </Card>

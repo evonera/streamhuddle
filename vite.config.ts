@@ -7,6 +7,9 @@ import { nitro } from "nitro/vite"
 import { visualizer } from "rollup-plugin-visualizer"
 import { defineConfig, loadEnv } from "vite"
 import fs from "fs"
+import mdx from "@mdx-js/rollup"
+import remarkFrontmatter from "remark-frontmatter"
+import remarkMdxFrontmatter from "remark-mdx-frontmatter"
 
 const securityHeaders: Record<string, string> = {
   "strict-transport-security": "max-age=63072000; includeSubDomains",
@@ -37,19 +40,23 @@ export default defineConfig(({ mode }) => {
     const varsMatch = wrangler.match(/\[vars\]([\s\S]*?)(?:\[|$)/);
     if (varsMatch) {
       const varsBlock = varsMatch[1];
-      const regex = /([A-Z_]+)\s*=\s*"([^"]+)"/g;
+      const regex = /([A-Z_]+)\s*=\s*(?:"([^"\\]*(?:\\.[^"\\]*)*)"|'([^']*)')/g;
       let m;
       while ((m = regex.exec(varsBlock)) !== null) {
-        wranglerVars[m[1]] = m[2];
+        wranglerVars[m[1]] = m[2] || m[3];
       }
     }
   } catch (e) {
-    // Ignore
+    console.warn("⚠️  Failed to read or parse wrangler.toml:", e);
   }
 
   const convexUrl = env.VITE_CONVEX_URL || wranglerVars.VITE_CONVEX_URL
   const convexSiteUrl = env.VITE_CONVEX_SITE_URL || wranglerVars.VITE_CONVEX_SITE_URL || getConvexSiteUrl(env.CONVEX_DEPLOYMENT)
   const siteUrl = env.VITE_SITE_URL || wranglerVars.VITE_SITE_URL || env.SITE_URL || wranglerVars.SITE_URL || "http://localhost:3000"
+
+  if (!convexUrl) {
+    throw new Error("❌ Build failed: VITE_CONVEX_URL is missing. Ensure it is set in env vars or [vars] within wrangler.toml.");
+  }
 
   return {
     server: {
@@ -104,6 +111,12 @@ export default defineConfig(({ mode }) => {
       "import.meta.env.VITE_SITE_URL": JSON.stringify(siteUrl),
     },
     plugins: [
+      {
+        enforce: "pre",
+        ...mdx({
+          remarkPlugins: [remarkFrontmatter, remarkMdxFrontmatter],
+        }),
+      },
       devtools(),
       contentCollections(),
       tailwindcss(),
@@ -125,13 +138,12 @@ export default defineConfig(({ mode }) => {
           "/**": { headers: securityHeaders },
         },
       }),
-      process.env.ANALYZE &&
-        visualizer({
+      process.env.ANALYZE ? visualizer({
           filename: ".output/stats.html",
           open: true,
           gzipSize: true,
           brotliSize: true,
-        }),
-    ].filter(Boolean),
+        }) : undefined,
+    ].filter(Boolean) as any,
   }
 })
