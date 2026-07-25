@@ -36,14 +36,22 @@ export default defineConfig(({ mode }) => {
   // Parse wrangler.toml for fallback vars (Cloudflare Pages doesn't pass [vars] to build script)
   let wranglerVars: Record<string, string> = {};
   try {
-    const wrangler = fs.readFileSync("wrangler.toml", "utf-8");
-    const varsMatch = wrangler.match(/\[vars\]([\s\S]*?)(?:\[|$)/);
-    if (varsMatch) {
-      const varsBlock = varsMatch[1];
-      const regex = /([A-Z_]+)\s*=\s*(?:"([^"\\]*(?:\\.[^"\\]*)*)"|'([^']*)')/g;
-      let m;
-      while ((m = regex.exec(varsBlock)) !== null) {
-        wranglerVars[m[1]] = m[2] || m[3];
+    const lines = fs.readFileSync("wrangler.toml", "utf-8").split("\n");
+    let inVars = false;
+    for (const line of lines) {
+      if (line.trim().startsWith("[vars]")) {
+        inVars = true;
+        continue;
+      }
+      if (inVars && line.trim().startsWith("[")) {
+        inVars = false; // exited vars block
+      }
+      if (inVars) {
+        const regex = /([A-Z_]+)\s*=\s*(?:"([^"\\]*(?:\\.[^"\\]*)*)"|'([^']*)')/;
+        const m = regex.exec(line);
+        if (m) {
+          wranglerVars[m[1]] = m[2] || m[3];
+        }
       }
     }
   } catch (e) {
