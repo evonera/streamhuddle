@@ -11,24 +11,30 @@
  * own, causing Cloudflare Pages CI builds to hang until the 20-minute
  * timeout kicks in.
  *
- * Fix: invoke Vite's JS API so we hold a reference to the resolved Promise.
- * After `await build()` resolves (meaning every plugin's `closeBundle()` hook
- * has fired and prerendering + sitemap are fully written), we call
- * `process.exit(0)`. This immediately terminates the entire process group,
- * cleaning up wrangler/workerd handles without needing pkill or any patches.
+ * Why createBuilder() instead of build():
+ * Vite's build() JS API only builds the *first* (client) environment and
+ * resolves immediately. TanStack Start configures multiple environments
+ * (client, ssr, nitro). createBuilder().buildApp() builds ALL of them in
+ * sequence — client → ssr → nitro → prerender — and only resolves once
+ * every environment's closeBundle hook has completed (including the full
+ * prerender + sitemap write).
+ *
+ * After buildApp() resolves, process.exit(0) terminates the entire process
+ * group, cleanly reaping any dangling wrangler/workerd handles without
+ * needing pkill or any node_modules patches.
  *
  * References:
+ * - Vite Environment API: https://vite.dev/guide/api-environment
  * - CF_PAGES=1 is injected by Cloudflare Pages into every build environment.
- * - process.exit(0) after Vite's build() resolves is safe because all output
- *   files have already been flushed to disk by that point.
  */
 
-import { build } from "vite"
+import { createBuilder } from "vite"
 
 async function runBuild() {
   console.log("🚀 Starting build…")
   try {
-    await build()
+    const builder = await createBuilder()
+    await builder.buildApp()
     console.log("✅ Build + prerender complete. Exiting cleanly.")
     // Force-exit to reap dangling wrangler/workerd preview handles that
     // would otherwise keep the event loop alive indefinitely.
