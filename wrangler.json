@@ -6,11 +6,5 @@
   "pages_build_output_dir": "dist",
   "observability": {
     "enabled": true
-  },
-  "vars": {
-    "VITE_CONVEX_URL": "https://sincere-clownfish-686.convex.cloud",
-    "VITE_CONVEX_SITE_URL": "https://sincere-clownfish-686.convex.site",
-    "SITE_URL": "https://streamhuddle.pages.dev",
-    "VITE_SITE_URL": "https://streamhuddle.pages.dev"
   }
 }
