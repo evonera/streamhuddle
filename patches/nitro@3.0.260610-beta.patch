@@ -1,13 +1,11 @@
 --- a/dist/_chunks/nitro2.mjs
 +++ b/dist/_chunks/nitro2.mjs
-@@ -80,9 +80,7 @@
- 	const child = spawn(arg0, [
+@@ -81,7 +81,7 @@
  		...args,
  		"--port",
--		String(randomPort),
+ 		String(randomPort),
 -		"--host",
--		"localhost"
-+		String(randomPort)
++		"--ip",
+ 		"localhost"
  	], {
  		stdio: "inherit",
- 		cwd: opts.rootDir,
