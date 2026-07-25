@@ -14,4 +14,11 @@ compatibility_flags = ["nodejs_compat"]
 # live on the Convex deployment, see `.env.convex.example`.
 #
 # Don't add a `[vars]` block here for these — runtime bindings can't reach
-# values that Vite has already inlined into the bundle.
+# values that Vite has already inlined into the bundle. (Update: Cloudflare Pages 
+# now manages env vars via wrangler.toml, so we MUST define public build-time vars here).
+
+[vars]
+VITE_CONVEX_URL = "https://sincere-clownfish-686.convex.cloud"
+VITE_CONVEX_SITE_URL = "https://sincere-clownfish-686.convex.site"
+SITE_URL = "https://streamhuddle.pages.dev"
+VITE_SITE_URL = "https://streamhuddle.pages.dev"
