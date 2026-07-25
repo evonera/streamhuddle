@@ -91,8 +91,9 @@ export default defineConfig(({ mode }) => {
       ],
     },
     ssr: {
-      // Prevent AsyncLocalStorage context loss for Better Auth on the server.
-      noExternal: ["@convex-dev/better-auth"],
+      // Bundle everything for Cloudflare Pages worker, since it doesn't have node_modules
+      noExternal: true,
+      target: "webworker",
     },
     define: {
       "process.env.VITE_CONVEX_URL": JSON.stringify(convexUrl),
