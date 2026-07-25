@@ -30,6 +30,12 @@ function getConvexSiteUrl(deployment: string | undefined) {
   return `https://${projectName}.convex.site`
 }
 
+// Cloudflare Pages injects CF_PAGES=1 into every build environment.
+// We use it to skip prerendering (which spawns wrangler pages dev and hangs CI).
+// The Cloudflare Worker handles all routes dynamically via SSR — prerendering
+// is a performance optimisation, not a requirement for the site to work.
+const isCloudflareCI = process.env.CF_PAGES === "1"
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "")
 
@@ -131,11 +137,14 @@ export default defineConfig(({ mode }) => {
       tanstackStart({
         srcDirectory: "src",
         prerender: {
-          enabled: true,
+          // Disable prerendering on Cloudflare Pages CI to prevent the
+          // wrangler pages dev preview server from hanging the build.
+          // The Cloudflare Worker handles all routes via SSR.
+          enabled: !isCloudflareCI,
           crawlLinks: true,
         },
         sitemap: {
-          enabled: true,
+          enabled: !isCloudflareCI,
           host: siteUrl,
         },
       }),

@@ -2,30 +2,15 @@
 /**
  * build.mjs — Clean Cloudflare Pages build runner.
  *
- * Why this exists:
- * TanStack Start's prerenderer (prerenderWithVite) spins up a Vite preview
- * server, which under the `cloudflare-pages` Nitro preset spawns
- * `wrangler pages dev` (and its child `workerd` V8 runtime). Even after
- * all pages are crawled and the sitemap is written, those child processes
- * keep Node's event loop alive. `vite build` therefore never exits on its
- * own, causing Cloudflare Pages CI builds to hang until the 20-minute
- * timeout kicks in.
+ * Strategy:
+ * On Cloudflare Pages (CF_PAGES=1), prerendering is disabled in vite.config.ts,
+ * so the build is just client + SSR + Nitro bundling. We run it via Vite's
+ * createBuilder().buildApp() so we hold the Promise and can call process.exit(0)
+ * after everything finishes, preventing any lingering handles from keeping the
+ * Node event loop alive.
  *
- * Why createBuilder() instead of build():
- * Vite's build() JS API only builds the *first* (client) environment and
- * resolves immediately. TanStack Start configures multiple environments
- * (client, ssr, nitro). createBuilder().buildApp() builds ALL of them in
- * sequence — client → ssr → nitro → prerender — and only resolves once
- * every environment's closeBundle hook has completed (including the full
- * prerender + sitemap write).
- *
- * After buildApp() resolves, process.exit(0) terminates the entire process
- * group, cleanly reaping any dangling wrangler/workerd handles without
- * needing pkill or any node_modules patches.
- *
- * References:
- * - Vite Environment API: https://vite.dev/guide/api-environment
- * - CF_PAGES=1 is injected by Cloudflare Pages into every build environment.
+ * Locally (CF_PAGES unset), prerendering IS enabled, so the same approach
+ * works — buildApp() resolves after prerender + sitemap complete, then we exit.
  */
 
 import { createBuilder } from "vite"
@@ -35,9 +20,8 @@ async function runBuild() {
   try {
     const builder = await createBuilder()
     await builder.buildApp()
-    console.log("✅ Build + prerender complete. Exiting cleanly.")
-    // Force-exit to reap dangling wrangler/workerd preview handles that
-    // would otherwise keep the event loop alive indefinitely.
+    console.log("✅ Build complete. Exiting cleanly.")
+    // Force-exit to reap any dangling handles (wrangler/workerd, etc.)
     process.exit(0)
   } catch (err) {
     console.error("❌ Build failed:", err)
