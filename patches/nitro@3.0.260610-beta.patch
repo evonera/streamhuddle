@@ -1,17 +1,11 @@
---- a/dist/_chunks/nitro2.mjs
-+++ b/dist/_chunks/nitro2.mjs
-@@ -78,10 +78,8 @@ async function runPreviewCommand(opts) {
- 	const { getRandomPort, waitForPort } = await import("get-port-please");
- 	const randomPort = await getRandomPort();
- 	const child = spawn(arg0, [
--		...args,
--		"--port",
--		String(randomPort),
--		"--ip",
+--- a/dist/_chunks/nitro2.mjs	2026-07-25 17:12:57
++++ b/dist/_chunks/nitro2.mjs	2026-07-25 17:13:21
+@@ -81,8 +81,6 @@
+ 		...args,
+ 		"--port",
+ 		String(randomPort),
+-		"--host",
 -		"localhost"
-+		...args,
-+		"--port",
-+		String(randomPort)
  	], {
  		stdio: "inherit",
  		cwd: opts.rootDir,
