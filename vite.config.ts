@@ -152,6 +152,18 @@ export default defineConfig(({ mode }) => {
           gzipSize: true,
           brotliSize: true,
         }) : undefined,
+      {
+        name: 'force-exit',
+        apply: 'build',
+        closeBundle() {
+          if (process.env.CF_PAGES || process.env.NODE_ENV === 'production') {
+            setTimeout(() => {
+              console.log('Forcing exit to prevent Cloudflare build hang...');
+              process.exit(0);
+            }, 3000);
+          }
+        }
+      }
     ].filter(Boolean) as any,
   }
 })
