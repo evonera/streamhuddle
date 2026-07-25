@@ -50,7 +50,7 @@
     "convex:logs:prod": "convex logs --prod",
     "convex:env": "convex env list",
     "convex:env:prod": "convex env list --prod",
-    "build": "vite build",
+    "build": "vite build && rm -rf dist-tmp && mv dist/client dist-tmp && mv dist/server dist-tmp/_worker.js && rm -rf dist && mv dist-tmp dist",
     "deploy": "npm run build && wrangler deploy",
     "start": "node .output/server/index.mjs",
     "preview": "vite preview",
