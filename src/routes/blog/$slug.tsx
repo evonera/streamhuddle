@@ -9,7 +9,9 @@ export const Route = createFileRoute('/blog/$slug')({
   loader: ({ params }) => {
     const post = allPosts.find((p) => p.slug === params.slug)
     if (!post) throw notFound()
-    return post
+    // Omit mdxContent (React component) from loader data to prevent Seroval serialization error
+    const { mdxContent, ...serializablePost } = post
+    return serializablePost
   },
   head: ({ loaderData }) => {
     if (!loaderData) return { meta: [] }
@@ -24,7 +26,11 @@ export const Route = createFileRoute('/blog/$slug')({
 })
 
 function BlogPostComponent() {
-  const post = Route.useLoaderData()
+  const data = Route.useLoaderData()
+  // Look up the full post (with component) locally to avoid passing functions over the wire
+  const post = allPosts.find(p => p.slug === data.slug)
+  if (!post) return null
+
   const Content = post.mdxContent as any
 
   return (
