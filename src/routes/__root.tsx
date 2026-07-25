@@ -149,6 +149,11 @@ function RootDocument({ children }: { children: React.ReactNode }) {
             <Toaster />
           </ThemeProvider>
         </BetterAuthConvexProvider>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `window.__name = (target, value) => { Object.defineProperty(target, "name", { value, configurable: true }); return target; };`,
+          }}
+        />
         <Scripts />
       </body>
     </html>
