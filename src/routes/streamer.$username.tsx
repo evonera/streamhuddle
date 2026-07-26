@@ -162,7 +162,7 @@ export const Route = createFileRoute('/streamer/$username')({
     return fetchStreamerData({ data: { username: params.username } })
   },
   head: ({ loaderData, params }) => {
-    if (!loaderData) return { meta: [] }
+    if (!loaderData || !loaderData.user) return { meta: [] }
     const { user, stream } = loaderData
     const title = stream
       ? `${user.displayName} is LIVE — Watch on StreamHuddle`
@@ -233,7 +233,14 @@ function StreamerProfilePage() {
     }
   }, [])
 
-  if (!data) return null
+  if (!data || !data.user) return (
+    <main className="dark min-h-screen bg-[#101010] text-foreground flex items-center justify-center">
+      <div className="text-center">
+        <h1 className="text-2xl font-bold mb-2">Streamer Not Found</h1>
+        <p className="text-white/60">We couldn't load data for this streamer. Please check your Twitch API credentials.</p>
+      </div>
+    </main>
+  )
 
   const { user, stream, channel, clips } = data
   const isLive = !!stream
