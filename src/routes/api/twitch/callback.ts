@@ -84,7 +84,7 @@ export const Route = createFileRoute("/api/twitch/callback")({
             }
 
             // 4. Save to Convex
-            const convexUrl = process.env.VITE_CONVEX_URL!;
+            const convexUrl = import.meta.env.VITE_CONVEX_URL!;
             const client = new ConvexHttpClient(convexUrl);
             client.setAuth(convexToken);
             await client.mutation(api.twitchOAuth.saveTwitchToken, {
