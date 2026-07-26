@@ -30,14 +30,19 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     
-    // Try fetching static assets first
-    try {
-      const assetResponse = await env.ASSETS.fetch(request);
-      if (assetResponse.status !== 404) {
-        return assetResponse;
+    // Only fetch from ASSETS if the URL has a file extension (static assets).
+    // This prevents Cloudflare Pages' SPA fallback from swallowing SSR routes and API calls.
+    const hasExtension = /\\.[a-zA-Z0-9]+$/.test(url.pathname);
+    
+    if (hasExtension) {
+      try {
+        const assetResponse = await env.ASSETS.fetch(request);
+        if (assetResponse.status !== 404) {
+          return assetResponse;
+        }
+      } catch (err) {
+        // Ignore errors from asset fetch
       }
-    } catch (err) {
-      // Ignore errors from asset fetch
     }
 
     // Pass environment variables to globalThis so they are accessible 
