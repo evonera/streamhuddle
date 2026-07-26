@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router"
+import { getEnv } from '@/lib/env'
 import { ConvexHttpClient } from "convex/browser"
 import { api } from "../../../../convex/_generated/api"
 import { getToken } from "@/lib/auth-server"
@@ -24,15 +25,15 @@ export const Route = createFileRoute("/api/twitch/callback")({
             return Response.redirect(new URL("/roster?error=twitch_auth_failed", request.url).toString());
         }
 
-        const clientId = globalThis.process?.env?.TWITCH_CLIENT_ID;
-        const clientSecret = globalThis.process?.env?.TWITCH_CLIENT_SECRET;
+        const clientId = getEnv('TWITCH_CLIENT_ID');
+        const clientSecret = getEnv('TWITCH_CLIENT_SECRET');
         
         if (!clientId || !clientSecret) {
             return new Response("Missing Twitch Credentials", { status: 500 });
         }
 
         const host = url.host || "localhost:3000";
-        const redirectBase = globalThis.process?.env?.TWITCH_REDIRECT_BASE_URL ?? (host.includes("localhost") ? `http://${host}` : `https://${host}`);
+        const redirectBase = getEnv('TWITCH_REDIRECT_BASE_URL') ?? (host.includes("localhost") ? `http://${host}` : `https://${host}`);
         const redirectUri = `${redirectBase}/api/twitch/callback`;
 
         try {
@@ -83,7 +84,7 @@ export const Route = createFileRoute("/api/twitch/callback")({
             }
 
             // 4. Save to Convex
-            const convexUrl = process.env.VITE_CONVEX_URL!;
+            const convexUrl = import.meta.env.VITE_CONVEX_URL!;
             const client = new ConvexHttpClient(convexUrl);
             client.setAuth(convexToken);
             await client.mutation(api.twitchOAuth.saveTwitchToken, {
