@@ -29,7 +29,7 @@ function getConvexSiteUrl(deployment: string | undefined) {
   return `https://${projectName}.convex.site`
 }
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ mode, command }) => {
   const env = loadEnv(mode, process.cwd(), "")
 
   // Parse wrangler.json for fallback vars (Cloudflare Pages doesn't pass [vars] to build script)
@@ -90,7 +90,7 @@ export default defineConfig(({ mode }) => {
         "seroval",
       ],
     },
-    ssr: {
+    ssr: command === "build" ? {
       // Bundle everything for Cloudflare Pages worker, since it doesn't have node_modules
       noExternal: true,
       target: "webworker",
@@ -98,7 +98,7 @@ export default defineConfig(({ mode }) => {
         conditions: ["workerd", "worker", "browser", "import", "require"],
         externalConditions: ["workerd", "worker", "browser", "import", "require"],
       }
-    },
+    } : undefined,
     define: {
       "process.env.VITE_CONVEX_URL": JSON.stringify(convexUrl),
       "process.env.VITE_CONVEX_SITE_URL": JSON.stringify(convexSiteUrl),

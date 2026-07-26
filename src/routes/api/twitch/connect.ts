@@ -6,10 +6,10 @@ export const Route = createFileRoute("/api/twitch/connect")({
       GET: ({ request }) => {
         const url = new URL(request.url);
         const host = url.host || "localhost:3000";
-        const redirectBase = process.env.TWITCH_REDIRECT_BASE_URL ?? (host.includes("localhost") ? `http://${host}` : `https://${host}`);
+        const redirectBase = globalThis.process?.env?.TWITCH_REDIRECT_BASE_URL ?? (host.includes("localhost") ? `http://${host}` : `https://${host}`);
         const redirectUri = `${redirectBase}/api/twitch/callback`;
         
-        const clientId = process.env.TWITCH_CLIENT_ID;
+        const clientId = globalThis.process?.env?.TWITCH_CLIENT_ID;
         if (!clientId) {
             return new Response("Missing TWITCH_CLIENT_ID", { status: 500 });
         }
