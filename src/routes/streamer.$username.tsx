@@ -75,11 +75,11 @@ async function getTwitchToken(): Promise<string> {
 }
 
 async function twitchFetch(path: string) {
-  const clientId = globalThis.process?.env?.TWITCH_CLIENT_ID!
+  const clientId = globalThis.process?.env?.TWITCH_CLIENT_ID
   const token = await getTwitchToken()
   const res = await fetch(`https://api.twitch.tv/helix${path}`, {
     headers: {
-      'Client-ID': clientId,
+      'Client-ID': clientId as string,
       Authorization: `Bearer ${token}`,
     },
   })
