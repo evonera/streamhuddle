@@ -1,4 +1,5 @@
 import { createFileRoute, Link, notFound } from '@tanstack/react-router'
+import { getEnv } from '@/lib/env'
 import { createServerFn } from '@tanstack/react-start'
 import { useEffect, useState } from 'react'
 
@@ -55,8 +56,8 @@ async function getTwitchToken(): Promise<string> {
   if (_cachedToken && Date.now() < _cachedToken.expiresAt - 60_000) {
     return _cachedToken.token
   }
-  const clientId = globalThis.process?.env?.TWITCH_CLIENT_ID
-  const clientSecret = globalThis.process?.env?.TWITCH_CLIENT_SECRET
+  const clientId = getEnv('TWITCH_CLIENT_ID')
+  const clientSecret = getEnv('TWITCH_CLIENT_SECRET')
   if (!clientId || !clientSecret) throw new Error('Missing TWITCH_CLIENT_ID or TWITCH_CLIENT_SECRET')
 
   const res = await fetch('https://id.twitch.tv/oauth2/token', {
@@ -75,7 +76,7 @@ async function getTwitchToken(): Promise<string> {
 }
 
 async function twitchFetch(path: string) {
-  const clientId = globalThis.process?.env?.TWITCH_CLIENT_ID
+  const clientId = getEnv('TWITCH_CLIENT_ID')
   const token = await getTwitchToken()
   const res = await fetch(`https://api.twitch.tv/helix${path}`, {
     headers: {
