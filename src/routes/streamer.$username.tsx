@@ -1,4 +1,4 @@
-import { createFileRoute, Link, notFound } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { getEnv } from '@/lib/env'
 import { createServerFn } from '@tanstack/react-start'
 import { useEffect, useState } from 'react'
@@ -101,7 +101,11 @@ const fetchStreamerData = createServerFn({ method: 'GET' })
       usersData = await twitchFetch(`/users?login=${username}`)
     } catch (err: any) {
       console.error("TWITCH_FETCH_ERROR", err)
-      return { user: null, stream: null, channel: null, clips: [], error: err.message || String(err) }
+      const rawError = err.message || String(err)
+      const safeError = rawError.includes('TWITCH_CLIENT') 
+        ? "Server is missing Twitch API credentials."
+        : rawError
+      return { user: null, stream: null, channel: null, clips: [], error: safeError }
     }
     const user = usersData.data?.[0]
     if (!user) return { user: null, stream: null, channel: null, clips: [], error: "User not found on Twitch" }  
