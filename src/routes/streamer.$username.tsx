@@ -99,12 +99,13 @@ const fetchStreamerData = createServerFn({ method: 'GET' })
     let usersData
     try {
       usersData = await twitchFetch(`/users?login=${username}`)
-    } catch (err) {
+    } catch (err: any) {
       console.error("TWITCH_FETCH_ERROR", err)
-      throw notFound()
+      return { user: null, stream: null, channel: null, clips: [], error: err.message || String(err) }
     }
-    if (!usersData.data?.length) throw notFound()
-    const user = usersData.data[0] as TwitchUser
+    const user = usersData.data?.[0]
+    if (!user) return { user: null, stream: null, channel: null, clips: [], error: "User not found on Twitch" }  
+    
     const broadcasterId = user.id
 
     // 2. Get live status, channel info, clips in parallel
@@ -236,9 +237,14 @@ function StreamerProfilePage() {
 
   if (!data || !data.user) return (
     <main className="dark min-h-screen bg-[#101010] text-foreground flex items-center justify-center">
-      <div className="text-center">
+      <div className="text-center p-8 max-w-md">
         <h1 className="text-2xl font-bold mb-2">Streamer Not Found</h1>
-        <p className="text-white/60">We couldn't load data for this streamer. Please check your Twitch API credentials.</p>
+        <p className="text-white/60 mb-4">We couldn't load data for this streamer.</p>
+        {data?.error && (
+          <div className="bg-red-500/10 border border-red-500/20 rounded-md p-4 text-left">
+            <p className="text-red-400 text-sm font-mono break-words">{data.error}</p>
+          </div>
+        )}
       </div>
     </main>
   )
