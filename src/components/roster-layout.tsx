@@ -311,20 +311,28 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
     if (parsed.length === 0) return
     // Match on platform AND username: the same handle can exist on Twitch,
     // Kick, and YouTube, and the URL encodes which one was meant.
+    // Usernames fold case; custom URLs and YouTube IDs stay case-sensitive.
     const byPlatformAndName = new Map(
       (creatorsQuery || []).map((c) => [`${c.platform}:${c.username.toLowerCase()}`, c]),
     )
+    const lookupKey = (p: { platform: string; channel: string }) =>
+      p.platform === "custom" || p.platform === "youtube"
+        ? `${p.platform}:${p.channel}`
+        : `${p.platform}:${p.channel.toLowerCase()}`
     // Deduplicate repeated entries: duplicate cells share one stream.id, which
     // would collide in the Twitch player registry and break global controls.
+    // Roster matches dedupe on the resolved roster ID; unmatched entries keep
+    // unique index-based IDs, so only exact repeats are dropped.
     const seen = new Set<string>()
     const unique = parsed.filter((p) => {
-      const key = `${p.platform}:${p.channel.toLowerCase()}`
+      const match = byPlatformAndName.get(lookupKey(p))
+      const key = match ? `roster:${match._id}` : `raw:${lookupKey(p)}`
       if (seen.has(key)) return false
       seen.add(key)
       return true
     })
     const loaded: StreamData[] = unique.map((p, idx) => {
-      const match = byPlatformAndName.get(`${p.platform}:${p.channel.toLowerCase()}`)
+      const match = byPlatformAndName.get(lookupKey(p))
       if (match) {
         return {
           id: match._id,
