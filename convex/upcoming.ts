@@ -68,7 +68,14 @@ export const fetchTwitchSchedules = internalAction({
           headers: { "Client-ID": clientId!, "Authorization": `Bearer ${token}` },
         });
         clearTimeout(timeoutId);
-        if (!res.ok) continue; // 404 = no schedule published; skip quietly
+        // 404 = "no schedule published": a confirmed empty schedule, so the
+        // creator counts as successfully polled and old rows clear. Other
+        // failures leave existing rows untouched until the next run.
+        if (res.status === 404) {
+          succeededKeys.push(`twitch:${b.username.toLowerCase()}`);
+          continue;
+        }
+        if (!res.ok) continue;
         succeededKeys.push(`twitch:${b.username.toLowerCase()}`);
         const data = (await res.json()) as { data?: { segments?: any[] } };
         for (const seg of data.data?.segments ?? []) {
@@ -139,7 +146,11 @@ export const fetchYoutubeUpcoming = internalAction({
         const videoIds = (data.items ?? [])
           .map((item) => item.id?.videoId)
           .filter(Boolean) as string[];
-        if (videoIds.length === 0) continue;
+        // Successful search with zero videos = confirmed empty schedule.
+        if (videoIds.length === 0) {
+          succeededKeys.push(`youtube:${c.username.toLowerCase()}`);
+          continue;
+        }
 
         // Resolve real scheduled times; search results carry none.
         const detailsUrl = new URL("https://www.googleapis.com/youtube/v3/videos");
