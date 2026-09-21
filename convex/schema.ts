@@ -182,4 +182,23 @@ export default defineSchema({
   })
     .index("by_item_and_user", ["queueItemId", "userId"])
     .index("by_item", ["queueItemId"]),
+
+  // 11. Upcoming Events: Scheduled streams polled from platform schedule
+  // APIs (Twitch schedule, YouTube upcoming; Kick has no schedule API).
+  // Powers the Discover "Upcoming" section and event blog/streamlist curation.
+  upcomingEvents: defineTable({
+    creatorId: v.optional(v.id("creators")), // roster match, when known
+    platform: v.union(
+      v.literal("twitch"),
+      v.literal("youtube"),
+      v.literal("kick"),
+    ),
+    username: v.string(),         // channel handle for Play Now links
+    title: v.optional(v.string()), // scheduled stream title
+    startsAt: v.number(),          // timestamp ms
+    url: v.optional(v.string()),   // watch URL
+    source: v.string(),            // e.g. "twitch-schedule", "youtube-upcoming"
+  })
+    .index("by_startsAt", ["startsAt"])
+    .index("by_platform_and_username", ["platform", "username"]),
 })
