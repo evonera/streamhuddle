@@ -9,9 +9,9 @@ export const SITE_DESCRIPTION =
 export const SITE_LOCALE = "en_US"
 export const SITE_OG_IMAGE_ALT = "StreamHuddle Multi-Stream Viewer"
 
-export const AUTHOR_NAME = "Ramon Claudio"
-export const AUTHOR_URL = "https://github.com/ramonclaudio"
-export const AUTHOR_TWITTER = "@ramonclaudio"
-export const AUTHOR_GITHUB = "https://github.com/ramonclaudio"
+export const AUTHOR_NAME = "StreamHuddle"
+export const AUTHOR_URL = "https://github.com/evonera/streamhuddle"
+export const AUTHOR_TWITTER = "@streamhuddle"
+export const AUTHOR_GITHUB = "https://github.com/evonera/streamhuddle"
 
-export const REPO_URL = "https://github.com/ramonclaudio/tanvex"
+export const REPO_URL = "https://github.com/evonera/streamhuddle"

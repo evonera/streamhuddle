@@ -1,13 +1,17 @@
 import { useState } from "react";
 
-export function YouTubePlayer({ 
-  videoId, 
+export function YouTubePlayer({
+  videoId,
   isPrimary = false,
-  muted = true
-}: { 
-  videoId: string; 
+  muted = true,
+  title,
+  remountKey,
+}: {
+  videoId: string;
   isPrimary?: boolean;
   muted?: boolean;
+  title?: string;
+  remountKey?: number;
 }) {
   const [hasClickedPlay, setHasClickedPlay] = useState(false);
 
@@ -42,11 +46,13 @@ export function YouTubePlayer({
   return (
     <div className="w-full h-full bg-black">
       <iframe
+        key={remountKey}
         src={`https://www.youtube.com/embed/${videoId}?autoplay=1&mute=${muted ? 1 : 0}&playsinline=1`}
         height="100%"
         width="100%"
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
         allowFullScreen
+        title={title ? `YouTube stream: ${title}` : `YouTube stream: ${videoId}`}
         className="w-full h-full border-0"
       ></iframe>
     </div>

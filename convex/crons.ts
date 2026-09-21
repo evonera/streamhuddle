@@ -17,7 +17,9 @@ crons.interval(
 
 crons.interval(
   "poll-live-statuses",
-  { minutes: 10 }, 
+  // 3-min cadence keeps LIVE badges/offline placeholders fresh without
+  // hammering Twitch (one batched Helix call) or per-channel Kick fetches.
+  { minutes: 3 },
   internal.polling.pollAllPlatforms,
 )
 

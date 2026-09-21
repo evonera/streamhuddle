@@ -139,7 +139,7 @@ export const seedPremadeLists = internalAction({
     const lists = [
       {
         name: "The Esports Hub",
-        views: 124500,
+        views: 0,
         authorName: "StreamHuddle Official",
         streamers: [
           { username: "tarik", platform: "twitch" },
@@ -150,7 +150,7 @@ export const seedPremadeLists = internalAction({
       },
       {
         name: "Just Chatting Legends",
-        views: 312000,
+        views: 0,
         authorName: "StreamHuddle Official",
         streamers: [
           { username: "xQc", platform: "twitch" },

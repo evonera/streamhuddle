@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useState, useEffect } from "react";
 import { Link } from "@tanstack/react-router";
 import GithubIcon from "@hugeicons/core-free-icons/GithubIcon";
@@ -6,7 +5,6 @@ import Menu01Icon from "@hugeicons/core-free-icons/Menu01Icon";
 import Cancel01Icon from "@hugeicons/core-free-icons/Cancel01Icon";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { cn } from "@/lib/utils";
-import LogoIcon from "@/assets/logo-icon";
 import { UserMenu } from "@/components/user-menu";
 
 export default function Navbar() {

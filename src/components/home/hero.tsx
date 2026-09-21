@@ -1,4 +1,3 @@
-// @ts-nocheck
 import ArrowUpRight01Icon from "@hugeicons/core-free-icons/ArrowUpRight01Icon";
 import { HugeiconsIcon } from "@hugeicons/react";
 import Container from './container';

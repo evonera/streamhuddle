@@ -15,20 +15,22 @@ export interface StreamData {
   gridIndex?: number; // Tracks position in fixed grid layouts
 }
 
-export function StreamPlayer({ stream, kickRemountKey }: { stream: StreamData; kickRemountKey?: number }) {
+export function StreamPlayer({ stream, kickRemountKey, remountKey, twitchQuality }: { stream: StreamData; kickRemountKey?: number; remountKey?: number; twitchQuality?: string }) {
   switch (stream.platform) {
     case "twitch":
-      return <TwitchPlayer channel={stream.channel} muted={stream.muted} />;
+      return <TwitchPlayer channel={stream.channel} muted={stream.muted} streamId={stream.id} remountKey={remountKey ?? kickRemountKey} quality={twitchQuality} />;
     case "youtube":
       return (
-        <YouTubePlayer 
-          videoId={stream.channel} 
-          isPrimary={stream.isPrimary} 
-          muted={stream.muted} 
+        <YouTubePlayer
+          videoId={stream.channel}
+          isPrimary={stream.isPrimary}
+          muted={stream.muted}
+          title={stream.displayName || stream.channel}
+          remountKey={remountKey}
         />
       );
     case "kick":
-      return <KickPlayer channel={stream.channel} muted={stream.muted} remountKey={kickRemountKey} />;
+      return <KickPlayer channel={stream.channel} muted={stream.muted} remountKey={remountKey ?? kickRemountKey} title={stream.displayName || stream.channel} />;
     case "custom": {
       // Prevent XSS from javascript: URLs
       let safeUrl = "";

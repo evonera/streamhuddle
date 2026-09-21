@@ -33,15 +33,21 @@ function chunkIntoRows<T>(items: T[], cols: number): T[][] {
 
 // Grid cells layout logic
 
-export function StreamGrid({ 
+export function StreamGrid({
   streams,
   gridSize = "auto",
   onRemoveStream,
   activeChatId,
   setActiveChatId,
   onAddStreamClick,
-  onSwapStream
-}: { 
+  onSwapStream,
+  globalMuted = false,
+  twitchQuality,
+  remountKey = 0,
+  liveMap,
+  onRetryStream,
+  onStartTour,
+}: {
   streams: StreamData[];
   gridSize?: "auto" | number;
   onRemoveStream: (id: string, type: "stream" | "chat") => void;
@@ -49,6 +55,18 @@ export function StreamGrid({
   setActiveChatId: (id: string | null) => void;
   onAddStreamClick?: (gridIndex?: number) => void;
   onSwapStream?: (draggedId: string, draggedType: "stream" | "chat", targetGridIndex: number) => void;
+  /** when true, every cell renders muted (mute-all) */
+  globalMuted?: boolean;
+  /** explicit Twitch quality override; undefined = Auto */
+  twitchQuality?: string;
+  /** bump to force all players to re-init (reload-all) */
+  remountKey?: number;
+  /** stream.id -> isLive for roster streams; missing = unknown (mount normally) */
+  liveMap?: Record<string, boolean>;
+  /** retry handler for offline placeholders */
+  onRetryStream?: (id: string) => void;
+  /** opens the onboarding tour from the empty state */
+  onStartTour?: () => void;
 }) {
   const [kickRemountKey, setKickRemountKey] = useState(0);
   const [focusedId, setFocusedId] = useState<string | null>(null);
@@ -118,7 +136,16 @@ export function StreamGrid({
           <EmptyTitle>No streams selected</EmptyTitle>
           <EmptyDescription>
             Pick a creator from the roster panel on the left to start building your ultimate viewing experience.
+            Click a stream to give it audio — only one stream plays sound at a time.
           </EmptyDescription>
+          {onStartTour && (
+            <button
+              onClick={onStartTour}
+              className="mt-4 inline-flex items-center gap-2 bg-primary text-primary-foreground font-mono font-bold tracking-widest uppercase px-5 py-2.5 text-xs hover:bg-primary/90 transition-colors active:scale-[0.97]"
+            >
+              Take the tour
+            </button>
+          )}
         </Empty>
       </div>
     );
@@ -230,17 +257,73 @@ export function StreamGrid({
               }
 
               const isFocused = stream.id === focusedId;
-              const isMuted = !isFocused && !manuallyUnmuted.has(stream.id);
-              
+              const isMuted = globalMuted || (!isFocused && !manuallyUnmuted.has(stream.id));
+              const isKnownOffline =
+                stream.platform !== "custom" && liveMap !== undefined && liveMap[stream.id] === false;
+
+              if (isKnownOffline) {
+                return (
+                  <motion.div
+                    layout
+                    key={reactKey}
+                    style={style}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
+                    className="relative min-w-0 min-h-0 grow-0 shrink-0 group bg-zinc-950 border border-zinc-800 rounded overflow-hidden flex flex-col items-center justify-center gap-2 p-4 text-center"
+                    {...dropProps}
+                  >
+                    <img
+                      src={`https://avatar.vercel.sh/${stream.displayName || stream.channel}`}
+                      alt=""
+                      className="w-12 h-12 rounded-full bg-zinc-900 object-cover grayscale"
+                    />
+                    <div className="text-zinc-200 text-sm font-semibold truncate max-w-full">
+                      {stream.displayName || stream.channel}
+                    </div>
+                    <div className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">
+                      Offline
+                    </div>
+                    <div className="flex gap-2 mt-1">
+                      {onRetryStream && (
+                        <button
+                          onClick={() => onRetryStream(stream.id)}
+                          className="text-[11px] font-mono px-3 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-colors"
+                        >
+                          Retry
+                        </button>
+                      )}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleRemove(stream.id, "stream"); }}
+                        title="Close"
+                        className="text-[11px] font-mono px-3 py-1.5 rounded bg-red-600/80 hover:bg-red-600 text-white transition-colors"
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </motion.div>
+                );
+              }
+
               return (
                 <motion.div
                   layout
-                  key={reactKey}
+                  key={`${reactKey}-r${remountKey}`}
                   style={style}
                   onClick={() => {
                     setFocusedId(stream.id);
                     setManuallyUnmuted(new Set()); // Prevent audio leak!
                   }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setFocusedId(stream.id);
+                      setManuallyUnmuted(new Set());
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Focus audio on ${stream.displayName || stream.channel}`}
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
@@ -249,13 +332,15 @@ export function StreamGrid({
                   }`}
                   {...dropProps}
                 >
-                  <StreamPlayer 
+                  <StreamPlayer
                     stream={{
                       ...stream,
                       isPrimary: isFocused,
                       muted: isMuted
-                    }} 
+                    }}
                     kickRemountKey={kickRemountKey}
+                    remountKey={remountKey}
+                    twitchQuality={twitchQuality}
                   />
                   
                   {/* Toolbar Overlay (Hover) — drag is initiated from here, NOT the cell wrapper.
@@ -278,6 +363,8 @@ export function StreamGrid({
                         <button
                           onClick={(e) => toggleManualMute(e, stream.id)}
                           title={isMuted ? "Unmute" : "Mute"}
+                          aria-label={isMuted ? `Unmute ${stream.displayName || stream.channel}` : `Mute ${stream.displayName || stream.channel}`}
+                          aria-pressed={!isMuted}
                           className={`p-1.5 rounded-full transition-colors flex items-center justify-center ${
                             !isMuted 
                               ? 'bg-primary text-primary-foreground' 

@@ -1,7 +1,7 @@
 import { query, mutation } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
 import { safeGetAuthenticatedUser } from "./auth";
-import { rateLimitWithThrow } from "./rateLimit";
+import { rateLimiter, rateLimitWithThrow } from "./rateLimit";
 
 // Added return validators to all functions per guidelines.
 const creatorReturnValidator = v.object({
@@ -189,8 +189,11 @@ export const incrementStreamListViews = mutation({
   args: { id: v.id("layouts") },
   returns: v.null(),
   handler: async (ctx, args) => {
+    // Per-layout fixed-window cap so refresh/view spam can't inflate counts.
+    // Over-limit calls are dropped silently (views are best-effort).
+    const res = await rateLimiter.limit(ctx, "viewIncrement", { key: args.id });
+    if (!res.ok) return null;
 
-    
     const layout = await ctx.db.get(args.id);
     if (!layout) return null;
     await ctx.db.patch(args.id, { views: (layout.views || 0) + 1 });
