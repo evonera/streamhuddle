@@ -8,7 +8,8 @@ export type ParsedStreamRef = {
  * Parse a `?streams=` instant-watch param: comma-separated entries of the form
  * `platform:value` (e.g. `twitch:xqc`, `kick:adinross`, `youtube:VIDEO_ID`,
  * `custom:https://example.com/embed`) or bare Twitch usernames.
- * Capped at 20 entries.
+ * Each entry is URI-decoded independently so custom URLs containing commas
+ * survive the round-trip (see serializeStreamsParam). Capped at 20 entries.
  */
 export function parseStreamsParam(param: string): Array<ParsedStreamRef> {
   return param
@@ -16,7 +17,15 @@ export function parseStreamsParam(param: string): Array<ParsedStreamRef> {
     .map((s) => s.trim())
     .filter(Boolean)
     .slice(0, 20)
-    .map((entry) => {
+    .map((rawEntry) => {
+      // Decode per-entry (never the whole list): commas inside custom URLs
+      // are encoded as %2C by the serializer and only restored here.
+      let entry = rawEntry
+      try {
+        entry = decodeURIComponent(rawEntry)
+      } catch {
+        // Malformed escape sequences: fall back to the raw entry.
+      }
       // Custom URLs contain colons (https://...), so match the prefix first
       // instead of splitting on every colon.
       if (entry.toLowerCase().startsWith("custom:")) {
@@ -40,12 +49,19 @@ export function parseStreamsParam(param: string): Array<ParsedStreamRef> {
     .filter((x): x is ParsedStreamRef => x !== null)
 }
 
-/** Serialize roster/custom picks back into a `?streams=` param (Play Now links). */
+/** Serialize roster/custom picks back into a `?streams=` param (Play Now links).
+ * Only the value half is URI-encoded, so `twitch:xqc` stays human-readable
+ * while commas (or other reserved characters) inside custom URLs cannot
+ * corrupt neighbouring entries. */
 export function serializeStreamsParam(
   picks: Array<{ platform: string; username?: string; platformId?: string }>,
 ): string {
   return picks
-    .map((c) => `${c.platform}:${c.platform === "custom" && c.platformId ? c.platformId : (c.username ?? "")}`)
-    .filter((s) => !s.endsWith(":"))
+    .map((c) => {
+      const value = c.platform === "custom" && c.platformId ? c.platformId : (c.username ?? "")
+      if (!value) return null
+      return `${c.platform}:${encodeURIComponent(value)}`
+    })
+    .filter((s): s is string => s !== null)
     .join(",")
 }

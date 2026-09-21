@@ -126,6 +126,11 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
 
   // Persisted UI prefs (sidebars, mute-all, quality) survive reloads.
   const [prefsLoaded, setPrefsLoaded] = useState(false)
+  // Narrow viewports force sidebars closed for layout, but that override must
+  // never be persisted: writing it would destroy the user's desktop prefs.
+  const [isMobileViewport] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth <= 768,
+  )
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(true)
   const [rightSidebarOpen, setRightSidebarOpen] = useState(true)
   const [globalMuted, setGlobalMuted] = useState(false)
@@ -159,28 +164,31 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
     if (prefs.rightSidebarOpen !== undefined) setRightSidebarOpen(prefs.rightSidebarOpen)
     if (prefs.globalMuted !== undefined) setGlobalMuted(prefs.globalMuted)
     if (prefs.twitchQuality) setTwitchQuality(prefs.twitchQuality)
-    if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+    if (isMobileViewport) {
       // Small screens start with overlays closed regardless of saved prefs.
       setLeftSidebarOpen(false)
       setRightSidebarOpen(false)
     }
     setPrefsLoaded(true)
-  }, [])
+  }, [isMobileViewport])
 
-  // Persist sidebar/mute/quality prefs (skip until initial load resolves)
+  // Persist sidebar/mute/quality prefs (skip until initial load resolves).
+  // On mobile viewports the sidebar values are a forced layout override, so
+  // re-save the previously stored ones instead of the override.
   useEffect(() => {
     if (!prefsLoaded) return
     try {
+      const prev = isMobileViewport ? loadPrefs() : {}
       localStorage.setItem(PREFS_STORAGE_KEY, JSON.stringify({
-        leftSidebarOpen,
-        rightSidebarOpen,
+        leftSidebarOpen: isMobileViewport ? prev.leftSidebarOpen : leftSidebarOpen,
+        rightSidebarOpen: isMobileViewport ? prev.rightSidebarOpen : rightSidebarOpen,
         globalMuted,
         twitchQuality,
       } satisfies Prefs))
     } catch {
       // ignore quota errors
     }
-  }, [prefsLoaded, leftSidebarOpen, rightSidebarOpen, globalMuted, twitchQuality])
+  }, [prefsLoaded, isMobileViewport, leftSidebarOpen, rightSidebarOpen, globalMuted, twitchQuality])
 
   // Apply an explicit Twitch quality to all mounted players (and future mounts via prop).
   // Switching back to Auto remounts players: the embed has no "reset to Auto"
@@ -306,7 +314,16 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
     const byPlatformAndName = new Map(
       (creatorsQuery || []).map((c) => [`${c.platform}:${c.username.toLowerCase()}`, c]),
     )
-    const loaded: StreamData[] = parsed.map((p, idx) => {
+    // Deduplicate repeated entries: duplicate cells share one stream.id, which
+    // would collide in the Twitch player registry and break global controls.
+    const seen = new Set<string>()
+    const unique = parsed.filter((p) => {
+      const key = `${p.platform}:${p.channel.toLowerCase()}`
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+    const loaded: StreamData[] = unique.map((p, idx) => {
       const match = byPlatformAndName.get(`${p.platform}:${p.channel.toLowerCase()}`)
       if (match) {
         return {

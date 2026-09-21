@@ -90,7 +90,7 @@ export function TwitchPlayer({
 
     return () => {
       mounted = false;
-      if (streamId) unregisterTwitchPlayer(streamId);
+      if (streamId) unregisterTwitchPlayer(streamId, playerRef.current);
       if (container) container.innerHTML = '';
       playerRef.current = null;
     };

@@ -17,7 +17,10 @@ export function registerTwitchPlayer(id: string, player: TwitchEmbed) {
   players.set(id, player)
 }
 
-export function unregisterTwitchPlayer(id: string) {
+export function unregisterTwitchPlayer(id: string, player?: TwitchEmbed) {
+  // Only delete the entry this instance registered: duplicate cells sharing
+  // an id must not remove each other's players on unmount.
+  if (player !== undefined && players.get(id) !== player) return
   players.delete(id)
 }
 
