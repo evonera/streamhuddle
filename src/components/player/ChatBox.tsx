@@ -31,15 +31,17 @@ export function ChatBox({
           src={`https://www.twitch.tv/embed/${channel}/chat?parent=${parent}${isDark ? "&darkpopout" : ""}`}
           height="100%"
           width="100%"
+          title={`Twitch chat: ${channel}`}
           className="w-full h-full border-0 absolute inset-0"
         ></iframe>
       )}
-      
+
       {platform === "youtube" && (
         <iframe
           src={`https://www.youtube.com/live_chat?v=${channel}&embed_domain=${parent}&dark_theme=${isDark ? "1" : "0"}`}
           height="100%"
           width="100%"
+          title={`YouTube chat: ${channel}`}
           className="w-full h-full border-0 absolute inset-0"
         ></iframe>
       )}
@@ -49,6 +51,7 @@ export function ChatBox({
           src={`https://chat.kick.cx/${channel}`}
           height="100%"
           width="100%"
+          title={`Kick chat: ${channel}`}
           className="w-full h-full border-0 absolute inset-0"
         ></iframe>
       )}

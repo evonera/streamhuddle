@@ -35,9 +35,18 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
     period: MINUTE,
     capacity: 10,
   },
+
+  // Public view-count increments, keyed by layout id. Caps refresh/view spam
+  // at ~30 counted views per layout per minute while keeping counts roughly right.
+  viewIncrement: {
+    kind: "fixed window",
+    rate: 30,
+    period: MINUTE,
+    capacity: 30,
+  },
 })
 
-export type RateLimitName = "apiRead" | "userAction"
+export type RateLimitName = "apiRead" | "userAction" | "viewIncrement"
 
 /**
  * Apply a rate limit and throw automatically if exceeded.

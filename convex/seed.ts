@@ -139,7 +139,7 @@ export const seedPremadeLists = internalAction({
     const lists = [
       {
         name: "The Esports Hub",
-        views: 124500,
+        views: 0,
         authorName: "StreamHuddle Official",
         streamers: [
           { username: "tarik", platform: "twitch" },
@@ -150,7 +150,7 @@ export const seedPremadeLists = internalAction({
       },
       {
         name: "Just Chatting Legends",
-        views: 312000,
+        views: 0,
         authorName: "StreamHuddle Official",
         streamers: [
           { username: "xQc", platform: "twitch" },
@@ -205,6 +205,12 @@ export const commitPremadeList = internalMutation({
       .first();
 
     if (existingLayout) {
+      // One-time repair: early seeds wrote fabricated view counts (124500 /
+      // 312000). Reset only exact legacy fabrications so genuine organic
+      // views accumulated since are never destroyed.
+      if (existingLayout.views === 124500 || existingLayout.views === 312000) {
+        await ctx.db.patch(existingLayout._id, { views: 0 });
+      }
       return existingLayout._id;
     }
 

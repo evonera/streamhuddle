@@ -1,11 +1,13 @@
-export function KickPlayer({ 
-  channel, 
+export function KickPlayer({
+  channel,
   muted = false,
-  remountKey
-}: { 
-  channel: string; 
+  remountKey,
+  title,
+}: {
+  channel: string;
   muted?: boolean;
   remountKey?: number;
+  title?: string;
 }) {
   return (
     <div className="w-full h-full bg-black">
@@ -15,6 +17,7 @@ export function KickPlayer({
         height="100%"
         width="100%"
         allowFullScreen
+        title={title ? `Kick stream: ${title}` : `Kick stream: ${channel}`}
         className="w-full h-full border-0"
       ></iframe>
     </div>

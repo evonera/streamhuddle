@@ -16,6 +16,11 @@ import PanelLeftOpenIcon from "@hugeicons/core-free-icons/PanelLeftOpenIcon"
 import PanelRightCloseIcon from "@hugeicons/core-free-icons/PanelRightCloseIcon"
 import PanelRightOpenIcon from "@hugeicons/core-free-icons/PanelRightOpenIcon"
 import Message01Icon from "@hugeicons/core-free-icons/Message01Icon"
+import PauseIcon from "@hugeicons/core-free-icons/PauseIcon"
+import PlayIcon from "@hugeicons/core-free-icons/PlayIcon"
+import ReloadIcon from "@hugeicons/core-free-icons/ReloadIcon"
+import VolumeHighIcon from "@hugeicons/core-free-icons/VolumeHighIcon"
+import VolumeMute01Icon from "@hugeicons/core-free-icons/VolumeMute01Icon"
 import Search01Icon from "@hugeicons/core-free-icons/Search01Icon"
 import Search02Icon from "@hugeicons/core-free-icons/Search02Icon"
 import Share01Icon from "@hugeicons/core-free-icons/Share01Icon"
@@ -33,9 +38,50 @@ import { ClipModal } from "./clip/ClipModal"
 import { authClient } from "@/lib/auth-client"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { MultiClipQueueWidget } from "./clip-queue/ClipQueueWidget"
+import { pauseAllTwitch, playAllTwitch, setAllTwitchQuality } from "@/components/player/twitch-registry"
+import { parseStreamsParam } from "@/lib/streams-param"
 import type { Id } from "@convex/_generated/dataModel"
 
 const SESSION_STORAGE_KEY = 'streamhuddle-session'
+const PREFS_STORAGE_KEY = 'streamhuddle-prefs'
+const TOUR_SEEN_KEY = 'streamhuddle-tour-seen'
+
+type Prefs = {
+  leftSidebarOpen?: boolean
+  rightSidebarOpen?: boolean
+  globalMuted?: boolean
+  twitchQuality?: string
+}
+
+function loadPrefs(): Prefs {
+  if (typeof window === 'undefined') return {}
+  try {
+    const saved = localStorage.getItem(PREFS_STORAGE_KEY)
+    if (!saved) return {}
+    return JSON.parse(saved) as Prefs
+  } catch {
+    return {}
+  }
+}
+
+const TOUR_STEPS = [
+  {
+    title: "1 · Build your grid",
+    body: "Search the roster and hit Stream to add a creator, or paste any Twitch / Kick / YouTube URL into an empty slot. Up to 20 cells.",
+  },
+  {
+    title: "2 · One stream has audio",
+    body: "Click any cell (or press Enter on it) to give it sound. The focused cell gets a green border — everything else stays muted.",
+  },
+  {
+    title: "3 · Master controls",
+    body: "The toolbar mutes all streams, pauses/plays Twitch embeds, reloads everything at once, and forces Twitch quality. Pause and quality apply to Twitch players only.",
+  },
+  {
+    title: "4 · Chat + share",
+    body: "Pick which chat to follow in the right panel, save the setup as a StreamList, and share it with a link anyone can load in one click.",
+  },
+]
 
 function loadSession(): StreamData[] {
   if (typeof window === 'undefined') return []
@@ -61,7 +107,7 @@ function saveSession(streams: StreamData[]) {
   }
 }
 
-export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: string, autoLoadAll?: boolean }) {
+export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }: { initialListId?: string, autoLoadAll?: boolean, initialStreamsParam?: string }) {
 
   const { isAuthenticated } = useConvexAuth()
 
@@ -75,11 +121,23 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
   const [activeLayoutId, setActiveLayoutId] = useState<string | null>(initialListId || null)
   const [activeStreams, setActiveStreams] = useState<StreamData[]>([])
   const [gridSize, setGridSize] = useState<"auto" | number>("auto")
-  
+
   const [activeChatId, setActiveChatId] = useState<string | null>(null)
-  
+
+  // Persisted UI prefs (sidebars, mute-all, quality) survive reloads.
+  const [prefsLoaded, setPrefsLoaded] = useState(false)
+  // Narrow viewports force sidebars closed for layout, but that override must
+  // never be persisted: writing it would destroy the user's desktop prefs.
+  const [isMobileViewport] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth <= 768,
+  )
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(true)
   const [rightSidebarOpen, setRightSidebarOpen] = useState(true)
+  const [globalMuted, setGlobalMuted] = useState(false)
+  const [twitchQuality, setTwitchQuality] = useState("auto")
+  const [remountKey, setRemountKey] = useState(0)
+  const [tourOpen, setTourOpen] = useState(false)
+  const [tourStep, setTourStep] = useState(0)
 
   const [addStreamDialog, setAddStreamDialog] = useState<{isOpen: boolean; gridIndex?: number}>({ isOpen: false })
   const [customUrlInput, setCustomUrlInput] = useState("")
@@ -98,11 +156,53 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
   const isPro = (session?.user as any)?.isPro || false
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+    // Load saved prefs first on every viewport: the persistence effect writes
+    // on every change, so skipping the load on mobile would let mobile
+    // defaults overwrite the user's saved desktop settings.
+    const prefs = loadPrefs()
+    if (prefs.leftSidebarOpen !== undefined) setLeftSidebarOpen(prefs.leftSidebarOpen)
+    if (prefs.rightSidebarOpen !== undefined) setRightSidebarOpen(prefs.rightSidebarOpen)
+    if (prefs.globalMuted !== undefined) setGlobalMuted(prefs.globalMuted)
+    if (prefs.twitchQuality) setTwitchQuality(prefs.twitchQuality)
+    if (isMobileViewport) {
+      // Small screens start with overlays closed regardless of saved prefs.
       setLeftSidebarOpen(false)
       setRightSidebarOpen(false)
     }
-  }, [])
+    setPrefsLoaded(true)
+  }, [isMobileViewport])
+
+  // Persist sidebar/mute/quality prefs (skip until initial load resolves).
+  // On mobile viewports the sidebar values are a forced layout override, so
+  // re-save the previously stored ones instead of the override.
+  useEffect(() => {
+    if (!prefsLoaded) return
+    try {
+      const prev = isMobileViewport ? loadPrefs() : {}
+      localStorage.setItem(PREFS_STORAGE_KEY, JSON.stringify({
+        leftSidebarOpen: isMobileViewport ? prev.leftSidebarOpen : leftSidebarOpen,
+        rightSidebarOpen: isMobileViewport ? prev.rightSidebarOpen : rightSidebarOpen,
+        globalMuted,
+        twitchQuality,
+      } satisfies Prefs))
+    } catch {
+      // ignore quota errors
+    }
+  }, [prefsLoaded, isMobileViewport, leftSidebarOpen, rightSidebarOpen, globalMuted, twitchQuality])
+
+  // Apply an explicit Twitch quality to all mounted players (and future mounts via prop).
+  // Switching back to Auto remounts players: the embed has no "reset to Auto"
+  // API, so a reload is the only way to restore adaptive quality.
+  const handleQualityChange = (q: string | null) => {
+    if (!q) return
+    setTwitchQuality(q)
+    if (q === "auto") {
+      setRemountKey(k => k + 1)
+      toast.info("Quality reset to Auto (streams reloaded).")
+    } else {
+      setAllTwitchQuality(q)
+    }
+  }
 
   // Close layout picker on outside click
   useEffect(() => {
@@ -200,11 +300,108 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
     }
   }, [autoLoadAll, creatorsQuery, activeLayoutId, activeStreams.length])
 
-  // Restore anonymous session from localStorage (only when no initialListId and not autoLoadAll)
+  // Instant-watch links: ?streams=twitch:xqc,kick:adinross,youtube:VIDEOID
+  // (bare names default to Twitch). Roster matches resolve to live-status
+  // aware cells; unknown names mount directly as Twitch embeds.
+  const streamsParamLoadedRef = useRef(false)
+  useEffect(() => {
+    if (streamsParamLoadedRef.current) return
+    if (!initialStreamsParam || !creatorsQuery || activeStreams.length !== 0 || activeLayoutId) return
+    const parsed = parseStreamsParam(initialStreamsParam)
+    if (parsed.length === 0) return
+    // Match on platform AND username: the same handle can exist on Twitch,
+    // Kick, and YouTube, and the URL encodes which one was meant.
+    // Usernames fold case; custom URLs and YouTube IDs stay case-sensitive.
+    const byPlatformAndName = new Map(
+      (creatorsQuery || []).map((c) => [`${c.platform}:${c.username.toLowerCase()}`, c]),
+    )
+    const lookupKey = (p: { platform: string; channel: string }) =>
+      p.platform === "custom" || p.platform === "youtube"
+        ? `${p.platform}:${p.channel}`
+        : `${p.platform}:${p.channel.toLowerCase()}`
+    // Deduplicate repeated entries: duplicate cells share one stream.id, which
+    // would collide in the Twitch player registry and break global controls.
+    // Roster matches dedupe on the resolved roster ID; unmatched entries keep
+    // unique index-based IDs, so only exact repeats are dropped.
+    const seen = new Set<string>()
+    const unique = parsed.filter((p) => {
+      const match = byPlatformAndName.get(lookupKey(p))
+      const key = match ? `roster:${match._id}` : `raw:${lookupKey(p)}`
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+    const loaded: StreamData[] = unique.map((p, idx) => {
+      const match = byPlatformAndName.get(lookupKey(p))
+      if (match) {
+        return {
+          id: match._id,
+          platform: match.platform as any,
+          channel: match.platform === "custom" && match.platformId ? match.platformId : match.username,
+          displayName: match.username,
+          type: "stream" as const,
+          gridIndex: idx,
+        }
+      }
+      return {
+        id: `param-${p.platform}-${p.channel.toLowerCase()}-${idx}`,
+        platform: p.platform,
+        channel: p.channel,
+        displayName: p.displayName,
+        type: "stream" as const,
+        gridIndex: idx,
+      }
+    })
+    setActiveStreams(loaded)
+    setGridSize("auto")
+    streamsParamLoadedRef.current = true
+  }, [initialStreamsParam, creatorsQuery, activeStreams.length, activeLayoutId])
+
+  // Auto-open the onboarding tour on first empty visit
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (localStorage.getItem(TOUR_SEEN_KEY)) return
+    if (initialListId || autoLoadAll || initialStreamsParam) return
+    if (creatorsQuery === undefined) return
+    if (activeStreams.length === 0 && loadSession().length === 0) {
+      setTourOpen(true)
+    }
+  }, [creatorsQuery, activeStreams.length, initialListId, autoLoadAll, initialStreamsParam])
+
+  const closeTour = () => {
+    setTourOpen(false)
+    try {
+      localStorage.setItem(TOUR_SEEN_KEY, "1")
+    } catch {
+      // ignore
+    }
+  }
+
+  // stream.id -> isLive for roster cells (drives offline placeholders in the grid)
+  const liveMap: Record<string, boolean> = {}
+  if (creatorsQuery) {
+    for (const c of creatorsQuery) {
+      if (c.isLive !== undefined) liveMap[c._id] = !!c.isLive
+    }
+  }
+
+  // Streams the user explicitly retried: mount a player even while the
+  // backend still reports them offline, so Retry has a visible effect. The
+  // platform embed itself shows its own offline state if truly offline.
+  const [forceMountedIds, setForceMountedIds] = useState<Record<string, true>>({})
+
+  const handleRetryStream = (id: string) => {
+    setForceMountedIds(prev => ({ ...prev, [id]: true }))
+    // Also remount so the fresh player attempt isn't served a cached embed.
+    setRemountKey(k => k + 1)
+  }
+
+  // Restore anonymous session from localStorage (only when no shared list,
+  // auto-load, or instant-watch param)
   const sessionLoadedRef = useRef(false)
   useEffect(() => {
     if (sessionLoadedRef.current) return
-    if (initialListId || autoLoadAll) return
+    if (initialListId || autoLoadAll || initialStreamsParam) return
     const saved = loadSession()
     if (saved.length > 0) {
       setActiveStreams(saved)
@@ -214,7 +411,7 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
         duration: 4000,
       })
     }
-  }, [initialListId, autoLoadAll, isAuthenticated])
+  }, [initialListId, autoLoadAll, initialStreamsParam, isAuthenticated])
 
   // Auto-save session to localStorage whenever streams change
   const isFirstRender = useRef(true)
@@ -223,10 +420,10 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
       isFirstRender.current = false
       return
     }
-    // Don't clobber a shared-list view
-    if (initialListId) return
+    // Don't clobber a shared-list or instant-watch view
+    if (initialListId || initialStreamsParam) return
     saveSession(activeStreams)
-  }, [activeStreams, initialListId])
+  }, [activeStreams, initialListId, initialStreamsParam])
 
   // Truncate active streams if gridSize is reduced below the current stream count
   useEffect(() => {
@@ -634,6 +831,72 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
                   <HugeiconsIcon icon={Delete02Icon} className="w-4 h-4" />
                 </Button>
               )}
+
+              {/* Global stream controls (Viewington parity) */}
+              {activeStreams.length > 0 && (
+                <>
+                  <div className="h-4 w-px bg-border mx-1" />
+                  <Button
+                    onClick={() => setGlobalMuted(m => !m)}
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                    title={globalMuted ? "Unmute all streams" : "Mute all streams"}
+                    aria-label={globalMuted ? "Unmute all streams" : "Mute all streams"}
+                    aria-pressed={globalMuted}
+                  >
+                    <HugeiconsIcon icon={globalMuted ? VolumeMute01Icon : VolumeHighIcon} className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    onClick={() => { pauseAllTwitch(); toast.info("Paused Twitch streams (Twitch only).") }}
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                    title="Pause all Twitch streams"
+                    aria-label="Pause all Twitch streams"
+                  >
+                    <HugeiconsIcon icon={PauseIcon} className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    onClick={() => playAllTwitch()}
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                    title="Play all paused Twitch streams"
+                    aria-label="Play all paused Twitch streams"
+                  >
+                    <HugeiconsIcon icon={PlayIcon} className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    onClick={() => { setRemountKey(k => k + 1); toast.info("Reloading all streams.") }}
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                    title="Reload all streams"
+                    aria-label="Reload all streams"
+                  >
+                    <HugeiconsIcon icon={ReloadIcon} className="w-4 h-4" />
+                  </Button>
+                  <Select value={twitchQuality} onValueChange={handleQualityChange}>
+                    <SelectTrigger
+                      className="h-8 w-[104px] text-xs"
+                      title="Twitch quality (Twitch players only; Kick/YouTube stay on Auto)"
+                      aria-label="Twitch stream quality"
+                    >
+                      <SelectValue placeholder="Quality" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="auto">Auto</SelectItem>
+                      <SelectItem value="1080p60">1080p60</SelectItem>
+                      <SelectItem value="720p60">720p60</SelectItem>
+                      <SelectItem value="480p">480p</SelectItem>
+                      <SelectItem value="360p">360p</SelectItem>
+                      <SelectItem value="160p">160p</SelectItem>
+                      <SelectItem value="audio_only">Audio only</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </>
+              )}
             </div>
           </div>
 
@@ -777,8 +1040,8 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
         
         {/* The Grid */}
         <div className="flex-1 rounded-xl overflow-hidden border border-border shadow-2xl bg-background relative">
-          <StreamGrid 
-            streams={activeStreams} 
+          <StreamGrid
+            streams={activeStreams}
             gridSize={gridSize}
             activeChatId={activeChatId}
             setActiveChatId={setActiveChatId}
@@ -792,6 +1055,13 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
               }
             }}
             onSwapStream={handleSwapStream}
+            globalMuted={globalMuted}
+            twitchQuality={twitchQuality === "auto" ? undefined : twitchQuality}
+            remountKey={remountKey}
+            liveMap={liveMap}
+            forceMountIds={forceMountedIds}
+            onRetryStream={handleRetryStream}
+            onStartTour={() => { setTourStep(0); setTourOpen(true) }}
           />
           
           {addStreamDialog.isOpen && (
@@ -953,6 +1223,36 @@ export function RosterLayout({ initialListId, autoLoadAll }: { initialListId?: s
             </Tabs>
           </div>
         </>
+      )}
+      {/* Onboarding tour overlay */}
+      {tourOpen && (
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-4" role="dialog" aria-modal="true" aria-label="StreamHuddle tour">
+          <div className="bg-zinc-950 border border-zinc-800 rounded-xl w-full max-w-md p-6 shadow-2xl flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-lg text-foreground">{TOUR_STEPS[tourStep].title}</h3>
+              <button onClick={closeTour} aria-label="Close tour" className="text-muted-foreground hover:text-foreground">✕</button>
+            </div>
+            <p className="text-sm text-muted-foreground leading-relaxed">{TOUR_STEPS[tourStep].body}</p>
+            <div className="flex items-center gap-1.5">
+              {TOUR_STEPS.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setTourStep(i)}
+                  aria-label={`Go to tour step ${i + 1}`}
+                  className={`h-1.5 rounded-full transition-all ${i === tourStep ? "w-6 bg-primary" : "w-1.5 bg-zinc-700 hover:bg-zinc-600"}`}
+                />
+              ))}
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="ghost" onClick={closeTour}>
+                {tourStep === TOUR_STEPS.length - 1 ? "Finish" : "Skip"}
+              </Button>
+              {tourStep < TOUR_STEPS.length - 1 && (
+                <Button onClick={() => setTourStep(s => s + 1)}>Next</Button>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

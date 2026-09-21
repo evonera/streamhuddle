@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery } from 'convex/react'
 import { api } from '../../convex/_generated/api'
@@ -8,19 +7,24 @@ import Navbar from '@/components/home/navbar'
 import Footer from '@/components/home/footer'
 import Container from '@/components/home/container'
 import CreateStreamlistBar from '@/components/create-streamlist-bar'
+import { seo } from '@/lib/seo'
+import { SITE_URL } from '@/lib/site'
 
 export const Route = createFileRoute('/discover')({
+  head: () => ({
+    meta: seo({
+      title: "Discover StreamLists — StreamHuddle",
+      description:
+        "Explore community multi-stream setups and load any StreamList in one click. Free forever.",
+      image: "/og.png",
+      url: `${SITE_URL}/discover`,
+    }),
+    links: [{ rel: "canonical", href: `${SITE_URL}/discover` }],
+  }),
   component: DiscoverPage,
 })
 
-const PLATFORM_COLORS = {
-  twitch: '#9146FF',
-  kick: '#53FC18',
-  youtube: '#FF0000',
-  rumble: '#85C742',
-}
-
-const PLATFORM_ICONS = {
+const PLATFORM_ICONS: Record<string, React.ReactNode> = {
   twitch: (
     <svg viewBox="0 0 24 24" className="h-3 w-3" fill="#9146FF">
       <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z" />

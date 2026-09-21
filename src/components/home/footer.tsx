@@ -1,8 +1,6 @@
-// @ts-nocheck
 import ArrowUpRight01Icon from "@hugeicons/core-free-icons/ArrowUpRight01Icon";
 import NewTwitterIcon from "@hugeicons/core-free-icons/NewTwitterIcon";
 import GithubIcon from "@hugeicons/core-free-icons/GithubIcon";
-import DiscordIcon from "@hugeicons/core-free-icons/DiscordIcon";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { cn } from '@/lib/utils';
 import LogoIcon from '@/assets/logo-icon';

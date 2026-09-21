@@ -1,8 +1,20 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { RosterLayout } from '@/components/roster-layout'
+import { seo } from '@/lib/seo'
+import { SITE_URL } from '@/lib/site'
 import { useState, useEffect } from 'react'
 
 export const Route = createFileRoute('/university')({
+  head: () => ({
+    meta: seo({
+      title: "University Roster — StreamHuddle",
+      description:
+        "A community viewing room for university-style streamer events. Watch up to 20 live streams at once.",
+      image: "/og.png",
+      url: `${SITE_URL}/university`,
+    }),
+    links: [{ rel: "canonical", href: `${SITE_URL}/university` }],
+  }),
   component: UniversityPage,
 })
 

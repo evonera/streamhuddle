@@ -8,6 +8,7 @@ import Tv01Icon from "@hugeicons/core-free-icons/Tv01Icon"
 import Cancel01Icon from "@hugeicons/core-free-icons/Cancel01Icon"
 import { toast } from "sonner"
 import { useNavigate } from "@tanstack/react-router"
+import { serializeStreamsParam } from "@/lib/streams-param"
 
 export default function CreateStreamlistBar() {
   const { isAuthenticated } = useConvexAuth()
@@ -82,17 +83,11 @@ export default function CreateStreamlistBar() {
       toast.error("Add at least one streamer to play")
       return
     }
-    
-    const streamsData = selected.map((c, i) => ({
-        id: c._id,
-        platform: c.platform,
-        channel: c.platform === "custom" && c.platformId ? c.platformId : c.username,
-        displayName: c.username,
-        type: "stream",
-        gridIndex: i
-    }))
-    localStorage.setItem('streamhuddle-session', JSON.stringify(streamsData))
-    navigate({ to: "/roster" })
+
+    // Shareable instant-watch URL — the roster page resolves roster creators
+    // (with live status) and mounts the rest directly. No localStorage abuse.
+    const param = serializeStreamsParam(selected)
+    navigate({ to: "/roster", search: { streams: param } as any })
   }
 
   return (

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { registerTwitchPlayer, unregisterTwitchPlayer } from "./twitch-registry";
 
 // Module-level singleton to prevent duplicate script injection
 let twitchScriptPromise: Promise<void> | null = null;
@@ -21,22 +22,36 @@ function loadTwitchScript(): Promise<void> {
   return twitchScriptPromise;
 }
 
-export function TwitchPlayer({ 
-  channel, 
-  muted = false 
-}: { 
-  channel: string; 
-  muted?: boolean 
+export function TwitchPlayer({
+  channel,
+  muted = false,
+  streamId,
+  remountKey,
+  quality,
+}: {
+  channel: string;
+  muted?: boolean;
+  /** stable stream id for the global player registry (pause-all/quality) */
+  streamId?: string;
+  /** bump to force a full player re-init (reload-all) */
+  remountKey?: number;
+  /** explicit Twitch quality (e.g. "720p60"); undefined = embed default (Auto) */
+  quality?: string;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
 
   const mutedRef = useRef(muted);
+  const qualityRef = useRef(quality);
 
   // Keep ref up to date for the initial constructor
   useEffect(() => {
     mutedRef.current = muted;
   }, [muted]);
+
+  useEffect(() => {
+    qualityRef.current = quality;
+  }, [quality]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -50,7 +65,7 @@ export function TwitchPlayer({
 
     const initPlayer = () => {
       if (!mounted || !containerRef.current) return;
-      
+
       playerRef.current = new (window as any).Twitch.Player(playerId, {
         channel,
         parent: [window.location.hostname],
@@ -58,6 +73,15 @@ export function TwitchPlayer({
         width: "100%",
         height: "100%"
       });
+      if (streamId) registerTwitchPlayer(streamId, playerRef.current);
+      // Apply an explicit quality override after init (embed default is Auto)
+      if (qualityRef.current) {
+        try {
+          playerRef.current.setQuality(qualityRef.current);
+        } catch {
+          // unavailable quality falls back inside the embed
+        }
+      }
     };
 
     loadTwitchScript().then(() => {
@@ -66,10 +90,11 @@ export function TwitchPlayer({
 
     return () => {
       mounted = false;
+      if (streamId) unregisterTwitchPlayer(streamId, playerRef.current);
       if (container) container.innerHTML = '';
       playerRef.current = null;
     };
-  }, [channel]);
+  }, [channel, remountKey]);
 
   // The magic of the JS API: Change mute state without reloading the iframe!
   useEffect(() => {
@@ -78,7 +103,18 @@ export function TwitchPlayer({
     }
   }, [muted]);
 
+  // Explicit quality override without reloading. Undefined = embed default (Auto).
+  useEffect(() => {
+    if (playerRef.current && quality) {
+      try {
+        playerRef.current.setQuality(quality);
+      } catch {
+        // ignore
+      }
+    }
+  }, [quality]);
+
   return (
-    <div className="w-full h-full bg-black relative" ref={containerRef}></div>
+    <div className="w-full h-full bg-black relative" ref={containerRef} role="region" aria-label={`Twitch stream: ${channel}`}></div>
   );
 }
