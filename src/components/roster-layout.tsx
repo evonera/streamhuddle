@@ -449,7 +449,9 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
     if (initialListId || autoLoadAll || initialStreamsParam) return
     const saved = loadSession()
     if (saved.length > 0) {
-      setActiveStreams(saved)
+      // Normalize legacy sessions: every cell gets an explicit gridIndex so
+      // later occupancy checks can't stack two cells on one slot.
+      setActiveStreams(saved.map((s, i) => ({ ...s, gridIndex: s.gridIndex ?? i })))
       sessionLoadedRef.current = true
       toast.info("Session restored from last visit", {
         description: isAuthenticated ? "Save it permanently from the toolbar." : "Sign in to save it permanently.",
@@ -523,13 +525,16 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
              return prev;
           }
           nextGridIndex = targetGridIndex;
-          const occupantIdx = prev.findIndex(s => (s.gridIndex ?? prev.indexOf(s)) === targetGridIndex);
+          const occupantIdx = prev.findIndex((s, i) => (s.gridIndex ?? i) === targetGridIndex);
           if (occupantIdx !== -1) {
             let freeIdx: number | null = null;
             if (gridSize === "auto") {
               freeIdx = prev.length > 0 ? Math.max(...prev.map(s => s.gridIndex ?? 0)) + 1 : 0;
             } else {
-              const used = new Set(prev.map(s => s.gridIndex));
+              // Same gridIndex ?? arrayIndex fallback as the occupancy check:
+              // legacy restored streams without an explicit gridIndex must
+              // count as occupying their position, or freeIdx can collide.
+              const used = new Set(prev.map((s, i) => s.gridIndex ?? i));
               for (let i = 0; i < gridSize; i++) {
                 if (!used.has(i)) { freeIdx = i; break; }
               }

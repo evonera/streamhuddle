@@ -24,6 +24,9 @@ export function rotateWindow<T>(items: Array<T>, cap: number, slot: number): Arr
 
 // Twitch schedule segments, one call per broadcaster (Helix has no batch
 // schedule endpoint). Capped so the hourly cron stays cheap.
+// Returns per-creator success flags: only creators whose request completed
+// (even with an empty schedule) may have their snapshot cleared. Failures
+// must never look like confirmed-empty schedules.
 export const fetchTwitchSchedules = internalAction({
   args: {
     broadcasters: v.array(v.object({
@@ -32,19 +35,23 @@ export const fetchTwitchSchedules = internalAction({
       username: v.string(),
     })),
   },
-  returns: v.array(v.any()),
+  returns: v.object({
+    events: v.array(v.any()),
+    succeededKeys: v.array(v.string()),
+  }),
   handler: async (ctx, args) => {
-    if (args.broadcasters.length === 0) return [];
+    if (args.broadcasters.length === 0) return { events: [], succeededKeys: [] };
     let token: string;
     try {
       token = await getTwitchAccessToken(ctx);
     } catch (e) {
       console.warn("Skipping Twitch schedule poll (missing TWITCH_CLIENT_ID/SECRET).");
-      return [];
+      return { events: [], succeededKeys: [] };
     }
     const clientId = process.env.TWITCH_CLIENT_ID;
     const now = Date.now();
     const collected: any[] = [];
+    const succeededKeys: string[] = [];
 
     // Cap broadcasters per run: schedule data changes slowly (hourly cron).
     for (const b of args.broadcasters.slice(0, 60)) {
@@ -62,6 +69,7 @@ export const fetchTwitchSchedules = internalAction({
         });
         clearTimeout(timeoutId);
         if (!res.ok) continue; // 404 = no schedule published; skip quietly
+        succeededKeys.push(`twitch:${b.username.toLowerCase()}`);
         const data = (await res.json()) as { data?: { segments?: any[] } };
         for (const seg of data.data?.segments ?? []) {
           const startsAt = Date.parse(seg.start_time);
@@ -80,7 +88,7 @@ export const fetchTwitchSchedules = internalAction({
         console.warn(`Twitch schedule fetch failed for ${b.username}`, e);
       }
     }
-    return collected;
+    return { events: collected, succeededKeys };
   },
 });
 
@@ -98,16 +106,20 @@ export const fetchYoutubeUpcoming = internalAction({
       username: v.string(),
     })),
   },
-  returns: v.array(v.any()),
+  returns: v.object({
+    events: v.array(v.any()),
+    succeededKeys: v.array(v.string()),
+  }),
   handler: async (_ctx, args) => {
     const apiKey = process.env.YOUTUBE_API_KEY;
     if (!apiKey) {
       console.info("Skipping YouTube upcoming poll (YOUTUBE_API_KEY not set).");
-      return [];
+      return { events: [], succeededKeys: [] };
     }
-    if (args.channels.length === 0) return [];
+    if (args.channels.length === 0) return { events: [], succeededKeys: [] };
     const now = Date.now();
     const collected: any[] = [];
+    const succeededKeys: string[] = [];
     for (const c of args.channels.slice(0, 30)) {
       try {
         const controller = new AbortController();
@@ -136,6 +148,7 @@ export const fetchYoutubeUpcoming = internalAction({
         detailsUrl.searchParams.set("key", apiKey);
         const detailsRes = await fetch(detailsUrl.toString());
         if (!detailsRes.ok) continue;
+        succeededKeys.push(`youtube:${c.username.toLowerCase()}`);
         const details = (await detailsRes.json()) as { items?: any[] };
         for (const video of details.items ?? []) {
           const live = video.liveStreamingDetails;
@@ -158,7 +171,7 @@ export const fetchYoutubeUpcoming = internalAction({
         console.warn(`YouTube upcoming fetch failed for ${c.username}`, e);
       }
     }
-    return collected;
+    return { events: collected, succeededKeys };
   },
 });
 
@@ -191,20 +204,18 @@ export const pollUpcoming = internalAction({
     );
     // Kick exposes no schedule API; kick creators are covered by live polling.
 
-    const [twitchEvents, youtubeEvents] = await Promise.all([
+    const [twitchResult, youtubeResult] = await Promise.all([
       twitchBroadcasters.length > 0
         ? await ctx.runAction(internal.upcoming.fetchTwitchSchedules, { broadcasters: twitchBroadcasters })
-        : [],
+        : { events: [], succeededKeys: [] },
       await ctx.runAction(internal.upcoming.fetchYoutubeUpcoming, { channels: youtubeChannels }),
     ]);
 
-    const drafts = [...twitchEvents, ...youtubeEvents] as UpcomingDraft[];
-    // Creators polled this run (even with empty schedules) so commitUpcoming
-    // can clear their cancelled events.
-    const polledKeys = [
-      ...twitchBroadcasters.map((b) => `twitch:${b.username.toLowerCase()}`),
-      ...youtubeChannels.map((c) => `youtube:${c.username.toLowerCase()}`),
-    ];
+    const drafts = [...twitchResult.events, ...youtubeResult.events] as UpcomingDraft[];
+    // Only creators whose provider request completed successfully may have
+    // their snapshot cleared: a failed request is not a confirmed empty
+    // schedule, and must not delete valid events.
+    const polledKeys = [...twitchResult.succeededKeys, ...youtubeResult.succeededKeys];
     await ctx.runMutation(internal.upcoming.commitUpcoming, {
       polledKeys,
       events: drafts.map((d) => ({
