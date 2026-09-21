@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { StreamPlayer, type StreamData } from "./StreamPlayer";
 import { ChatBox } from "./ChatBox";
 import { motion, AnimatePresence } from "motion/react";
@@ -9,6 +10,80 @@ import Cancel01Icon from "@hugeicons/core-free-icons/Cancel01Icon";
 import GridIcon from "@hugeicons/core-free-icons/GridIcon";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Empty, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
+
+/** dnd-kit id for the droppable slot at a grid index. */
+export function slotDroppableId(gridIndex: number) {
+  return `slot:${gridIndex}`;
+}
+
+/** Droppable wrapper for a grid slot (filled cell or empty slot). */
+function SlotShell({ gridIndex, style, className, children }: {
+  gridIndex: number;
+  style: React.CSSProperties;
+  className: string;
+  children: React.ReactNode;
+}) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: slotDroppableId(gridIndex),
+    data: { gridIndex },
+  });
+  return (
+    <motion.div
+      layout
+      ref={setNodeRef}
+      style={style}
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
+      className={`${className} ${isOver ? "outline-2 outline-primary outline-dashed" : ""}`}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+/**
+ * Draggable hover header for a mounted cell. The header (not the iframe)
+ * initiates the drag so embedded players can't swallow pointer events.
+ * Works with mouse + touch via dnd-kit's pointer sensor.
+ */
+function CellDragHandle({ stream, onSelect, children }: {
+  stream: StreamData;
+  /** focus/select the cell when its header is clicked or Enter-pressed */
+  onSelect?: () => void;
+  children: React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef } = useDraggable({
+    id: `cell:${stream.id}:${stream.type || "stream"}`,
+    data: {
+      source: "cell",
+      streamId: stream.id,
+      streamType: stream.type || "stream",
+      label: stream.displayName || stream.channel,
+    },
+  });
+  return (
+    <div
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      onClick={() => onSelect?.()}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSelect?.();
+        }
+      }}
+      role="button"
+      tabIndex={0}
+      aria-label={`Select ${stream.displayName || stream.channel} (drag to reorder)`}
+      style={{ touchAction: "none" }}
+      className="absolute top-0 left-0 w-full p-2 bg-gradient-to-b from-black/80 to-transparent opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-within:opacity-100 focus-visible:opacity-100 transition-opacity flex justify-between items-center z-50 cursor-grab active:cursor-grabbing"
+    >
+      {children}
+    </div>
+  );
+}
 
 // Picks a column count that pairs with the flex-row renderer below so the
 // last (possibly partial) row always stretches to fill the width instead of
@@ -40,7 +115,6 @@ export function StreamGrid({
   activeChatId,
   setActiveChatId,
   onAddStreamClick,
-  onSwapStream,
   globalMuted = false,
   twitchQuality,
   remountKey = 0,
@@ -55,7 +129,6 @@ export function StreamGrid({
   activeChatId: string | null;
   setActiveChatId: (id: string | null) => void;
   onAddStreamClick?: (gridIndex?: number) => void;
-  onSwapStream?: (draggedId: string, draggedType: "stream" | "chat", targetGridIndex: number) => void;
   /** when true, every cell renders muted (mute-all) */
   globalMuted?: boolean;
   /** explicit Twitch quality override; undefined = Auto */
@@ -166,44 +239,13 @@ export function StreamGrid({
               
               const reactKey = stream ? `${stream.id}-${stream.type || 'stream'}` : `empty-${gridIndex}`;
 
-              const onDrop = (e: React.DragEvent) => {
-                e.preventDefault();
-                const dragId = e.dataTransfer.getData("application/x-stream-id");
-                const dragType = e.dataTransfer.getData("application/x-stream-type");
-                if (dragId && onSwapStream) {
-                  onSwapStream(dragId, dragType as any, gridIndex);
-                }
-              };
-
-              const dropProps = {
-                onDragOver: ((e: React.DragEvent) => e.preventDefault()) as any,
-                onDrop: onDrop as any,
-              };
-
-              // Drag handle props — applied to the hover overlay header only, NOT the
-              // full motion.div. This prevents the iframe from swallowing drag events.
-              const dragHandleProps = {
-                draggable: true,
-                onDragStart: ((e: React.DragEvent) => {
-                  if (stream) {
-                    e.dataTransfer.effectAllowed = "move";
-                    e.dataTransfer.setData("application/x-stream-id", stream.id);
-                    e.dataTransfer.setData("application/x-stream-type", stream.type || "stream");
-                  }
-                }) as any,
-              };
-
               if (!stream) {
                 return (
-                  <motion.div
-                    layout
+                  <SlotShell
                     key={reactKey}
+                    gridIndex={gridIndex}
                     style={style}
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
                     className="relative min-w-0 min-h-0 grow-0 shrink-0 bg-transparent flex flex-col p-[1px]"
-                    {...dropProps}
                   >
                     <div 
                       className="w-full h-full flex flex-col items-center justify-center bg-zinc-950 border border-zinc-800 rounded group hover:border-zinc-700 transition-colors border-dashed"
@@ -215,28 +257,22 @@ export function StreamGrid({
                         +
                       </button>
                       <span className="text-zinc-500 font-semibold group-hover:text-zinc-400 text-sm">Add Stream</span>
+                      <span className="text-zinc-600 text-[10px] font-mono mt-1">or drag a creator here</span>
                     </div>
-                  </motion.div>
+                  </SlotShell>
                 );
               }
 
               if (stream.type === "chat") {
                 return (
-                  <motion.div
-                    layout
+                  <SlotShell
                     key={reactKey}
+                    gridIndex={gridIndex}
                     style={style}
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
                     className="relative min-w-0 min-h-0 grow-0 shrink-0 group bg-zinc-950 border border-zinc-800 rounded overflow-hidden flex flex-col"
-                    {...dropProps}
                   >
                     {/* Drag handle: only the header bar initiates drag, not the chat iframe */}
-                    <div
-                      className="absolute top-0 left-0 w-full p-2 bg-gradient-to-b from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex justify-between items-center z-50 cursor-grab active:cursor-grabbing"
-                      {...dragHandleProps}
-                    >
+                    <CellDragHandle stream={stream}>
                       <div className="flex items-center gap-1 bg-black/50 px-2 py-1 rounded">
                         <HugeiconsIcon icon={Message01Icon} size={14} className="text-primary" />
                         <span className="text-white text-xs font-semibold truncate">
@@ -250,12 +286,12 @@ export function StreamGrid({
                       >
                         <HugeiconsIcon icon={Cancel01Icon} size={16} />
                       </button>
-                    </div>
+                    </CellDragHandle>
                     <ChatBox 
                       platform={stream.platform} 
                       channel={stream.channel} 
                     />
-                  </motion.div>
+                  </SlotShell>
                 );
               }
 
@@ -269,15 +305,11 @@ export function StreamGrid({
 
               if (isKnownOffline) {
                 return (
-                  <motion.div
-                    layout
+                  <SlotShell
                     key={reactKey}
+                    gridIndex={gridIndex}
                     style={style}
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
                     className="relative min-w-0 min-h-0 grow-0 shrink-0 group bg-zinc-950 border border-zinc-800 rounded overflow-hidden flex flex-col items-center justify-center gap-2 p-4 text-center"
-                    {...dropProps}
                   >
                     <img
                       src={`https://avatar.vercel.sh/${stream.displayName || stream.channel}`}
@@ -307,36 +339,23 @@ export function StreamGrid({
                         Close
                       </button>
                     </div>
-                  </motion.div>
+                  </SlotShell>
                 );
               }
 
+              const cellKey = `${reactKey}-r${remountKey}`;
+              const focusCell = () => {
+                setFocusedId(stream.id);
+                setManuallyUnmuted(new Set()); // Prevent audio leak!
+              };
               return (
-                <motion.div
-                  layout
-                  key={`${reactKey}-r${remountKey}`}
+                <SlotShell
+                  key={cellKey}
+                  gridIndex={gridIndex}
                   style={style}
-                  onClick={() => {
-                    setFocusedId(stream.id);
-                    setManuallyUnmuted(new Set()); // Prevent audio leak!
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      setFocusedId(stream.id);
-                      setManuallyUnmuted(new Set());
-                    }
-                  }}
-                  role="button"
-                  tabIndex={0}
-                  aria-label={`Focus audio on ${stream.displayName || stream.channel}`}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
                   className={`relative min-w-0 min-h-0 grow-0 shrink-0 group bg-zinc-900 border rounded overflow-hidden cursor-pointer transition-colors ${
                     isFocused ? "border-primary shadow-[0_0_15px_rgba(var(--primary),0.3)] z-10" : "border-zinc-800"
                   }`}
-                  {...dropProps}
                 >
                   <StreamPlayer
                     stream={{
@@ -348,13 +367,10 @@ export function StreamGrid({
                     remountKey={remountKey}
                     twitchQuality={twitchQuality}
                   />
-                  
+
                   {/* Toolbar Overlay (Hover) — drag is initiated from here, NOT the cell wrapper.
                       This avoids the iframe swallowing drag events and makes dnd reliable. */}
-                  <div
-                    className="absolute top-0 left-0 w-full p-2 bg-gradient-to-b from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex justify-between items-center z-50 cursor-grab active:cursor-grabbing"
-                    {...dragHandleProps}
-                  >
+                  <CellDragHandle stream={stream} onSelect={focusCell}>
                     <span className="text-white text-sm font-semibold truncate bg-black/50 px-2 py-1 rounded flex items-center gap-2">
                       {stream.displayName || stream.channel}
                       {!isMuted && stream.platform !== "custom" && (
@@ -400,8 +416,8 @@ export function StreamGrid({
                         <HugeiconsIcon icon={Cancel01Icon} size={16} />
                       </button>
                     </div>
-                  </div>
-                </motion.div>
+                  </CellDragHandle>
+                </SlotShell>
               );
             })}
           </AnimatePresence>

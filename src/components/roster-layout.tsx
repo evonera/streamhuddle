@@ -1,6 +1,16 @@
 import { useQuery, useMutation } from 'convex/react'
 import { api } from "@convex/_generated/api"
 import { useState, useEffect, useRef } from 'react'
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core"
 import { type StreamData } from '@/components/player/StreamPlayer'
 import { StreamGrid } from '@/components/player/StreamGrid'
 import { ChatBox } from '@/components/player/ChatBox'
@@ -15,7 +25,6 @@ import PanelLeftCloseIcon from "@hugeicons/core-free-icons/PanelLeftCloseIcon"
 import PanelLeftOpenIcon from "@hugeicons/core-free-icons/PanelLeftOpenIcon"
 import PanelRightCloseIcon from "@hugeicons/core-free-icons/PanelRightCloseIcon"
 import PanelRightOpenIcon from "@hugeicons/core-free-icons/PanelRightOpenIcon"
-import Message01Icon from "@hugeicons/core-free-icons/Message01Icon"
 import PauseIcon from "@hugeicons/core-free-icons/PauseIcon"
 import PlayIcon from "@hugeicons/core-free-icons/PlayIcon"
 import ReloadIcon from "@hugeicons/core-free-icons/ReloadIcon"
@@ -38,8 +47,9 @@ import { ClipModal } from "./clip/ClipModal"
 import { authClient } from "@/lib/auth-client"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { MultiClipQueueWidget } from "./clip-queue/ClipQueueWidget"
+import { RosterCreatorRow } from "./roster-creator-row"
 import { pauseAllTwitch, playAllTwitch, setAllTwitchQuality } from "@/components/player/twitch-registry"
-import { parseStreamsParam } from "@/lib/streams-param"
+import { parseStreamsParam, MAX_GRID_STREAMS } from "@/lib/streams-param"
 import type { Id } from "@convex/_generated/dataModel"
 
 const SESSION_STORAGE_KEY = 'streamhuddle-session'
@@ -67,7 +77,7 @@ function loadPrefs(): Prefs {
 const TOUR_STEPS = [
   {
     title: "1 · Build your grid",
-    body: "Search the roster and hit Stream to add a creator, or paste any Twitch / Kick / YouTube URL into an empty slot. Up to 20 cells.",
+    body: "Search the roster and hit Stream to add a creator, or paste any Twitch / Kick / YouTube URL into an empty slot. Up to 30 cells.",
   },
   {
     title: "2 · One stream has audio",
@@ -150,6 +160,41 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
 
   // Clip state
   const [clipModalOpen, setClipModalOpen] = useState(false)
+
+  // Drag-and-drop (dnd-kit): sidebar rows and grid headers are draggables,
+  // grid slots are droppables. Pointer sensor covers mouse + touch; the
+  // distance constraint keeps plain clicks working.
+  const dndSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor),
+  )
+  const [dragOverlayLabel, setDragOverlayLabel] = useState<string | null>(null)
+
+  const handleDndStart = (event: DragStartEvent) => {
+    const label = (event.active.data.current as { label?: string } | undefined)?.label
+    setDragOverlayLabel(label ?? null)
+  }
+
+  const handleDndEnd = (event: DragEndEvent) => {
+    setDragOverlayLabel(null)
+    const overGridIndex = (event.over?.data.current as { gridIndex?: number } | undefined)?.gridIndex
+    if (overGridIndex === undefined) return
+    const data = (event.active.data.current ?? {}) as {
+      source?: string
+      creatorId?: string
+      cellType?: "stream" | "chat"
+      streamId?: string
+      streamType?: "stream" | "chat"
+    }
+    if (data.source === "sidebar" && data.creatorId) {
+      const creator = creatorsQuery?.find(c => c._id === data.creatorId)
+      if (creator) handleAddCell(creator, data.cellType ?? "stream", overGridIndex)
+    } else if (data.source === "cell" && data.streamId) {
+      handleSwapStream(data.streamId, data.streamType ?? "stream", overGridIndex)
+    }
+  }
+
+  const handleDndCancel = () => setDragOverlayLabel(null)
   
   // User isPro check (via BetterAuth or Convex)
   const { data: session } = authClient.useSession()
@@ -287,7 +332,7 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
   useEffect(() => {
     if (hasAutoLoadedRef.current) return
     if (autoLoadAll && creatorsQuery && activeStreams.length === 0 && !activeLayoutId) {
-      const loadedStreams = (creatorsQuery || []).slice(0, 20).map((creator, idx) => ({
+      const loadedStreams = (creatorsQuery || []).slice(0, MAX_GRID_STREAMS).map((creator, idx) => ({
         id: creator._id,
         platform: creator.platform as any,
         channel: creator.platform === "custom" && creator.platformId ? creator.platformId : creator.username,
@@ -443,8 +488,8 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
       if (exists) {
         return prev.filter(s => !(s.id === creator._id && s.type === type))
       } else {
-        if (prev.length >= 20) {
-          toast.error("Absolute limit of 20 cells reached.")
+        if (prev.length >= MAX_GRID_STREAMS) {
+          toast.error(`Absolute limit of ${MAX_GRID_STREAMS} cells reached.`)
           return prev;
         }
         
@@ -465,8 +510,8 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
           } else {
             // Prevent collisions in auto mode if streams were removed from the middle
             nextGridIndex = prev.length > 0 ? Math.max(...prev.map(s => s.gridIndex ?? 0)) + 1 : 0;
-            if (prev.length === 8) {
-              toast.warning("Warning: Loading more than 8 streams requires significant RAM and bandwidth. Your browser may experience lag.")
+            if (prev.length === 10) {
+              toast.warning("Warning: Loading more than 10 streams requires significant RAM and bandwidth. Your browser may experience lag. Tip: set Twitch quality to Audio only.")
             }
           }
         } else {
@@ -605,6 +650,12 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
   )
 
   return (
+    <DndContext
+      sensors={dndSensors}
+      onDragStart={handleDndStart}
+      onDragEnd={handleDndEnd}
+      onDragCancel={handleDndCancel}
+    >
     <div className="flex flex-col md:flex-row w-full h-screen md:p-2 gap-2 bg-background overflow-hidden relative">
       
       {/* Mobile Notice & Navbar */}
@@ -684,56 +735,13 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
             ) : filteredCreators.length === 0 ? (
               <div className="text-muted-foreground text-sm text-center pt-4">No creators found.</div>
             ) : filteredCreators.map(creator => (
-              <div 
+              <RosterCreatorRow
                 key={creator._id}
-                className={`p-2 rounded-lg border relative transition-all ${
-                  !creator.isLive ? 'opacity-60 hover:opacity-100 grayscale hover:grayscale-0' : ''
-                } bg-background border-border hover:border-primary/50`}
-              >
-                <div className="flex items-center gap-3">
-                  <img src={creator.avatarUrl || `https://avatar.vercel.sh/${creator.username}`} className="w-8 h-8 rounded-full bg-muted" />
-                  <div className="flex-1">
-                    <div className="font-semibold text-foreground text-sm leading-tight">{creator.username}</div>
-                    <div className="text-[10px] text-muted-foreground capitalize">{creator.platform}</div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/50">
-                  <button
-                    onClick={() => handleAddCell(creator, "stream")}
-                    className={`flex-1 flex items-center justify-center gap-1 p-1.5 rounded text-xs transition-colors ${
-                      activeStreams.find(s => s.id === creator._id && (!s.type || s.type === "stream"))
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-zinc-800/50 hover:bg-zinc-800 text-muted-foreground'
-                    }`}
-                  >
-                    <HugeiconsIcon icon={Tv01Icon} size={14} /> Stream
-                  </button>
-                  <button
-                    onClick={() => handleAddCell(creator, "chat")}
-                    className={`flex-1 flex items-center justify-center gap-1 p-1.5 rounded text-xs transition-colors ${
-                      activeStreams.find(s => s.id === creator._id && s.type === "chat")
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-zinc-800/50 hover:bg-zinc-800 text-muted-foreground'
-                    }`}
-                  >
-                    <HugeiconsIcon icon={Message01Icon} size={14} /> Chat
-                  </button>
-                </div>
-                {creator.isLive ? (
-                  <div className="absolute top-2 right-2 flex flex-col items-end">
-                    <div className="flex items-center gap-1 text-red-500 font-bold text-[10px] uppercase animate-pulse">
-                      <div className="w-1.5 h-1.5 rounded-full bg-red-500"></div> Live
-                    </div>
-                    {creator.viewerCount && (
-                      <div className="text-[9px] font-bold text-muted-foreground bg-background/50 px-1 rounded mt-0.5">
-                        {creator.viewerCount.toLocaleString()} Viewers
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="absolute top-2 right-2 text-[10px] text-muted-foreground font-medium">Offline</div>
-                )}
-              </div>
+                creator={creator}
+                isStreamActive={!!activeStreams.find(s => s.id === creator._id && (!s.type || s.type === "stream"))}
+                isChatActive={!!activeStreams.find(s => s.id === creator._id && s.type === "chat")}
+                onAdd={(c, type) => handleAddCell(c, type)}
+              />
             ))}
           </div>
 
@@ -902,8 +910,8 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
 
           {/* Grid Size Selector */}
           <div className="hidden lg:flex shrink-0 items-center gap-1 bg-zinc-900/50 rounded-lg p-1 border border-border mx-2">
-            <span className="text-[10px] text-muted-foreground px-2 font-bold tracking-wider">{activeStreams.length} / 20</span>
-            {(["auto", 2, 4, 6, 8, 12, 16, 18, 20] as const).map(size => (
+            <span className="text-[10px] text-muted-foreground px-2 font-bold tracking-wider">{activeStreams.length} / {MAX_GRID_STREAMS}</span>
+            {(["auto", 2, 4, 6, 8, 12, 16, 18, 20, 24, 30] as const).map(size => (
               <button
                 key={size}
                 onClick={() => setGridSize(size)}
@@ -1054,7 +1062,6 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
                 setLeftSidebarOpen(true);
               }
             }}
-            onSwapStream={handleSwapStream}
             globalMuted={globalMuted}
             twitchQuality={twitchQuality === "auto" ? undefined : twitchQuality}
             remountKey={remountKey}
@@ -1254,6 +1261,15 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
           </div>
         </div>
       )}
+      {/* Drag ghost */}
+      <DragOverlay dropAnimation={null}>
+        {dragOverlayLabel ? (
+          <div className="bg-zinc-900 border border-primary/50 rounded-lg px-4 py-2 text-sm font-semibold text-foreground shadow-2xl cursor-grabbing">
+            {dragOverlayLabel}
+          </div>
+        ) : null}
+      </DragOverlay>
     </div>
+    </DndContext>
   )
 }
