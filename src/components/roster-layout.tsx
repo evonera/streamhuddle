@@ -515,9 +515,38 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
             }
           }
         } else {
+          // Explicit drop target (sidebar drag or empty-slot add): an occupied
+          // slot relocates its occupant instead of stacking two cells on one
+          // grid index (the second would render hidden but still count).
           if (gridSize !== "auto" && targetGridIndex >= gridSize) {
              toast.error("Invalid grid cell.");
              return prev;
+          }
+          nextGridIndex = targetGridIndex;
+          const occupantIdx = prev.findIndex(s => (s.gridIndex ?? prev.indexOf(s)) === targetGridIndex);
+          if (occupantIdx !== -1) {
+            let freeIdx: number | null = null;
+            if (gridSize === "auto") {
+              freeIdx = prev.length > 0 ? Math.max(...prev.map(s => s.gridIndex ?? 0)) + 1 : 0;
+            } else {
+              const used = new Set(prev.map(s => s.gridIndex));
+              for (let i = 0; i < gridSize; i++) {
+                if (!used.has(i)) { freeIdx = i; break; }
+              }
+            }
+            if (freeIdx === null) {
+              toast.error("Grid is full. Increase grid size or remove a stream.");
+              return prev;
+            }
+            const relocated = prev.map((s, i) => i === occupantIdx ? { ...s, gridIndex: freeIdx as number } : s);
+            return [...relocated, {
+              id: creator._id,
+              platform: creator.platform as any,
+              channel: creator.platform === "custom" && creator.platformId ? creator.platformId : creator.username,
+              displayName: creator.username,
+              type,
+              gridIndex: nextGridIndex
+            }];
           }
         }
         

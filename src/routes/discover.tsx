@@ -289,6 +289,14 @@ function DiscoverPage() {
                   const startsAt = new Date(event.startsAt)
                   const dateLabel = startsAt.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
                   const timeLabel = startsAt.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+                  // YouTube embeds need the video ID, not the channel handle.
+                  const streamsValue =
+                    event.platform === "youtube" && event.videoId
+                      ? `youtube:${event.videoId}`
+                      : `${event.platform}:${event.username}`
+                  const watchHref = event.url && (event.platform === "youtube" && !event.videoId)
+                    ? event.url
+                    : null
                   return (
                     <div
                       key={event._id}
@@ -313,13 +321,24 @@ function DiscoverPage() {
                           <div className="text-white/40 text-[11px] truncate">{event.title || "Scheduled stream"}</div>
                         </div>
                       </div>
-                      <Link
-                        to="/roster"
-                        search={{ streams: `${event.platform}:${event.username}` }}
-                        className="mt-1 inline-flex items-center justify-center gap-2 border border-white/10 px-3 py-2 text-[11px] font-bold tracking-widest uppercase font-mono text-white/70 hover:text-black hover:bg-primary hover:border-primary transition-colors"
-                      >
-                        Open Stream
-                      </Link>
+                      {watchHref ? (
+                        <a
+                          href={watchHref}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-1 inline-flex items-center justify-center gap-2 border border-white/10 px-3 py-2 text-[11px] font-bold tracking-widest uppercase font-mono text-white/70 hover:text-black hover:bg-primary hover:border-primary transition-colors"
+                        >
+                          Watch on {event.platform}
+                        </a>
+                      ) : (
+                        <Link
+                          to="/roster"
+                          search={{ streams: streamsValue }}
+                          className="mt-1 inline-flex items-center justify-center gap-2 border border-white/10 px-3 py-2 text-[11px] font-bold tracking-widest uppercase font-mono text-white/70 hover:text-black hover:bg-primary hover:border-primary transition-colors"
+                        >
+                          Open Stream
+                        </Link>
+                      )}
                     </div>
                   )
                 })}

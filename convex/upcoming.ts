@@ -10,8 +10,17 @@ export type UpcomingDraft = {
   title?: string;
   startsAt: number;
   url?: string;
+  videoId?: string;
   source: string;
 };
+
+/** Rotate a capped list across hourly runs so large rosters are covered over
+ * time instead of polling the same arbitrary prefix every hour. */
+export function rotateWindow<T>(items: Array<T>, cap: number, slot: number): Array<T> {
+  if (items.length <= cap) return items;
+  const start = (slot * cap) % items.length;
+  return Array.from({ length: cap }, (_, i) => items[(start + i) % items.length]);
+}
 
 // Twitch schedule segments, one call per broadcaster (Helix has no batch
 // schedule endpoint). Capped so the hourly cron stays cheap.
@@ -77,6 +86,10 @@ export const fetchTwitchSchedules = internalAction({
 
 // YouTube upcoming streams. STUBBED until YOUTUBE_API_KEY is configured:
 // without a key this returns [] and the poll keeps working on Twitch data.
+// NOTE: search.list has no scheduled time, so candidate video IDs are
+// resolved through videos.list (liveStreamingDetails) for the real
+// scheduledStartTime. Items already live or without a future start time
+// are skipped rather than stored with a wrong timestamp.
 export const fetchYoutubeUpcoming = internalAction({
   args: {
     channels: v.array(v.object({
@@ -111,18 +124,33 @@ export const fetchYoutubeUpcoming = internalAction({
         clearTimeout(timeoutId);
         if (!res.ok) continue;
         const data = (await res.json()) as { items?: any[] };
-        for (const item of data.items ?? []) {
-          const startsAt = Date.parse(item.snippet?.publishedAt ?? "");
-          const videoId = item.id?.videoId;
-          if (!videoId) continue;
+        const videoIds = (data.items ?? [])
+          .map((item) => item.id?.videoId)
+          .filter(Boolean) as string[];
+        if (videoIds.length === 0) continue;
+
+        // Resolve real scheduled times; search results carry none.
+        const detailsUrl = new URL("https://www.googleapis.com/youtube/v3/videos");
+        detailsUrl.searchParams.set("part", "snippet,liveStreamingDetails");
+        detailsUrl.searchParams.set("id", videoIds.join(","));
+        detailsUrl.searchParams.set("key", apiKey);
+        const detailsRes = await fetch(detailsUrl.toString());
+        if (!detailsRes.ok) continue;
+        const details = (await detailsRes.json()) as { items?: any[] };
+        for (const video of details.items ?? []) {
+          const live = video.liveStreamingDetails;
+          // Already live or unscheduled: not an upcoming event.
+          if (!live || live.actualStartTime) continue;
+          const startsAt = Date.parse(live.scheduledStartTime ?? "");
+          if (!Number.isFinite(startsAt) || startsAt <= now) continue;
           collected.push({
             creatorId: c.creatorId,
             platform: "youtube",
             username: c.username,
-            title: item.snippet?.title ?? undefined,
-            // Search API has no scheduled time; use publish time as ordering hint.
-            startsAt: Number.isFinite(startsAt) ? startsAt : now,
-            url: `https://youtube.com/watch?v=${videoId}`,
+            title: video.snippet?.title ?? undefined,
+            startsAt,
+            url: `https://youtube.com/watch?v=${video.id}`,
+            videoId: video.id,
             source: "youtube-upcoming",
           });
         }
@@ -141,13 +169,26 @@ export const pollUpcoming = internalAction({
     const creators = await ctx.runQuery(internal.polling.getActiveCreators);
     if (creators.length === 0) return null;
 
-    const twitchBroadcasters = creators
-      .filter((c) => c.platform === "twitch" && c.platformId)
-      .map((c) => ({ creatorId: c._id, broadcasterId: c.platformId!, username: c.username }));
+    const byName = [...creators].sort((a, b) => a.username.localeCompare(b.username));
+    // Hourly slot rotates the capped windows so large rosters are covered
+    // over successive runs instead of polling the same prefix forever.
+    const slot = Math.floor(Date.now() / 3_600_000);
+
+    const twitchBroadcasters = rotateWindow(
+      byName
+        .filter((c) => c.platform === "twitch" && c.platformId)
+        .map((c) => ({ creatorId: c._id, broadcasterId: c.platformId!, username: c.username })),
+      60,
+      slot,
+    );
     // YouTube channel IDs live in platformId when the creator was enriched.
-    const youtubeChannels = creators
-      .filter((c) => c.platform === "youtube" && c.platformId)
-      .map((c) => ({ creatorId: c._id, channelId: c.platformId!, username: c.username }));
+    const youtubeChannels = rotateWindow(
+      byName
+        .filter((c) => c.platform === "youtube" && c.platformId)
+        .map((c) => ({ creatorId: c._id, channelId: c.platformId!, username: c.username })),
+      30,
+      slot,
+    );
     // Kick exposes no schedule API; kick creators are covered by live polling.
 
     const [twitchEvents, youtubeEvents] = await Promise.all([
@@ -158,7 +199,14 @@ export const pollUpcoming = internalAction({
     ]);
 
     const drafts = [...twitchEvents, ...youtubeEvents] as UpcomingDraft[];
+    // Creators polled this run (even with empty schedules) so commitUpcoming
+    // can clear their cancelled events.
+    const polledKeys = [
+      ...twitchBroadcasters.map((b) => `twitch:${b.username.toLowerCase()}`),
+      ...youtubeChannels.map((c) => `youtube:${c.username.toLowerCase()}`),
+    ];
     await ctx.runMutation(internal.upcoming.commitUpcoming, {
+      polledKeys,
       events: drafts.map((d) => ({
         creatorId: (d as any).creatorId as Id<"creators"> | undefined,
         platform: d.platform,
@@ -166,6 +214,7 @@ export const pollUpcoming = internalAction({
         title: d.title,
         startsAt: d.startsAt,
         url: d.url,
+        videoId: d.videoId,
         source: d.source,
       })),
     });
@@ -175,6 +224,9 @@ export const pollUpcoming = internalAction({
 
 export const commitUpcoming = internalMutation({
   args: {
+    // Every creator polled this run, as "platform:lowercase-username".
+    // Creators with no drafts had empty/cancelled schedules: clear them.
+    polledKeys: v.array(v.string()),
     events: v.array(v.object({
       creatorId: v.optional(v.id("creators")),
       platform: v.union(v.literal("twitch"), v.literal("youtube"), v.literal("kick")),
@@ -182,6 +234,7 @@ export const commitUpcoming = internalMutation({
       title: v.optional(v.string()),
       startsAt: v.number(),
       url: v.optional(v.string()),
+      videoId: v.optional(v.string()),
       source: v.string(),
     })),
   },
@@ -196,23 +249,25 @@ export const commitUpcoming = internalMutation({
       .take(500);
     await Promise.all(stale.map((s) => ctx.db.delete(s._id)));
 
-    // Drafts are per-creator schedule snapshots: replace each creator's rows
-    // wholesale so cancelled entries don't linger. Group by platform+username
-    // to keep the delete+insert pairs bounded per creator.
-    const seen = new Set<string>();
+    // Drafts are per-creator schedule snapshots: replace each polled
+    // creator's rows wholesale so cancelled entries don't linger.
+    // Usernames are stored lowercased (handles are case-insensitive on all
+    // three platforms) so the exact index lookup below always matches.
+    for (const key of args.polledKeys) {
+      const [platform, username] = key.split(":");
+      const existing = await ctx.db
+        .query("upcomingEvents")
+        .withIndex("by_platform_and_username", (q) =>
+          q.eq("platform", platform as "twitch" | "youtube" | "kick").eq("username", username),
+        )
+        .collect();
+      await Promise.all(existing.map((row) => ctx.db.delete(row._id)));
+    }
     for (const e of args.events) {
-      const key = `${e.platform}:${e.username.toLowerCase()}`;
-      if (!seen.has(key)) {
-        seen.add(key);
-        const existing = await ctx.db
-          .query("upcomingEvents")
-          .withIndex("by_platform_and_username", (q) =>
-            q.eq("platform", e.platform).eq("username", e.username),
-          )
-          .collect();
-        await Promise.all(existing.map((row) => ctx.db.delete(row._id)));
-      }
-      await ctx.db.insert("upcomingEvents", e);
+      await ctx.db.insert("upcomingEvents", {
+        ...e,
+        username: e.username.toLowerCase(),
+      });
     }
     return null;
   },
@@ -227,6 +282,7 @@ const upcomingReturnValidator = v.object({
   title: v.optional(v.string()),
   startsAt: v.number(),
   url: v.optional(v.string()),
+  videoId: v.optional(v.string()),
   source: v.string(),
   avatarUrl: v.optional(v.string()),
 });

@@ -197,6 +197,7 @@ export default defineSchema({
     title: v.optional(v.string()), // scheduled stream title
     startsAt: v.number(),          // timestamp ms
     url: v.optional(v.string()),   // watch URL
+    videoId: v.optional(v.string()), // YouTube video ID (player needs this, not the handle)
     source: v.string(),            // e.g. "twitch-schedule", "youtube-upcoming"
   })
     .index("by_startsAt", ["startsAt"])

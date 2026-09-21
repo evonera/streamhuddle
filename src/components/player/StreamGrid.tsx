@@ -47,10 +47,12 @@ function SlotShell({ gridIndex, style, className, children }: {
  * initiates the drag so embedded players can't swallow pointer events.
  * Works with mouse + touch via dnd-kit's pointer sensor.
  */
-function CellDragHandle({ stream, onSelect, children }: {
+function CellDragHandle({ stream, onSelect, selectLabel, children }: {
   stream: StreamData;
   /** focus/select the cell when its header is clicked or Enter-pressed */
   onSelect?: () => void;
+  /** accessible name for the header action (defaults to audio focus) */
+  selectLabel?: string;
   children: React.ReactNode;
 }) {
   const { attributes, listeners, setNodeRef } = useDraggable({
@@ -76,7 +78,7 @@ function CellDragHandle({ stream, onSelect, children }: {
       }}
       role="button"
       tabIndex={0}
-      aria-label={`Select ${stream.displayName || stream.channel} (drag to reorder)`}
+      aria-label={selectLabel ?? `Focus audio on ${stream.displayName || stream.channel} (drag to reorder)`}
       style={{ touchAction: "none" }}
       className="absolute top-0 left-0 w-full p-2 bg-gradient-to-b from-black/80 to-transparent opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-within:opacity-100 focus-visible:opacity-100 transition-opacity flex justify-between items-center z-50 cursor-grab active:cursor-grabbing"
     >
@@ -272,7 +274,11 @@ export function StreamGrid({
                     className="relative min-w-0 min-h-0 grow-0 shrink-0 group bg-zinc-950 border border-zinc-800 rounded overflow-hidden flex flex-col"
                   >
                     {/* Drag handle: only the header bar initiates drag, not the chat iframe */}
-                    <CellDragHandle stream={stream}>
+                    <CellDragHandle
+                      stream={stream}
+                      onSelect={() => setActiveChatId(stream.id)}
+                      selectLabel={`Show ${stream.displayName || stream.channel} chat in sidebar (drag to reorder)`}
+                    >
                       <div className="flex items-center gap-1 bg-black/50 px-2 py-1 rounded">
                         <HugeiconsIcon icon={Message01Icon} size={14} className="text-primary" />
                         <span className="text-white text-xs font-semibold truncate">
