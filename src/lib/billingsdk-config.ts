@@ -35,7 +35,7 @@ export const plans: Plan[] = [
     yearlyPrice: "0",
     buttonText: "Current Plan",
     features: [
-      { name: "Watch up to 20 Streams at once", icon: "check" },
+      { name: "Watch up to 30 Streams at once", icon: "check" },
       { name: "1 Saved Custom Layout", icon: "check" },
       { name: "Public Roster Access", icon: "check" },
     ],

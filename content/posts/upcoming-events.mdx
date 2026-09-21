@@ -1,0 +1,45 @@
+---
+title: "Never Miss a Big Stream Again: Upcoming Events on StreamHuddle"
+description: "StreamHuddle now tracks scheduled streams across Twitch and YouTube. Here's how the Upcoming feed works and how to turn any event into a one-click StreamList."
+date: "2026-09-21"
+thumbnail: "/blog/blog_thumb_watch_1784243171823.jpg"
+tags: ["events", "streamlists", "guide"]
+---
+
+# Never Miss a Big Stream Again
+
+Big streams are announced days in advance — tournament finals, subathons, collabs, season premieres. Until now, StreamHuddle only knew who was live *right now*. The new **Upcoming** feed on [Discover](/discover) tracks scheduled streams so you can plan your grid ahead of time.
+
+## How it works
+
+Every hour, StreamHuddle polls platform schedules for every creator on the active roster:
+
+- **Twitch** — the official broadcast schedule (`/helix/schedule`), per creator
+- **YouTube** — upcoming premieres and scheduled live videos (needs a `YOUTUBE_API_KEY`, see below)
+- **Kick** — no public schedule API exists, so Kick creators appear the moment they go live
+
+Each event card shows the date, time (in your timezone), platform, and title, with an **Open Stream** button that loads it instantly.
+
+## Turn any event into a one-click StreamList
+
+1. Open the [roster](/roster) and add the event's creators to your grid
+2. Hit **Save** and name it, e.g. `Worlds Final — T1 vs G2`
+3. Share the link: anyone opening it loads your exact setup in one click
+
+For ad-hoc groups, you don't even need a saved list — build a shareable URL directly:
+
+```text
+/roster?streams=twitch:xqc,kick:adinross,youtube:VIDEO_ID
+```
+
+Bare names default to Twitch. Custom stream URLs work too via the `custom:` prefix.
+
+## For self-hosters: enabling YouTube
+
+The YouTube poll is stubbed until you add a key:
+
+```bash
+npx convex env set YOUTUBE_API_KEY AIzaxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+Create one in the [Google Cloud console](https://console.cloud.google.com/apis/credentials) with the YouTube Data API v3 enabled. Without it, the poll logs once per hour and keeps serving Twitch schedules — nothing breaks.

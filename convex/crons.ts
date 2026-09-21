@@ -23,6 +23,14 @@ crons.interval(
   internal.polling.pollAllPlatforms,
 )
 
+crons.interval(
+  "poll-upcoming-events",
+  // Schedules change slowly; hourly keeps the Discover "Upcoming" section
+  // fresh without burning Twitch/YouTube quota.
+  { hours: 1 },
+  internal.upcoming.pollUpcoming,
+)
+
 const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000
 
 export const cleanupResend = internalMutation({

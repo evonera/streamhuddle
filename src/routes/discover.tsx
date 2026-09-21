@@ -140,6 +140,7 @@ function StreamListCard({ list, index }: { list: any; index: number }) {
 function DiscoverPage() {
   const streamLists = useQuery(api.roster.getDiscoverStreamLists)
   const creatorsQuery = useQuery(api.roster.getAllCreators, {})
+  const upcomingQuery = useQuery(api.upcoming.getUpcomingEvents, { limit: 12 })
   const [search, setSearch] = useState('')
 
   const liveCreators = (creatorsQuery || []).filter((c) => c.isLive).slice(0, 8)
@@ -197,10 +198,10 @@ function DiscoverPage() {
                   Build Your Grid
                 </Link>
                 <Link
-                  to="/university"
+                  to="/roster"
                   className="inline-flex items-center border border-white/10 text-white font-mono font-bold tracking-widest uppercase px-6 py-3 text-xs hover:bg-white/5 transition-colors active:scale-[0.97]"
                 >
-                  Open University
+                  Watch Live
                 </Link>
               </div>
 
@@ -264,6 +265,83 @@ function DiscoverPage() {
                     </Link>
                   </motion.div>
                 ))}
+              </div>
+            </Container>
+          </section>
+        )}
+
+        {/* Upcoming Events */}
+        {upcomingQuery && upcomingQuery.length > 0 && (
+          <section className="border-b border-white/5 py-14">
+            <Container>
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="inline-flex items-center gap-2 border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-bold tracking-widest uppercase text-primary font-mono">
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                    Upcoming
+                  </div>
+                  <span className="text-white/30 text-xs font-mono">{upcomingQuery.length} scheduled</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {upcomingQuery.map((event) => {
+                  const startsAt = new Date(event.startsAt)
+                  const dateLabel = startsAt.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+                  const timeLabel = startsAt.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+                  // YouTube embeds need the video ID, not the channel handle.
+                  const streamsValue =
+                    event.platform === "youtube" && event.videoId
+                      ? `youtube:${event.videoId}`
+                      : `${event.platform}:${event.username}`
+                  const watchHref = event.url && (event.platform === "youtube" && !event.videoId)
+                    ? event.url
+                    : null
+                  return (
+                    <div
+                      key={event._id}
+                      className="group flex flex-col gap-2 p-4 border border-white/5 bg-white/[0.02] hover:border-primary/30 transition-all"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-primary">
+                          {dateLabel} · {timeLabel}
+                        </span>
+                        <span className="text-[9px] font-mono uppercase tracking-widest text-white/30">
+                          {event.platform}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2.5">
+                        <img
+                          src={event.avatarUrl || `https://avatar.vercel.sh/${event.username}`}
+                          alt=""
+                          className="w-9 h-9 rounded-full bg-zinc-900 object-cover"
+                        />
+                        <div className="min-w-0">
+                          <div className="text-white text-xs font-bold font-mono truncate">{event.username}</div>
+                          <div className="text-white/40 text-[11px] truncate">{event.title || "Scheduled stream"}</div>
+                        </div>
+                      </div>
+                      {watchHref ? (
+                        <a
+                          href={watchHref}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-1 inline-flex items-center justify-center gap-2 border border-white/10 px-3 py-2 text-[11px] font-bold tracking-widest uppercase font-mono text-white/70 hover:text-black hover:bg-primary hover:border-primary transition-colors"
+                        >
+                          Watch on {event.platform}
+                        </a>
+                      ) : (
+                        <Link
+                          to="/roster"
+                          search={{ streams: streamsValue }}
+                          className="mt-1 inline-flex items-center justify-center gap-2 border border-white/10 px-3 py-2 text-[11px] font-bold tracking-widest uppercase font-mono text-white/70 hover:text-black hover:bg-primary hover:border-primary transition-colors"
+                        >
+                          Open Stream
+                        </Link>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             </Container>
           </section>
