@@ -151,15 +151,18 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
   const isPro = (session?.user as any)?.isPro || false
 
   useEffect(() => {
+    // Load saved prefs first on every viewport: the persistence effect writes
+    // on every change, so skipping the load on mobile would let mobile
+    // defaults overwrite the user's saved desktop settings.
+    const prefs = loadPrefs()
+    if (prefs.leftSidebarOpen !== undefined) setLeftSidebarOpen(prefs.leftSidebarOpen)
+    if (prefs.rightSidebarOpen !== undefined) setRightSidebarOpen(prefs.rightSidebarOpen)
+    if (prefs.globalMuted !== undefined) setGlobalMuted(prefs.globalMuted)
+    if (prefs.twitchQuality) setTwitchQuality(prefs.twitchQuality)
     if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+      // Small screens start with overlays closed regardless of saved prefs.
       setLeftSidebarOpen(false)
       setRightSidebarOpen(false)
-    } else {
-      const prefs = loadPrefs()
-      if (prefs.leftSidebarOpen !== undefined) setLeftSidebarOpen(prefs.leftSidebarOpen)
-      if (prefs.rightSidebarOpen !== undefined) setRightSidebarOpen(prefs.rightSidebarOpen)
-      if (prefs.globalMuted !== undefined) setGlobalMuted(prefs.globalMuted)
-      if (prefs.twitchQuality) setTwitchQuality(prefs.twitchQuality)
     }
     setPrefsLoaded(true)
   }, [])
@@ -179,11 +182,18 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
     }
   }, [prefsLoaded, leftSidebarOpen, rightSidebarOpen, globalMuted, twitchQuality])
 
-  // Apply an explicit Twitch quality to all mounted players (and future mounts via prop)
+  // Apply an explicit Twitch quality to all mounted players (and future mounts via prop).
+  // Switching back to Auto remounts players: the embed has no "reset to Auto"
+  // API, so a reload is the only way to restore adaptive quality.
   const handleQualityChange = (q: string | null) => {
     if (!q) return
     setTwitchQuality(q)
-    if (q !== "auto") setAllTwitchQuality(q)
+    if (q === "auto") {
+      setRemountKey(k => k + 1)
+      toast.info("Quality reset to Auto (streams reloaded).")
+    } else {
+      setAllTwitchQuality(q)
+    }
   }
 
   // Close layout picker on outside click
@@ -291,9 +301,13 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
     if (!initialStreamsParam || !creatorsQuery || activeStreams.length !== 0 || activeLayoutId) return
     const parsed = parseStreamsParam(initialStreamsParam)
     if (parsed.length === 0) return
-    const byUsername = new Map((creatorsQuery || []).map(c => [c.username.toLowerCase(), c]))
+    // Match on platform AND username: the same handle can exist on Twitch,
+    // Kick, and YouTube, and the URL encodes which one was meant.
+    const byPlatformAndName = new Map(
+      (creatorsQuery || []).map((c) => [`${c.platform}:${c.username.toLowerCase()}`, c]),
+    )
     const loaded: StreamData[] = parsed.map((p, idx) => {
-      const match = byUsername.get(p.channel.toLowerCase())
+      const match = byPlatformAndName.get(`${p.platform}:${p.channel.toLowerCase()}`)
       if (match) {
         return {
           id: match._id,
@@ -346,9 +360,14 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
     }
   }
 
-  const handleRetryStream = () => {
-    // Force a remount of every player so the retried cell re-checks liveness
-    // against the latest poll data.
+  // Streams the user explicitly retried: mount a player even while the
+  // backend still reports them offline, so Retry has a visible effect. The
+  // platform embed itself shows its own offline state if truly offline.
+  const [forceMountedIds, setForceMountedIds] = useState<Record<string, true>>({})
+
+  const handleRetryStream = (id: string) => {
+    setForceMountedIds(prev => ({ ...prev, [id]: true }))
+    // Also remount so the fresh player attempt isn't served a cached embed.
     setRemountKey(k => k + 1)
   }
 
@@ -1015,6 +1034,7 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
             twitchQuality={twitchQuality === "auto" ? undefined : twitchQuality}
             remountKey={remountKey}
             liveMap={liveMap}
+            forceMountIds={forceMountedIds}
             onRetryStream={handleRetryStream}
             onStartTour={() => { setTourStep(0); setTourOpen(true) }}
           />

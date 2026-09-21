@@ -45,6 +45,7 @@ export function StreamGrid({
   twitchQuality,
   remountKey = 0,
   liveMap,
+  forceMountIds,
   onRetryStream,
   onStartTour,
 }: {
@@ -63,6 +64,8 @@ export function StreamGrid({
   remountKey?: number;
   /** stream.id -> isLive for roster streams; missing = unknown (mount normally) */
   liveMap?: Record<string, boolean>;
+  /** ids the user explicitly retried: mount a player despite offline status */
+  forceMountIds?: Record<string, true>;
   /** retry handler for offline placeholders */
   onRetryStream?: (id: string) => void;
   /** opens the onboarding tour from the empty state */
@@ -259,7 +262,10 @@ export function StreamGrid({
               const isFocused = stream.id === focusedId;
               const isMuted = globalMuted || (!isFocused && !manuallyUnmuted.has(stream.id));
               const isKnownOffline =
-                stream.platform !== "custom" && liveMap !== undefined && liveMap[stream.id] === false;
+                stream.platform !== "custom" &&
+                liveMap !== undefined &&
+                liveMap[stream.id] === false &&
+                !forceMountIds?.[stream.id];
 
               if (isKnownOffline) {
                 return (

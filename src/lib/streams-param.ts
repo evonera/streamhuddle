@@ -1,13 +1,14 @@
 export type ParsedStreamRef = {
-  platform: "twitch" | "kick" | "youtube"
+  platform: "twitch" | "kick" | "youtube" | "custom"
   channel: string
   displayName: string
 }
 
 /**
- * Parse a `?streams=` instant-watch param: comma-separated `platform:name`
- * entries (e.g. `twitch:xqc,kick:adinross,youtube:VIDEO_ID`) or bare Twitch
- * usernames. Capped at 20 entries.
+ * Parse a `?streams=` instant-watch param: comma-separated entries of the form
+ * `platform:value` (e.g. `twitch:xqc`, `kick:adinross`, `youtube:VIDEO_ID`,
+ * `custom:https://example.com/embed`) or bare Twitch usernames.
+ * Capped at 20 entries.
  */
 export function parseStreamsParam(param: string): Array<ParsedStreamRef> {
   return param
@@ -16,6 +17,13 @@ export function parseStreamsParam(param: string): Array<ParsedStreamRef> {
     .filter(Boolean)
     .slice(0, 20)
     .map((entry) => {
+      // Custom URLs contain colons (https://...), so match the prefix first
+      // instead of splitting on every colon.
+      if (entry.toLowerCase().startsWith("custom:")) {
+        const channel = entry.slice("custom:".length).trim()
+        if (!channel) return null
+        return { platform: "custom" as const, channel, displayName: channel }
+      }
       const [maybePlatform, ...rest] = entry.split(":")
       const hasPlatform = rest.length > 0 && ["twitch", "kick", "youtube"].includes(maybePlatform.toLowerCase())
       if (hasPlatform) {
