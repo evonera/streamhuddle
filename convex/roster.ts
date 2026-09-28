@@ -86,19 +86,23 @@ export const saveLayout = mutation({
   },
   returns: v.object({ success: v.boolean(), layoutId: v.id("layouts") }),
   handler: async (ctx, args) => {
+    const name = args.name.trim()
+    if (name.length < 1 || name.length > 30) throw new ConvexError("Layout name must be 1–30 characters.")
+    if (args.creatorIds.length < 1 || args.creatorIds.length > 30) throw new ConvexError("A layout must contain between 1 and 30 streams.")
     const user = await safeGetAuthenticatedUser(ctx);
     if (!user) throw new ConvexError("Must be logged in to save a layout.");
     
     // Add rate limit
     await rateLimitWithThrow(ctx, "userAction", user.authId);
 
-    const userLayouts = await ctx.db
-      .query("layouts")
-      .withIndex("by_user", q => q.eq("authId", user.authId))
-      .collect();
-      
-    if (!user.isPro && userLayouts.length >= 1) {
-      throw new ConvexError("Free tier is limited to 1 layout. Upgrade to Pro for unlimited configurations.");
+    if (!user.isPro) {
+      const userLayouts = await ctx.db
+        .query("layouts")
+        .withIndex("by_user", q => q.eq("authId", user.authId))
+        .take(1)
+      if (userLayouts.length) {
+        throw new ConvexError("Free tier is limited to 1 layout. Upgrade to Pro for unlimited configurations.");
+      }
     }
     
     const streams = args.creatorIds.map(c => ({ creatorId: c.id, type: c.type }));
@@ -121,7 +125,7 @@ export const saveLayout = mutation({
     
     const layoutId = await ctx.db.insert("layouts", {
       authId: user.authId,
-      name: args.name,
+      name,
       views: 0,
       authorName,
       previewStreams,
@@ -162,6 +166,7 @@ export const deleteLayout = mutation({
   handler: async (ctx, args) => {
     const user = await safeGetAuthenticatedUser(ctx);
     if (!user) throw new Error("Must be logged in");
+    await rateLimitWithThrow(ctx, "userAction", user.authId);
     
     const layout = await ctx.db.get(args.layoutId);
     if (!layout || layout.authId !== user.authId) {
@@ -175,11 +180,24 @@ export const deleteLayout = mutation({
 
 export const getStreamListById = query({
   args: { id: v.id("layouts") },
-  returns: v.union(layoutReturnValidator, v.null()),
+  returns: v.union(
+    v.object({
+      _id: v.id("layouts"),
+      _creationTime: v.number(),
+      name: v.string(),
+      streams: v.array(streamValidator),
+    }),
+    v.null(),
+  ),
   handler: async (ctx, args) => {
     const layout = await ctx.db.get(args.id);
     if (!layout) return null;
-    return layout;
+    return {
+      _id: layout._id,
+      _creationTime: layout._creationTime,
+      name: layout.name,
+      streams: layout.streams,
+    };
   }
 });
 

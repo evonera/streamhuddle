@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Runtime-agnostic launcher for tanvex's TypeScript scripts.
+ * Runtime-agnostic launcher for StreamHuddle's TypeScript scripts.
  *
  * Picks the first available runtime that handles full TypeScript syntax:
  *
@@ -58,9 +58,9 @@ function pickRuntime() {
   const npx = which("npx")
   if (npx) return { cmd: npx, args: ["tsx", target] }
 
-  console.error("tanvex scripts need bun or tsx to run TypeScript.")
+  console.error("StreamHuddle scripts need bun or tsx to run TypeScript.")
   console.error("  install bun:  curl -fsSL https://bun.sh/install | bash")
-  console.error("  or run:       npm install   (tanvex ships tsx as a devDep)")
+  console.error("  or run:       npm install   (StreamHuddle ships tsx as a devDep)")
   process.exit(1)
   return null
 }

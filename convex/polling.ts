@@ -15,7 +15,7 @@ export const pollAllPlatforms = internalAction({
     const twitchCreators = activeCreators.filter(c => c.platform === "twitch");
     const kickCreators = activeCreators.filter(c => c.platform === "kick");
 
-    const updates: { creatorId: Id<"creators">; isLive: boolean; viewerCount?: number; streamTitle?: string }[] = [];
+    const updates: Array<{ creatorId: Id<"creators">; isLive: boolean; viewerCount?: number; streamTitle?: string }> = [];
 
     // 3. Poll Twitch
     if (twitchCreators.length > 0) {
@@ -44,13 +44,24 @@ export const pollAllPlatforms = internalAction({
       // Note: Kick blocks serverless IPs via Cloudflare. 
       // If this fails consistently with 403, route through a proxy like ZenRows.
       const proxyUrl = process.env.KICK_PROXY_URL; // Optional proxy for Cloudflare bypass
+      let proxyBase: URL | undefined
+      if (proxyUrl) {
+        try {
+          proxyBase = new URL(proxyUrl)
+          if (proxyBase.protocol !== "https:") proxyBase = undefined
+        } catch {
+          proxyBase = undefined
+        }
+      }
       
       const kickPromises = kickCreators.map(async (creator) => {
         try {
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 5000);
           
-          const url = proxyUrl ? `${proxyUrl}/api/v2/channels/${creator.username}` : `https://kick.com/api/v2/channels/${creator.username}`;
+          const url = proxyBase
+            ? new URL(`/api/v2/channels/${encodeURIComponent(creator.username)}`, proxyBase).toString()
+            : `https://kick.com/api/v2/channels/${encodeURIComponent(creator.username)}`;
           
           const res = await fetch(url, { signal: controller.signal });
           clearTimeout(timeoutId);
@@ -178,6 +189,6 @@ export const getActiveCreators = internalQuery({
     const creatorPromises = Array.from(creatorIds).map(id => ctx.db.get(id as Id<"creators">));
     const creators = await Promise.all(creatorPromises);
     
-    return creators.filter(Boolean) as Doc<"creators">[];
+    return creators.filter(Boolean) as Array<Doc<"creators">>;
   }
 });

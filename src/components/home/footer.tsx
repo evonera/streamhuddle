@@ -96,7 +96,7 @@ export default function Footer() {
                         <FooterLinkColumn title="PRODUCT">
                             <FooterLink href="/roster">Roster</FooterLink>
                             <FooterLink href="/discover">Discover</FooterLink>
-                            <FooterLink href="/university">University</FooterLink>
+                            <FooterLink href="/blog">Blog</FooterLink>
                             <FooterLink href="/pricing">Pro</FooterLink>
                         </FooterLinkColumn>
 

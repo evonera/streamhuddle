@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+      - run: bun install --frozen-lockfile
+      # The Content Collections Vite plugin generates the virtual module used by
+      # the blog routes during build, so generate it before running tsc.
+      - run: bun run build
+        env:
+          VITE_CONVEX_URL: https://example.convex.cloud
+          VITE_CONVEX_SITE_URL: https://example.convex.site
+          VITE_SITE_URL: https://example.test
+      - run: bun run typecheck
+      - run: bun run test

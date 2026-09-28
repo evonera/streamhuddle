@@ -36,7 +36,7 @@ const getAuth = createServerFn({ method: "GET" }).handler(async () => {
     return await getToken()
   } catch (err: any) {
     console.error("GET_AUTH_ERROR", err)
-    return { token: null, error: err?.message || "Unknown error" }
+    return null
   }
 })
 
@@ -60,7 +60,7 @@ const jsonLd = {
       codeRepository: REPO_URL,
       programmingLanguage: ["TypeScript", "TSX", "CSS"],
       runtimePlatform: "Bun",
-      license: "https://opensource.org/licenses/MIT",
+      license: "https://www.gnu.org/licenses/agpl-3.0.html",
       author: { "@id": `${SITE_URL}/#person` },
     },
     {

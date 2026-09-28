@@ -1,8 +1,26 @@
 import { v } from "convex/values"
 
 import type { Id } from "./_generated/dataModel"
+import type { MutationCtx } from "./_generated/server"
+import type { AuthUser } from "./functions"
 import { authMutation, optionalAuthQuery } from "./functions"
 import { rateLimitWithThrow } from "./rateLimit"
+
+async function isVerifiedStreamer(
+  ctx: MutationCtx,
+  creator: { _id: Id<"creators">; platform: string; platformId?: string },
+  user: AuthUser,
+) {
+  if (user.role === "admin") return true
+  if (creator.platform !== "twitch" || !creator.platformId) return false
+
+  const linkedAccount = await ctx.db
+    .query("twitchUserTokens")
+    .withIndex("by_user", (q) => q.eq("userId", user._id))
+    .first()
+
+  return linkedAccount?.twitchUserId === creator.platformId
+}
 
 // ============================================================================
 // Public Queries (no auth required — viewers see the queue without logging in)
@@ -21,7 +39,8 @@ export const getLiveQueue = optionalAuthQuery({
       .withIndex("by_creator_and_status", (q) =>
         q.eq("creatorId", args.creatorId).eq("status", "approved")
       )
-      .collect()
+      .order("desc")
+      .take(100)
     
     const sorted = items.sort((a, b) => b.upvotes - a.upvotes)
 
@@ -51,13 +70,14 @@ export const getLiveQueue = optionalAuthQuery({
 export const getLiveQueueMulti = optionalAuthQuery({
   args: { creatorIds: v.array(v.id("creators")) },
   handler: async (ctx, args) => {
+    if (args.creatorIds.length > 30) throw new Error("A queue can include up to 30 creators.")
     // 1. Fetch approved clips for all creators concurrently
     const allClipsNested = await Promise.all(
       args.creatorIds.map(creatorId => 
         ctx.db.query("clipQueue")
           .withIndex("by_creator_and_status", q => 
             q.eq("creatorId", creatorId).eq("status", "approved")
-          ).collect()
+          ).order("desc").take(25)
       )
     )
     
@@ -147,20 +167,26 @@ export const submitClip = authMutation({
     submitterTwitchName: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    if (args.clipUrl.length > 2048) throw new Error("Clip URL is too long")
+    if (args.title.trim().length < 1 || args.title.length > 120) throw new Error("Clip title must be 1–120 characters")
+    if (args.submitterTwitchName && !/^[a-zA-Z0-9_]{1,25}$/.test(args.submitterTwitchName)) throw new Error("Invalid submitter name")
+    if (args.thumbnailUrl && (args.thumbnailUrl.length > 2048 || !/^https:\/\//i.test(args.thumbnailUrl))) {
+      throw new Error("Invalid clip thumbnail URL")
+    }
     // Validate clip URL (Prevent stored XSS)
-    const isValidUrl = args.clipUrl.startsWith("https://clips.twitch.tv/") || /^https:\/\/(www\.)?twitch\.tv\/.*\/clip\//.test(args.clipUrl);
+    let clipUrl: URL | null = null
+    try { clipUrl = new URL(args.clipUrl) } catch { /* handled below */ }
+    const isValidUrl = clipUrl?.protocol === "https:" && (
+      (clipUrl.hostname === "clips.twitch.tv" && clipUrl.pathname.length > 1) ||
+      (["twitch.tv", "www.twitch.tv"].includes(clipUrl.hostname) && /\/[^/]+\/clip\/[^/]+/.test(clipUrl.pathname))
+    )
     if (!isValidUrl) {
       throw new Error("Invalid Twitch clip URL");
     }
 
     // Determine correct submitter name
     const creator = await ctx.db.get(args.creatorId)
-    const isStreamer = creator && (
-      ctx.user.username?.toLowerCase() === creator.username.toLowerCase() ||
-      // @ts-ignore - BetterAuth type fallback
-      ctx.user.displayUsername?.toLowerCase() === creator.username.toLowerCase() ||
-      ctx.user.role === "admin"
-    )
+    const isStreamer = creator ? await isVerifiedStreamer(ctx, creator, ctx.user) : false
     
     const submitterName = (isStreamer && args.submitterTwitchName) 
       ? args.submitterTwitchName 
@@ -194,7 +220,7 @@ export const submitClip = authMutation({
       submitterId: ctx.user._id,
       submitterName,
       clipUrl: args.clipUrl,
-      title: args.title,
+      title: args.title.trim(),
       thumbnailUrl: args.thumbnailUrl,
       status: "approved",
       upvotes: 0,
@@ -258,16 +284,14 @@ export const setClipStatus = authMutation({
     ),
   },
   handler: async (ctx, args) => {
+    await rateLimitWithThrow(ctx, "userAction", ctx.user._id.toString())
     const item = await ctx.db.get(args.queueItemId)
     if (!item) throw new Error("Queue item not found")
 
     const creator = await ctx.db.get(item.creatorId)
     if (!creator) throw new Error("Creator not found")
 
-    const isStreamer = 
-      ctx.user.username?.toLowerCase() === creator.username.toLowerCase() ||
-      ctx.user.displayUsername?.toLowerCase() === creator.username.toLowerCase() ||
-      ctx.user.role === "admin"
+    const isStreamer = await isVerifiedStreamer(ctx, creator, ctx.user)
 
     if (!isStreamer) {
       throw new Error("Unauthorized: Only the streamer can moderate their queue")
@@ -286,16 +310,14 @@ export const deleteClip = authMutation({
     queueItemId: v.id("clipQueue"),
   },
   handler: async (ctx, args) => {
+    await rateLimitWithThrow(ctx, "userAction", ctx.user._id.toString())
     const item = await ctx.db.get(args.queueItemId)
     if (!item) throw new Error("Queue item not found")
 
     const creator = await ctx.db.get(item.creatorId)
     if (!creator) throw new Error("Creator not found")
 
-    const isStreamer = 
-      ctx.user.username?.toLowerCase() === creator.username.toLowerCase() ||
-      ctx.user.displayUsername?.toLowerCase() === creator.username.toLowerCase() ||
-      ctx.user.role === "admin"
+    const isStreamer = await isVerifiedStreamer(ctx, creator, ctx.user)
 
     if (!isStreamer) {
       throw new Error("Unauthorized: Only the streamer can delete their queue items")

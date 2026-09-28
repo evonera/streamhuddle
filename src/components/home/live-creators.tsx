@@ -31,17 +31,17 @@ export default function LiveCreators() {
                             )}
                         </div>
                         <h2 className="text-3xl md:text-4xl font-bold font-sans text-foreground">
-                            Streamer University
+                            Live Now
                         </h2>
                         <p className="text-white/50 text-sm max-w-md font-mono">
                             Watch all streamers in one grid, build your own layout, or discover community setups.
                         </p>
                     </div>
                     <Link
-                        to="/university"
+                        to="/roster"
                         className="hidden md:inline-flex items-center gap-2 border border-white/10 bg-white/5 px-5 py-2.5 text-xs font-bold tracking-widest uppercase font-mono text-white/70 hover:text-white hover:bg-white/10 transition-colors"
                     >
-                        Open University →
+                        Watch live →
                     </Link>
                 </div>
 
@@ -114,10 +114,10 @@ export default function LiveCreators() {
                 {/* CTA row */}
                 <div className="flex flex-wrap gap-3 mt-10">
                     <Link
-                        to="/university"
+                        to="/roster"
                         className="inline-flex items-center gap-2 bg-primary text-background font-mono font-bold tracking-widest uppercase px-6 py-3 text-xs hover:bg-primary/90 transition-colors active:scale-[0.97]"
                     >
-                        Open University
+                        Watch Live
                     </Link>
                     <Link
                         to="/roster"

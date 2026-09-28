@@ -23,7 +23,7 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { createServerFn } from "@tanstack/react-start"
 import { useQuery } from "convex-helpers/react"
-import { useConvexAuth, useMutation } from "convex/react"
+import { useAction, useConvexAuth, useMutation } from "convex/react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 
@@ -116,12 +116,14 @@ type PreloadedUser = AuthUser | null
 
 function ProfileContent({ preloadedUser }: { preloadedUser: PreloadedUser }) {
   const { data: user, isPending } = useQuery(api.users.getMe)
+  const navigate = useNavigate()
   const { data: layouts } = useQuery(api.roster.getUserLayouts)
   const { data: hasPassword } = useQuery(api.auth.hasPassword)
   const updateProfile = useMutation(api.users.updateProfile)
   const generateUploadUrl = useMutation(api.users.generateAvatarUploadUrl)
   const updateAvatar = useMutation(api.users.updateAvatar)
   const deleteAvatarMutation = useMutation(api.users.deleteAvatar)
+  const getCustomerPortal = useAction(api.payments.getCustomerPortal)
 
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -153,6 +155,11 @@ function ProfileContent({ preloadedUser }: { preloadedUser: PreloadedUser }) {
     general?: string
   }>({})
   const [passwordSuccess, setPasswordSuccess] = useState(false)
+  const [isConfirmingAccountDeletion, setIsConfirmingAccountDeletion] = useState(false)
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false)
+  const [isOpeningBillingPortal, setIsOpeningBillingPortal] = useState(false)
+  const [deletionPassword, setDeletionPassword] = useState("")
+  const [deletionConfirmation, setDeletionConfirmation] = useState("")
 
   const currentUser = user ?? preloadedUser
   const originalUsername = currentUser?.displayUsername ?? currentUser?.username ?? ""
@@ -182,6 +189,7 @@ function ProfileContent({ preloadedUser }: { preloadedUser: PreloadedUser }) {
     currentUser?.displayUsername,
     currentUser?.username,
     currentUser?.bio,
+    currentUser?.favoriteStreamer,
     isEditing,
   ])
 
@@ -308,7 +316,7 @@ function ProfileContent({ preloadedUser }: { preloadedUser: PreloadedUser }) {
           return
         }
       }
-      await updateProfile({ bio: formData.bio || undefined, favoriteStreamer: formData.favoriteStreamer || undefined })
+      await updateProfile({ bio: formData.bio, favoriteStreamer: formData.favoriteStreamer || undefined })
       setIsEditing(false)
       setUsernameAvailable(null)
       setUsernameError(null)
@@ -338,6 +346,39 @@ function ProfileContent({ preloadedUser }: { preloadedUser: PreloadedUser }) {
       setError(err instanceof Error ? err.message : "Failed to delete avatar")
     } finally {
       setIsUploadingAvatar(false)
+    }
+  }
+
+  const handleDeleteAccount = async () => {
+    if (deletionConfirmation !== "DELETE") return
+    setIsDeletingAccount(true)
+    setError(null)
+    try {
+      const result = await authClient.deleteUser({
+        ...(hasPassword && { password: deletionPassword }),
+      })
+      if (result.error) {
+        setError(result.error.message || "Could not delete your account. Please try again.")
+        return
+      }
+      toast.success("Your account deletion has started.")
+      await navigate({ to: "/" })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not delete your account. Please try again.")
+    } finally {
+      setIsDeletingAccount(false)
+    }
+  }
+
+  const handleOpenBillingPortal = async () => {
+    setIsOpeningBillingPortal(true)
+    setError(null)
+    try {
+      const portal = await getCustomerPortal({})
+      window.location.assign(portal.portal_url)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not open the billing portal.")
+      setIsOpeningBillingPortal(false)
     }
   }
 
@@ -691,6 +732,87 @@ function ProfileContent({ preloadedUser }: { preloadedUser: PreloadedUser }) {
               <Button variant="outline" onClick={handleRevokeOtherSessions} disabled={isRevokingSessions}>Sign out other devices</Button>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-destructive/30 bg-destructive/5">
+        <CardHeader>
+          <CardTitle className="text-lg text-destructive">Delete account</CardTitle>
+          <CardDescription>
+            Permanently remove your profile, saved layouts, clip queue activity, connected Twitch tokens, and saved clip files.
+            This cannot be undone.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          {currentUser.dodoCustomerId ? (
+            <div className="flex flex-col gap-3 rounded-lg border border-border bg-background/50 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-muted-foreground">
+                Account deletion does not cancel a paid plan. Cancel any active plan in the billing portal first.
+              </p>
+              <Button variant="outline" onClick={handleOpenBillingPortal} disabled={isOpeningBillingPortal || isDeletingAccount}>
+                {isOpeningBillingPortal ? "Opening…" : "Manage billing"}
+              </Button>
+            </div>
+          ) : null}
+
+          {!isConfirmingAccountDeletion ? (
+            <Button
+              variant="destructive"
+              className="self-start"
+              onClick={() => setIsConfirmingAccountDeletion(true)}
+              disabled={isDeletingAccount}
+            >
+              Delete my account
+            </Button>
+          ) : (
+            <div className="max-w-lg space-y-4 rounded-lg border border-destructive/30 bg-background/60 p-4">
+              <p className="text-sm text-muted-foreground">
+                Type <strong className="text-foreground">DELETE</strong> to confirm. Sign in again if your session is older than 10 minutes.
+              </p>
+              {hasPassword ? (
+                <Field>
+                  <FieldLabel htmlFor="delete-account-password">Current password</FieldLabel>
+                  <Input
+                    id="delete-account-password"
+                    type="password"
+                    autoComplete="current-password"
+                    value={deletionPassword}
+                    onChange={(event) => setDeletionPassword(event.target.value)}
+                    disabled={isDeletingAccount}
+                  />
+                </Field>
+              ) : null}
+              <Field>
+                <FieldLabel htmlFor="delete-account-confirmation">Confirmation</FieldLabel>
+                <Input
+                  id="delete-account-confirmation"
+                  value={deletionConfirmation}
+                  onChange={(event) => setDeletionConfirmation(event.target.value)}
+                  disabled={isDeletingAccount}
+                />
+              </Field>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="destructive"
+                  onClick={handleDeleteAccount}
+                  disabled={isDeletingAccount || deletionConfirmation !== "DELETE" || (hasPassword && !deletionPassword)}
+                >
+                  {isDeletingAccount ? "Deleting…" : "Permanently delete account"}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsConfirmingAccountDeletion(false)
+                    setDeletionPassword("")
+                    setDeletionConfirmation("")
+                  }}
+                  disabled={isDeletingAccount}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

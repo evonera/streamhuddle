@@ -4,19 +4,23 @@ export type ParsedStreamRef = {
   displayName: string
 }
 
+/** Absolute per-grid cell cap. 30 concurrent embeds is the practical ceiling
+ * before RAM/bandwidth collapse; offline roster cells mount no player. */
+export const MAX_GRID_STREAMS = 30
+
 /**
  * Parse a `?streams=` instant-watch param: comma-separated entries of the form
  * `platform:value` (e.g. `twitch:xqc`, `kick:adinross`, `youtube:VIDEO_ID`,
  * `custom:https://example.com/embed`) or bare Twitch usernames.
  * Each entry is URI-decoded independently so custom URLs containing commas
- * survive the round-trip (see serializeStreamsParam). Capped at 20 entries.
+ * survive the round-trip (see serializeStreamsParam). Capped at MAX_GRID_STREAMS entries.
  */
 export function parseStreamsParam(param: string): Array<ParsedStreamRef> {
   return param
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean)
-    .slice(0, 20)
+    .slice(0, MAX_GRID_STREAMS)
     .map((rawEntry) => {
       // Decode per-entry (never the whole list): commas inside custom URLs
       // are encoded as %2C by the serializer and only restored here.

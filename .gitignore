@@ -7,6 +7,7 @@ dist-ssr
 .env.*
 !.env.example
 !.env.convex.example
+/.env.production
 .nitro
 .tanstack
 .vite
@@ -33,5 +34,6 @@ __unconfig*
 !CLAUDE.md
 repomix-output.xml
 
-# Archive tests
-tests/
+# Keep local diagnostic scripts out of the repository, but track runnable suites.
+tests/*.cjs
+tests/*.mjs

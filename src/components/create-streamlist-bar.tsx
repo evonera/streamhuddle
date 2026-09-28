@@ -8,7 +8,7 @@ import Tv01Icon from "@hugeicons/core-free-icons/Tv01Icon"
 import Cancel01Icon from "@hugeicons/core-free-icons/Cancel01Icon"
 import { toast } from "sonner"
 import { useNavigate } from "@tanstack/react-router"
-import { serializeStreamsParam } from "@/lib/streams-param"
+import { serializeStreamsParam, MAX_GRID_STREAMS } from "@/lib/streams-param"
 
 export default function CreateStreamlistBar() {
   const { isAuthenticated } = useConvexAuth()
@@ -40,8 +40,8 @@ export default function CreateStreamlistBar() {
   ).slice(0, 10)
 
   const handleAdd = (creator: any) => {
-    if (selected.length >= 20) {
-      toast.error("You can only add up to 20 streams.")
+    if (selected.length >= MAX_GRID_STREAMS) {
+      toast.error(`You can only add up to ${MAX_GRID_STREAMS} streams.`)
       return
     }
     setSelected([...selected, creator])
@@ -174,7 +174,7 @@ export default function CreateStreamlistBar() {
                   </div>
                 ))}
                 <div className="h-12 px-3 flex items-center justify-center rounded-full bg-zinc-900 border border-white/5 text-xs font-mono font-bold text-zinc-500 ml-2 shadow-inner">
-                  {selected.length} / 20
+                  {selected.length} / {MAX_GRID_STREAMS}
                 </div>
               </div>
             )}
