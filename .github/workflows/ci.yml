@@ -22,6 +22,7 @@ jobs:
       - run: bun run build
         env:
           VITE_CONVEX_URL: https://example.convex.cloud
+          VITE_CONVEX_SITE_URL: https://example.convex.site
           VITE_SITE_URL: https://example.test
       - run: bun run typecheck
       - run: bun run test
