@@ -171,6 +171,7 @@ export default defineSchema({
     upvotes: v.number(),
     createdAt: v.number(),
   })
+    .index("by_submitter", ["submitterId"])
     .index("by_creator_and_status", ["creatorId", "status"])
     .index("by_creator_and_createdAt", ["creatorId", "createdAt"])
     .index("by_creator_and_url", ["creatorId", "clipUrl"]),
@@ -180,6 +181,7 @@ export default defineSchema({
     queueItemId: v.id("clipQueue"),
     userId: v.id("users"),
   })
+    .index("by_user", ["userId"])
     .index("by_item_and_user", ["queueItemId", "userId"])
     .index("by_item", ["queueItemId"]),
 

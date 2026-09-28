@@ -55,11 +55,21 @@ export function TwitchPlayer({
 
   useEffect(() => {
     if (!containerRef.current) return;
-    
-    const playerId = `twitch-${channel}-${Math.random().toString(36).substring(7)}`;
+
+    // Channel names can come from share links. Keep untrusted values out of
+    // HTML attributes and reject names the Twitch player cannot accept.
+    if (!/^[a-zA-Z0-9_]{1,25}$/.test(channel)) {
+      containerRef.current.replaceChildren();
+      return;
+    }
+
+    const playerId = `twitch-${crypto.randomUUID()}`;
     const container = containerRef.current;
-    
-    container.innerHTML = `<div id="${playerId}" class="w-full h-full"></div>`;
+
+    const playerHost = document.createElement("div");
+    playerHost.id = playerId;
+    playerHost.className = "w-full h-full";
+    container.replaceChildren(playerHost);
     
     let mounted = true;
 
@@ -84,17 +94,20 @@ export function TwitchPlayer({
       }
     };
 
-    loadTwitchScript().then(() => {
+    void loadTwitchScript().then(() => {
       if (mounted) initPlayer();
+    }).catch((error: unknown) => {
+      console.error("Unable to load Twitch player", error)
+      if (mounted) container.replaceChildren()
     });
 
     return () => {
       mounted = false;
       if (streamId) unregisterTwitchPlayer(streamId, playerRef.current);
-      if (container) container.innerHTML = '';
+      container.replaceChildren();
       playerRef.current = null;
     };
-  }, [channel, remountKey]);
+  }, [channel, remountKey, streamId]);
 
   // The magic of the JS API: Change mute state without reloading the iframe!
   useEffect(() => {
@@ -115,6 +128,6 @@ export function TwitchPlayer({
   }, [quality]);
 
   return (
-    <div className="w-full h-full bg-black relative" ref={containerRef} role="region" aria-label={`Twitch stream: ${channel}`}></div>
+    <section className="w-full h-full bg-black relative" ref={containerRef} aria-label={`Twitch stream: ${channel}`}></section>
   );
 }

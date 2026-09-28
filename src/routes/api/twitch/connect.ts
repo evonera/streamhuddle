@@ -4,11 +4,18 @@ import { getEnv } from '@/lib/env'
 export const Route = createFileRoute("/api/twitch/connect")({
   server: {
     handlers: {
-      GET: ({ request }) => {
-        const url = new URL(request.url);
-        const host = url.host || "localhost:3000";
-        const redirectBase = getEnv('TWITCH_REDIRECT_BASE_URL') ?? (host.includes("localhost") ? `http://${host}` : `https://${host}`);
-        const redirectUri = `${redirectBase}/api/twitch/callback`;
+      GET: () => {
+        const redirectBase = getEnv("TWITCH_REDIRECT_BASE_URL")
+        let base: URL
+        try {
+          if (!redirectBase) throw new Error("Missing redirect URL")
+          base = new URL(redirectBase)
+          if (base.username || base.password || base.search || base.hash || base.pathname !== "/") throw new Error("Invalid redirect URL")
+          if (base.protocol !== "https:" && !(base.protocol === "http:" && ["localhost", "127.0.0.1"].includes(base.hostname))) throw new Error("Redirect URL must use HTTPS")
+        } catch {
+          return new Response("Invalid TWITCH_REDIRECT_BASE_URL", { status: 500 })
+        }
+        const redirectUri = new URL("/api/twitch/callback", base).toString()
         
         const clientId = getEnv('TWITCH_CLIENT_ID');
         if (!clientId) {
@@ -26,7 +33,7 @@ export const Route = createFileRoute("/api/twitch/connect")({
         authUrl.searchParams.set("force_verify", "true"); // Force user to re-approve to ensure we get a fresh token
         authUrl.searchParams.set("state", state);
 
-        const isSecure = !host.includes("localhost");
+        const isSecure = base.protocol === "https:";
         const cookieStr = `twitch_oauth_state=${state}; HttpOnly; SameSite=Lax; Path=/; Max-Age=600${isSecure ? "; Secure" : ""}`;
 
         return new Response(null, {

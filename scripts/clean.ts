@@ -1,5 +1,5 @@
 /**
- * tanvex clean script.
+ * StreamHuddle clean script.
  *
  * Wipes node_modules, lockfiles, build artifacts, generated Convex code.
  * Reinstalls deps via the detected package manager. Auto-fixes formatting

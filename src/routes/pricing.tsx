@@ -12,7 +12,7 @@ export const Route = createFileRoute("/pricing")({
     meta: seo({
       title: "Pricing — StreamHuddle Pro",
       description:
-        "StreamHuddle is free forever. Upgrade to Lifetime Pro for unlimited layouts, premium themes, and an exclusive badge.",
+        "StreamHuddle is free to use. Upgrade to Lifetime Pro for unlimited layouts, eight premium themes, and a Pro badge.",
       url: `${SITE_URL}/pricing`,
     }),
     links: [{ rel: "canonical", href: `${SITE_URL}/pricing` }],
@@ -30,10 +30,7 @@ function PricingPage() {
 
     try {
       // Create checkout session for "Lifetime Pro"
-      const { checkout_url } = await createCheckout({
-        productId: "pdt_0NjG80JquVO61z1ctWCt8",
-        returnUrl: `${window.location.origin}/roster`,
-      })
+      const { checkout_url } = await createCheckout({})
       if (!checkout_url) {
         throw new Error("Missing checkout_url in response")
       }
@@ -55,7 +52,7 @@ function PricingPage() {
       <PricingTableOne
         plans={plans}
         title="Upgrade to Pro"
-        description="Get unlimited custom layouts, zero ads, and exclusive profile badges."
+        description="Get unlimited custom layouts, eight premium themes, and an exclusive Pro badge with a one-time payment."
         onPlanSelect={handlePlanSelect}
         size="medium"
         theme="classic"

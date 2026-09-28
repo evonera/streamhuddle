@@ -13,7 +13,7 @@ export const clipPipeline = workflow.define({
   handler: async (step, args) => {
     try {
     // Step 1: Create clips on Twitch concurrently
-    const clipIds: string[] = await Promise.all(
+    const clipIds: Array<string> = await Promise.all(
       args.broadcasterIds.map(broadcasterId =>
         step.runAction(
           internal.clipActions.createTwitchClip,
@@ -34,7 +34,7 @@ export const clipPipeline = workflow.define({
     await step.sleep(15_000); 
 
     // Step 3: Get download URLs via thumbnail trick
-    const downloadUrls: string[] = await step.runAction(
+    const downloadUrls: Array<string> = await step.runAction(
       internal.clipActions.getClipDownloadUrlsViaThumbnail,
       { clipIds },
       { retry: { maxAttempts: 3, initialBackoffMs: 3000, base: 2 } }
@@ -45,9 +45,9 @@ export const clipPipeline = workflow.define({
       clipRecordId: args.clipRecordId, status: "downloading",
     });
 
-    const r2Keys: string[] = await step.runAction(
+    const r2Keys: Array<string> = await step.runAction(
       internal.clipActions.downloadAndStoreInR2,
-      { downloadUrls },
+      { downloadUrls, clipRecordId: args.clipRecordId },
       { retry: { maxAttempts: 2, initialBackoffMs: 5000, base: 2 } }
     );
 

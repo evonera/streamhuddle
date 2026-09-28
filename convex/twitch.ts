@@ -52,8 +52,14 @@ export async function getTwitchAccessToken(ctx: any): Promise<string> {
     throw new Error("Missing TWITCH_CLIENT_ID or TWITCH_CLIENT_SECRET environment variables.");
   }
 
-  const response = await fetch(`https://id.twitch.tv/oauth2/token?client_id=${clientId}&client_secret=${clientSecret}&grant_type=client_credentials`, {
-    method: "POST"
+  const response = await fetch("https://id.twitch.tv/oauth2/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      grant_type: "client_credentials",
+    }),
   });
   
   if (!response.ok) {
@@ -91,7 +97,7 @@ export const fetchTwitchUsers = internalAction({
     
     // Split into chunks of 50 to avoid URL length limits and Malformed Query Params
     const chunkSize = 50;
-    const allUsers: any[] = [];
+    const allUsers: Array<any> = [];
     
     for (let i = 0; i < validUsernames.length; i += chunkSize) {
       const chunk = validUsernames.slice(i, i + chunkSize);
@@ -110,7 +116,7 @@ export const fetchTwitchUsers = internalAction({
         continue;
       }
       
-      const data = await response.json() as { data: any[] };
+      const data = await response.json() as { data: Array<any> };
       allUsers.push(...data.data);
     }
     
@@ -133,7 +139,7 @@ export const fetchTwitchStreams = internalAction({
     const clientId = process.env.TWITCH_CLIENT_ID;
     // Split into chunks of 50 to avoid URL length limits and Malformed Query Params
     const chunkSize = 50;
-    const allStreams: any[] = [];
+    const allStreams: Array<any> = [];
     
     for (let i = 0; i < validLogins.length; i += chunkSize) {
       const chunk = validLogins.slice(i, i + chunkSize);
@@ -148,7 +154,7 @@ export const fetchTwitchStreams = internalAction({
       });
       
       if (response.ok) {
-        const data = await response.json() as { data: any[] };
+        const data = await response.json() as { data: Array<any> };
         allStreams.push(...data.data);
       } else {
         console.error("Twitch stream fetch failed:", await response.text(), "URL:", url.toString());

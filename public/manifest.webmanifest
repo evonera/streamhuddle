@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "tanvex",
-  "short_name": "tanvex",
+  "name": "StreamHuddle",
+  "short_name": "StreamHuddle",
   "description": "TanStack Start on Vite 8 + Oxc. Tailwind v4 + shadcn base-luma on Base UI.",
   "start_url": "/",
   "scope": "/",
@@ -31,14 +31,14 @@
       "type": "image/png",
       "sizes": "1280x720",
       "form_factor": "wide",
-      "label": "tanvex homepage"
+      "label": "StreamHuddle homepage"
     },
     {
       "src": "/screenshot-narrow.png",
       "type": "image/png",
       "sizes": "720x1280",
       "form_factor": "narrow",
-      "label": "tanvex on mobile"
+      "label": "StreamHuddle on mobile"
     }
   ]
 }

@@ -4,6 +4,7 @@ import { requireAuthenticatedUser } from "./auth";
 import { internal } from "./_generated/api";
 import { r2 } from "./r2";
 import { workflow } from "./clipWorkflow";
+import { rateLimitWithThrow } from "./rateLimit";
 
 export const createClipJob = mutation({
   args: {
@@ -22,6 +23,14 @@ export const createClipJob = mutation({
   },
   handler: async (ctx, args) => {
     const user = await requireAuthenticatedUser(ctx);
+    if (args.broadcasters.length < 1 || args.broadcasters.length > 4) throw new Error("Choose between 1 and 4 streams.")
+    if (!Number.isInteger(args.duration) || args.duration < 5 || args.duration > 60) throw new Error("Clip duration must be between 5 and 60 seconds.")
+    if (args.caption && args.caption.length > 120) throw new Error("Caption must be 120 characters or fewer.")
+    if (args.broadcasters.some(b => !/^\d{1,20}$/.test(b.broadcasterId) || !/^[\w]{1,25}$/.test(b.broadcasterName))) {
+      throw new Error("Invalid Twitch broadcaster.")
+    }
+    if (new Set(args.broadcasters.map(b => b.broadcasterId)).size !== args.broadcasters.length) throw new Error("Duplicate stream selected.")
+    await rateLimitWithThrow(ctx, "userAction", user._id.toString())
     
     // Server-side Pro enforcement
     if (args.removeWatermark && !user.isPro) {

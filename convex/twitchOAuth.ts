@@ -1,9 +1,9 @@
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
 import { requireAuthenticatedUser } from "./auth";
 
-export const saveTwitchToken = mutation({
+export const saveTwitchToken = internalMutation({
   args: {
     twitchUserId: v.string(),
     twitchUsername: v.string(),
@@ -11,14 +11,11 @@ export const saveTwitchToken = mutation({
     refreshToken: v.string(),
     scopes: v.string(),
     expiresIn: v.number(),
-    secret: v.string(),
+    authId: v.string(),
   },
   handler: async (ctx, args) => {
-    if (args.secret !== process.env.TWITCH_CLIENT_SECRET) {
-      throw new Error("Unauthorized");
-    }
-
-    const user = await requireAuthenticatedUser(ctx);
+    const user = await ctx.db.query("users").withIndex("authId", q => q.eq("authId", args.authId)).unique();
+    if (!user) throw new Error("Authenticated user not found");
     const userId = user._id;
 
     // Check if user already has a token

@@ -1,8 +1,8 @@
 {
-  "name": "tanvex",
+  "name": "streamhuddle",
   "version": "0.1.0",
   "private": true,
-  "description": "TanStack Start + Convex + Better Auth starter. SSR auth, email OTP, user profiles, rate limiting, one-command setup.",
+  "description": "A collaborative Twitch stream layout and clip queue app.",
   "keywords": [
     "authentication",
     "base-ui",
@@ -25,15 +25,14 @@
     "vite",
     "zod"
   ],
-  "homepage": "https://github.com/ramonclaudio/tanvex",
+  "homepage": "https://github.com/evonera/streamhuddle",
   "bugs": {
-    "url": "https://github.com/ramonclaudio/tanvex/issues"
+    "url": "https://github.com/evonera/streamhuddle/issues"
   },
-  "license": "MIT",
-  "author": "Ramon Claudio <hello@ramonclaudio.com> (https://github.com/ramonclaudio)",
+  "license": "AGPL-3.0-only",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ramonclaudio/tanvex.git"
+    "url": "git+https://github.com/evonera/streamhuddle.git"
   },
   "type": "module",
   "sideEffects": false,
@@ -51,7 +50,7 @@
     "convex:env": "convex env list",
     "convex:env:prod": "convex env list --prod",
     "build": "node scripts/build.mjs",
-    "deploy": "npm run build && wrangler deploy",
+    "deploy": "bun run build && wrangler deploy",
     "start": "node .output/server/index.mjs",
     "preview": "vite preview",
     "test": "vitest run",
@@ -142,6 +141,7 @@
   "engines": {
     "node": ">=22.12"
   },
+  "packageManager": "bun@1.4.0",
   "allowScripts": {
     "puppeteer@25.3.0": true
   }
