@@ -36,13 +36,13 @@ export const getLiveQueue = optionalAuthQuery({
   handler: async (ctx, args) => {
     const items = await ctx.db
       .query("clipQueue")
-      .withIndex("by_creator_and_status", (q) =>
+      .withIndex("by_creator_status_upvotes", (q) =>
         q.eq("creatorId", args.creatorId).eq("status", "approved")
       )
       .order("desc")
       .take(100)
     
-    const sorted = items.sort((a, b) => b.upvotes - a.upvotes)
+    const sorted = items.toSorted((a, b) => b.upvotes - a.upvotes)
 
     if (!ctx.user) {
       return sorted.map(item => ({ ...item, hasVoted: false }))
@@ -75,7 +75,7 @@ export const getLiveQueueMulti = optionalAuthQuery({
     const allClipsNested = await Promise.all(
       args.creatorIds.map(creatorId => 
         ctx.db.query("clipQueue")
-          .withIndex("by_creator_and_status", q => 
+          .withIndex("by_creator_status_upvotes", q =>
             q.eq("creatorId", creatorId).eq("status", "approved")
           ).order("desc").take(25)
       )
@@ -107,7 +107,7 @@ export const getLiveQueueMulti = optionalAuthQuery({
 
     // 3. Sort the global leaderboard and take top 50
     const sorted = Array.from(mergedClipsMap.values())
-      .sort((a, b) => b.upvotes - a.upvotes)
+      .toSorted((a, b) => b.upvotes - a.upvotes)
       .slice(0, 50)
 
     if (!ctx.user) {

@@ -60,7 +60,7 @@ export const pollAllPlatforms = internalAction({
           const timeoutId = setTimeout(() => controller.abort(), 5000);
           
           const url = proxyBase
-            ? new URL(`/api/v2/channels/${encodeURIComponent(creator.username)}`, proxyBase).toString()
+            ? new URL(`${proxyBase.pathname.replace(/\/$/, "")}/api/v2/channels/${encodeURIComponent(creator.username)}`, proxyBase.origin).toString()
             : `https://kick.com/api/v2/channels/${encodeURIComponent(creator.username)}`;
           
           const res = await fetch(url, { signal: controller.signal });

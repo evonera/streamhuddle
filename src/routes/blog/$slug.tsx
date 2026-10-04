@@ -10,7 +10,7 @@ export const Route = createFileRoute('/blog/$slug')({
     const post = allPosts.find((p) => p.slug === params.slug)
     if (!post) throw notFound()
     // Omit mdxContent (React component) from loader data to prevent Seroval serialization error
-    const { mdxContent, ...serializablePost } = post
+    const { mdxContent: _mdxContent, ...serializablePost } = post
     return serializablePost
   },
   head: ({ loaderData }) => {

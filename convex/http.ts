@@ -97,6 +97,9 @@ http.route({
     } catch {
       return new Response("Invalid JSON", { status: 400 })
     }
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return new Response("Invalid token payload", { status: 400 })
+    }
     if (!body.twitchUserId || !body.twitchUsername || !body.accessToken || !body.refreshToken || typeof body.expiresIn !== "number") {
       return new Response("Invalid token payload", { status: 400 })
     }

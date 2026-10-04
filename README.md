@@ -107,18 +107,20 @@ Open [http://localhost:3000](http://localhost:3000) to view the app locally.
 
 The application requires environment variables defined during the build step and in the Cloudflare deployment.
 
-Required build variables in Cloudflare Pages (and in local `.env.production` for production builds):
+Required build variables in Cloudflare Pages and local `.env.local` builds:
 - `VITE_CONVEX_URL`: The URL to your Convex deployment.
 - `VITE_CONVEX_SITE_URL`: The URL to your Convex HTTP site routing.
 - `SITE_URL` / `VITE_SITE_URL`: The production URL of the app.
-- `TWITCH_REDIRECT_BASE_URL`: The fixed app origin registered in the Twitch developer console.
 
-Required variables in Convex (`.env.convex.example` / Convex Dashboard):
+Required variables in Convex (see `.env.convex.example` / Convex Dashboard):
 - `BETTER_AUTH_SECRET`: Secret used for signing auth tokens.
 - `TWITCH_CLIENT_ID` & `TWITCH_CLIENT_SECRET`: For Twitch API integration.
-- `TWITCH_REDIRECT_BASE_URL`: The OAuth callback origin.
 - `DODO_PRO_PRODUCT_ID`: The Lifetime Pro product ID for the selected Dodo environment.
 - `RESEND_*`: For email services.
+
+For Twitch OAuth, set `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET`, and `TWITCH_REDIRECT_BASE_URL` in Cloudflare Pages runtime variables. Configure the redirect base URL to the deployed app origin and register its `/api/twitch/callback` URL with Twitch.
+
+See [docs/ENV.md](docs/ENV.md) for the complete variable list and [docs/DEPLOY.md](docs/DEPLOY.md) for the separate Cloudflare Preview and Production build settings.
 
 ---
 
@@ -136,6 +138,8 @@ bun run build
 # Or deploy using wrangler:
 bun run deploy
 ```
+
+See [docs/DEPLOY.md](docs/DEPLOY.md) before configuring a Cloudflare Pages project.
 
 ---
 
@@ -160,3 +164,4 @@ If you enjoy using StreamHuddle, consider supporting the development!
 ## 📄 License
 
 This project is licensed under the [GNU Affero General Public License v3.0 (AGPLv3)](LICENSE).
+Third-party runtime dependencies are inventoried in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md). Confirm the Dodo Convex package's license grant and the public files listed in [public/ASSETS.md](public/ASSETS.md) before redistributing a production build.

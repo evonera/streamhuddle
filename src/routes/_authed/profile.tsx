@@ -747,7 +747,7 @@ function ProfileContent({ preloadedUser }: { preloadedUser: PreloadedUser }) {
           {currentUser.dodoCustomerId ? (
             <div className="flex flex-col gap-3 rounded-lg border border-border bg-background/50 p-4 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm text-muted-foreground">
-                Account deletion does not cancel a paid plan. Cancel any active plan in the billing portal first.
+                Lifetime Pro is a one-time purchase. Deleting your account removes its Pro access but does not refund the purchase or remove billing records held by Dodo Payments.
               </p>
               <Button variant="outline" onClick={handleOpenBillingPortal} disabled={isOpeningBillingPortal || isDeletingAccount}>
                 {isOpeningBillingPortal ? "Opening…" : "Manage billing"}

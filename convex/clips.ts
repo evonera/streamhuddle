@@ -107,7 +107,7 @@ export const getClipVideoUrl = query({
         throw new Error("Clip not found");
     }
 
-    const urls: string[] = [];
+    const urls: Array<string> = [];
     for (const stream of clip.streams) {
         if (stream.r2Key) {
             // Note: @convex-dev/r2's r2.getUrl uses local AWS SDK crypto signing (@aws-sdk/s3-request-presigner)

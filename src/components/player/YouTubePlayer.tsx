@@ -21,8 +21,9 @@ export function YouTubePlayer({
   // This bypasses YouTube's strict 1-autoplay per page limit.
   if (!shouldAutoplay) {
     return (
-      <div 
-        className="w-full h-full relative group cursor-pointer bg-black overflow-hidden flex items-center justify-center"
+      <button
+        type="button"
+        className="w-full h-full relative group appearance-none border-0 p-0 cursor-pointer bg-black overflow-hidden flex items-center justify-center"
         onClick={() => setHasClickedPlay(true)}
       >
         <img 
@@ -38,7 +39,7 @@ export function YouTubePlayer({
         <div className="absolute bottom-4 left-4 z-10 bg-black/80 text-white px-3 py-1 rounded text-sm font-semibold tracking-wide uppercase">
           Click to Play
         </div>
-      </div>
+      </button>
     );
   }
 

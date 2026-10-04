@@ -59,8 +59,8 @@ function PrivacyPage() {
           You can update your profile or delete your account from the
           <a href="/profile" className="underline underline-offset-4"> account settings</a>.
           Account deletion starts removal of your profile and app data. It does
-          not cancel a paid plan with Dodo Payments; cancel an active plan from
-          the billing portal before deleting your account.
+          not refund a Lifetime Pro purchase or remove billing records held by
+          Dodo Payments. Deleting the account removes its Pro access.
         </p>
       </div>
     </Container>

@@ -2,6 +2,7 @@ import ArrowUpRight01Icon from "@hugeicons/core-free-icons/ArrowUpRight01Icon";
 import NewTwitterIcon from "@hugeicons/core-free-icons/NewTwitterIcon";
 import GithubIcon from "@hugeicons/core-free-icons/GithubIcon";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { Link } from "@tanstack/react-router";
 import { cn } from '@/lib/utils';
 import LogoIcon from '@/assets/logo-icon';
 import { TextHoverEffect } from "@/components/ui/text-hover-effect";
@@ -176,12 +177,12 @@ export default function Footer() {
                             <span>All rights reserved.</span>
                         </div>
                         <div className="flex gap-4 md:gap-6">
-                            <a href="#" className="transition-colors hover:text-white">
+                            <Link to="/privacy" className="transition-colors hover:text-white">
                                 Privacy Policy
-                            </a>
-                            <a href="#" className="transition-colors hover:text-white">
+                            </Link>
+                            <Link to="/terms" className="transition-colors hover:text-white">
                                 Terms of Service
-                            </a>
+                            </Link>
                         </div>
                     </div>
 

@@ -21,7 +21,7 @@ interface BroadcasterData {
 }
 
 interface ClipModalProps {
-  broadcasters: BroadcasterData[];
+  broadcasters: Array<BroadcasterData>;
   onClose: () => void;
   isPro: boolean;
 }
@@ -215,7 +215,7 @@ export function ClipModal({ broadcasters, onClose, isPro }: ClipModalProps) {
                   <WebCodecsCompositor 
                     videoUrls={videoUrl}
                     removeWatermark={clipStatus.removeWatermark || false}
-                    layout={clipStatus.layout as any}
+                    layout={clipStatus.layout}
                     caption={clipStatus.caption}
                     duration={clipStatus.duration}
                   />

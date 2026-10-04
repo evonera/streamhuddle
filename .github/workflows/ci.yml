@@ -26,3 +26,4 @@ jobs:
           VITE_SITE_URL: https://example.test
       - run: bun run typecheck
       - run: bun run test
+      - run: bun run lint

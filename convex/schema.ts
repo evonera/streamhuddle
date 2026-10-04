@@ -143,7 +143,7 @@ export default defineSchema({
 
   // 8. Twitch User Tokens: User OAuth tokens for clip creation
   twitchUserTokens: defineTable({
-    userId: v.string(),           // Better Auth user authId
+    userId: v.string(),           // App users table ID
     twitchUserId: v.string(),     // Twitch user ID
     twitchUsername: v.string(),
     accessToken: v.string(),      // OAuth access token
@@ -173,6 +173,7 @@ export default defineSchema({
   })
     .index("by_submitter", ["submitterId"])
     .index("by_creator_and_status", ["creatorId", "status"])
+    .index("by_creator_status_upvotes", ["creatorId", "status", "upvotes"])
     .index("by_creator_and_createdAt", ["creatorId", "createdAt"])
     .index("by_creator_and_url", ["creatorId", "clipUrl"]),
 

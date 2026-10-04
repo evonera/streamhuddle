@@ -116,7 +116,7 @@ export function ClipQueueWidget({ creatorId }: ClipQueueWidgetProps) {
 }
 
 interface MultiClipQueueWidgetProps {
-  creatorIds: Id<"creators">[]
+  creatorIds: Array<Id<"creators">>
 }
 
 /**

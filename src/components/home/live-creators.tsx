@@ -101,7 +101,7 @@ export default function LiveCreators() {
                                 to="/roster"
                                 className="inline-flex items-center gap-1.5 border border-white/5 bg-white/2 px-2.5 py-1 text-xs text-white/40 font-mono hover:text-white/70 hover:border-white/10 transition-colors"
                             >
-                                <img src={c.avatarUrl || `https://avatar.vercel.sh/${c.username}`} className="w-4 h-4 rounded-full grayscale" />
+                                <img src={c.avatarUrl || `https://avatar.vercel.sh/${c.username}`} alt="" className="w-4 h-4 rounded-full grayscale" />
                                 {c.username}
                             </Link>
                         ))}

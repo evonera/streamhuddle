@@ -11,7 +11,7 @@ function setup() {
   return convexTest(schema, modules as any)
 }
 
-function commit(t: any, polledKeys: string[], events: any[]) {
+function commit(t: any, polledKeys: Array<string>, events: Array<any>) {
   return t.mutation(internal.upcoming.commitUpcoming, { polledKeys, events })
 }
 

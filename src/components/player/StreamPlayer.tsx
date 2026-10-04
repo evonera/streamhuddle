@@ -39,7 +39,7 @@ export function StreamPlayer({ stream, kickRemountKey, remountKey, twitchQuality
         if (parsed.protocol === "https:" || parsed.protocol === "http:") {
           safeUrl = stream.channel;
         }
-      } catch (e) {
+      } catch {
         // Invalid URL
       }
       
@@ -50,7 +50,7 @@ export function StreamPlayer({ stream, kickRemountKey, remountKey, twitchQuality
           src={safeUrl}
           className="w-full h-full bg-black pointer-events-auto"
           allow="fullscreen"
-          sandbox="allow-scripts allow-same-origin allow-presentation"
+          sandbox="allow-scripts allow-presentation"
           title={stream.displayName || "Custom Stream"}
         />
       );

@@ -44,14 +44,14 @@ export const fetchTwitchSchedules = internalAction({
     let token: string;
     try {
       token = await getTwitchAccessToken(ctx);
-    } catch (e) {
+    } catch {
       console.warn("Skipping Twitch schedule poll (missing TWITCH_CLIENT_ID/SECRET).");
       return { events: [], succeededKeys: [] };
     }
     const clientId = process.env.TWITCH_CLIENT_ID;
     const now = Date.now();
-    const collected: any[] = [];
-    const succeededKeys: string[] = [];
+    const collected: Array<any> = [];
+    const succeededKeys: Array<string> = [];
 
     // Cap broadcasters per run: schedule data changes slowly (hourly cron).
     for (const b of args.broadcasters.slice(0, 60)) {
@@ -77,7 +77,7 @@ export const fetchTwitchSchedules = internalAction({
         }
         if (!res.ok) continue;
         succeededKeys.push(`twitch:${b.username.toLowerCase()}`);
-        const data = (await res.json()) as { data?: { segments?: any[] } };
+        const data = (await res.json()) as { data?: { segments?: Array<any> } };
         for (const seg of data.data?.segments ?? []) {
           const startsAt = Date.parse(seg.start_time);
           if (!Number.isFinite(startsAt) || startsAt <= now) continue;
@@ -125,12 +125,21 @@ export const fetchYoutubeUpcoming = internalAction({
     }
     if (args.channels.length === 0) return { events: [], succeededKeys: [] };
     const now = Date.now();
-    const collected: any[] = [];
-    const succeededKeys: string[] = [];
+    const collected: Array<any> = [];
+    const succeededKeys: Array<string> = [];
+    const fetchJson = async (url: string) => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      try {
+        const response = await fetch(url, { signal: controller.signal });
+        if (!response.ok) return null;
+        return await response.json();
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    };
     for (const c of args.channels.slice(0, 30)) {
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000);
         const url = new URL("https://www.googleapis.com/youtube/v3/search");
         url.searchParams.set("part", "snippet");
         url.searchParams.set("channelId", c.channelId);
@@ -139,13 +148,11 @@ export const fetchYoutubeUpcoming = internalAction({
         url.searchParams.set("order", "date");
         url.searchParams.set("maxResults", "5");
         url.searchParams.set("key", apiKey);
-        const res = await fetch(url.toString(), { signal: controller.signal });
-        clearTimeout(timeoutId);
-        if (!res.ok) continue;
-        const data = (await res.json()) as { items?: any[] };
+        const data = await fetchJson(url.toString()) as { items?: Array<any> } | null;
+        if (!data) continue;
         const videoIds = (data.items ?? [])
           .map((item) => item.id?.videoId)
-          .filter(Boolean) as string[];
+          .filter(Boolean) as Array<string>;
         // Successful search with zero videos = confirmed empty schedule.
         if (videoIds.length === 0) {
           succeededKeys.push(`youtube:${c.username.toLowerCase()}`);
@@ -157,10 +164,9 @@ export const fetchYoutubeUpcoming = internalAction({
         detailsUrl.searchParams.set("part", "snippet,liveStreamingDetails");
         detailsUrl.searchParams.set("id", videoIds.join(","));
         detailsUrl.searchParams.set("key", apiKey);
-        const detailsRes = await fetch(detailsUrl.toString());
-        if (!detailsRes.ok) continue;
+        const details = await fetchJson(detailsUrl.toString()) as { items?: Array<any> } | null;
+        if (!details) continue;
         succeededKeys.push(`youtube:${c.username.toLowerCase()}`);
-        const details = (await detailsRes.json()) as { items?: any[] };
         for (const video of details.items ?? []) {
           const live = video.liveStreamingDetails;
           // Already live or unscheduled: not an upcoming event.
@@ -193,7 +199,7 @@ export const pollUpcoming = internalAction({
     const creators = await ctx.runQuery(internal.polling.getActiveCreators);
     if (creators.length === 0) return null;
 
-    const byName = [...creators].sort((a, b) => a.username.localeCompare(b.username));
+    const byName = [...creators].toSorted((a, b) => a.username.localeCompare(b.username));
     // Hourly slot rotates the capped windows so large rosters are covered
     // over successive runs instead of polling the same prefix forever.
     const slot = Math.floor(Date.now() / 3_600_000);
@@ -217,12 +223,12 @@ export const pollUpcoming = internalAction({
 
     const [twitchResult, youtubeResult] = await Promise.all([
       twitchBroadcasters.length > 0
-        ? await ctx.runAction(internal.upcoming.fetchTwitchSchedules, { broadcasters: twitchBroadcasters })
+        ? ctx.runAction(internal.upcoming.fetchTwitchSchedules, { broadcasters: twitchBroadcasters })
         : { events: [], succeededKeys: [] },
-      await ctx.runAction(internal.upcoming.fetchYoutubeUpcoming, { channels: youtubeChannels }),
+      ctx.runAction(internal.upcoming.fetchYoutubeUpcoming, { channels: youtubeChannels }),
     ]);
 
-    const drafts = [...twitchResult.events, ...youtubeResult.events] as UpcomingDraft[];
+    const drafts = [...twitchResult.events, ...youtubeResult.events] as Array<UpcomingDraft>;
     // Only creators whose provider request completed successfully may have
     // their snapshot cleared: a failed request is not a confirmed empty
     // schedule, and must not delete valid events.

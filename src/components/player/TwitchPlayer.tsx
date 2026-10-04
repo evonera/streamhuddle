@@ -63,7 +63,7 @@ export function TwitchPlayer({
       return;
     }
 
-    const playerId = `twitch-${crypto.randomUUID()}`;
+    const playerId = `twitch-${globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2)}`;
     const container = containerRef.current;
 
     const playerHost = document.createElement("div");

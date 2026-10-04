@@ -13,7 +13,7 @@ export const Route = createFileRoute('/blog/')({
 })
 
 function BlogComponent() {
-  const sortedPosts = [...allPosts].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  const sortedPosts = [...allPosts].toSorted((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
   return (
     <div className="min-h-screen bg-background relative pb-24">

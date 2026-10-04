@@ -65,8 +65,8 @@ export const getCountriesAndLanguages = query({
     });
     
     return {
-      countries: Array.from(countries).sort(),
-      languages: Array.from(languages).sort(),
+      countries: Array.from(countries).toSorted(),
+      languages: Array.from(languages).toSorted(),
     };
   }
 });

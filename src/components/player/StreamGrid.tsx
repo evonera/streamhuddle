@@ -65,25 +65,26 @@ function CellDragHandle({ stream, onSelect, selectLabel, children }: {
     },
   });
   return (
-    <div
+    <button
+      type="button"
       ref={setNodeRef}
       {...attributes}
       {...listeners}
       onClick={() => onSelect?.()}
       onKeyDown={(e) => {
+        listeners?.onKeyDown?.(e);
+        if (e.defaultPrevented) return;
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           onSelect?.();
         }
       }}
-      role="button"
-      tabIndex={0}
       aria-label={selectLabel ?? `Focus audio on ${stream.displayName || stream.channel} (drag to reorder)`}
       style={{ touchAction: "none" }}
-      className="absolute top-0 left-0 w-full p-2 bg-gradient-to-b from-black/80 to-transparent opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-within:opacity-100 focus-visible:opacity-100 transition-opacity flex justify-between items-center z-50 cursor-grab active:cursor-grabbing"
+      className="min-w-0 flex-1 appearance-none border-0 p-2 text-left bg-black/50 rounded cursor-grab active:cursor-grabbing"
     >
       {children}
-    </div>
+    </button>
   );
 }
 
@@ -100,8 +101,8 @@ function getColumnsForCount(n: number): number {
   return Math.ceil(Math.sqrt(n));
 }
 
-function chunkIntoRows<T>(items: T[], cols: number): T[][] {
-  const rows: T[][] = [];
+function chunkIntoRows<T>(items: Array<T>, cols: number): Array<Array<T>> {
+  const rows: Array<Array<T>> = [];
   for (let i = 0; i < items.length; i += cols) {
     rows.push(items.slice(i, i + cols));
   }
@@ -125,7 +126,7 @@ export function StreamGrid({
   onRetryStream,
   onStartTour,
 }: {
-  streams: StreamData[];
+  streams: Array<StreamData>;
   gridSize?: "auto" | number;
   onRemoveStream: (id: string, type: "stream" | "chat") => void;
   activeChatId: string | null;
@@ -160,7 +161,7 @@ export function StreamGrid({
 
 
 
-  let cells: { stream: StreamData | null; gridIndex: number }[] = [];
+  let cells: Array<{ stream: StreamData | null; gridIndex: number }> = [];
   if (gridSize === "auto") {
     cells = streams.map((stream, idx) => ({ stream, gridIndex: stream.gridIndex ?? idx }));
   } else {
@@ -274,25 +275,27 @@ export function StreamGrid({
                     className="relative min-w-0 min-h-0 grow-0 shrink-0 group bg-zinc-950 border border-zinc-800 rounded overflow-hidden flex flex-col"
                   >
                     {/* Drag handle: only the header bar initiates drag, not the chat iframe */}
-                    <CellDragHandle
-                      stream={stream}
-                      onSelect={() => setActiveChatId(stream.id)}
-                      selectLabel={`Show ${stream.displayName || stream.channel} chat in sidebar (drag to reorder)`}
-                    >
-                      <div className="flex items-center gap-1 bg-black/50 px-2 py-1 rounded">
+                    <div className="absolute top-0 left-0 w-full p-2 bg-gradient-to-b from-black/80 to-transparent opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity flex justify-between items-center z-50">
+                      <CellDragHandle
+                        stream={stream}
+                        onSelect={() => setActiveChatId(stream.id)}
+                        selectLabel={`Show ${stream.displayName || stream.channel} chat in sidebar (drag to reorder)`}
+                      >
                         <HugeiconsIcon icon={Message01Icon} size={14} className="text-primary" />
-                        <span className="text-white text-xs font-semibold truncate">
+                        <span className="ml-1 text-white text-xs font-semibold truncate">
                           {stream.displayName || stream.channel} Chat
                         </span>
-                      </div>
+                      </CellDragHandle>
                       <button 
+                        type="button"
                         onClick={(e) => { e.stopPropagation(); handleRemove(stream.id, "chat"); }}
                         title="Close Chat"
+                        aria-label={`Close ${stream.displayName || stream.channel} chat`}
                         className="p-1.5 bg-red-600/80 hover:bg-red-600 text-white rounded-full transition-colors flex items-center justify-center backdrop-blur-sm"
                       >
                         <HugeiconsIcon icon={Cancel01Icon} size={16} />
                       </button>
-                    </CellDragHandle>
+                    </div>
                     <ChatBox 
                       platform={stream.platform} 
                       channel={stream.channel} 
@@ -376,8 +379,9 @@ export function StreamGrid({
 
                   {/* Toolbar Overlay (Hover) — drag is initiated from here, NOT the cell wrapper.
                       This avoids the iframe swallowing drag events and makes dnd reliable. */}
-                  <CellDragHandle stream={stream} onSelect={focusCell}>
-                    <span className="text-white text-sm font-semibold truncate bg-black/50 px-2 py-1 rounded flex items-center gap-2">
+                  <div className="absolute top-0 left-0 w-full p-2 bg-gradient-to-b from-black/80 to-transparent opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity flex justify-between items-center z-50">
+                    <CellDragHandle stream={stream} onSelect={focusCell}>
+                    <span className="text-white text-sm font-semibold truncate flex items-center gap-2">
                       {stream.displayName || stream.channel}
                       {!isMuted && stream.platform !== "custom" && (
                         <span className="text-primary text-xs font-bold uppercase tracking-wider flex items-center gap-1">
@@ -386,9 +390,11 @@ export function StreamGrid({
                         </span>
                       )}
                     </span>
+                    </CellDragHandle>
                     <div className="flex gap-2">
                       {stream.platform !== "custom" && (
                         <button
+                          type="button"
                           onClick={(e) => toggleManualMute(e, stream.id)}
                           title={isMuted ? "Unmute" : "Mute"}
                           aria-label={isMuted ? `Unmute ${stream.displayName || stream.channel}` : `Mute ${stream.displayName || stream.channel}`}
@@ -404,8 +410,10 @@ export function StreamGrid({
                       )}
 
                       <button 
+                        type="button"
                         onClick={(e) => { e.stopPropagation(); setActiveChatId(stream.id); }}
                           title="Chat"
+                          aria-label={`Open ${stream.displayName || stream.channel} chat`}
                           className={`p-1.5 rounded-full transition-colors flex items-center justify-center ${
                             activeChatId === stream.id 
                               ? 'bg-primary text-primary-foreground' 
@@ -415,14 +423,16 @@ export function StreamGrid({
                           <HugeiconsIcon icon={Message01Icon} size={16} />
                       </button>
                       <button 
+                        type="button"
                         onClick={(e) => { e.stopPropagation(); handleRemove(stream.id, "stream"); }}
                         title="Close"
+                        aria-label={`Close ${stream.displayName || stream.channel} stream`}
                         className="p-1.5 bg-red-600/80 hover:bg-red-600 text-white rounded-full transition-colors flex items-center justify-center backdrop-blur-sm"
                       >
                         <HugeiconsIcon icon={Cancel01Icon} size={16} />
                       </button>
                     </div>
-                  </CellDragHandle>
+                  </div>
                 </SlotShell>
               );
             })}

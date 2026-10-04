@@ -31,7 +31,7 @@ export const createCheckout = action({
       return session;
     } catch (error) {
       console.error("Failed to create checkout session", error);
-      throw new Error("Unable to create checkout session. Please try again.");
+      throw new Error("Unable to create checkout session. Please try again.", { cause: error });
     }
   },
 });
@@ -53,7 +53,7 @@ export const getCustomerPortal = action({
       return portal;
     } catch (error) {
       console.error("Failed to generate customer portal link", error);
-      throw new Error("Unable to generate customer portal link. Please try again.");
+      throw new Error("Unable to generate customer portal link. Please try again.", { cause: error });
     }
   },
 });

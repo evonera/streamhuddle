@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 interface WebCodecsCompositorProps {
-  videoUrls: string[];
+  videoUrls: Array<string>;
   removeWatermark: boolean;
   layout?: "9:16-vertical" | "split-screen" | "sequential-ranking";
   caption?: string;
@@ -30,8 +30,8 @@ export function WebCodecsCompositor({ videoUrls, removeWatermark, layout = "9:16
     canvas.height = 1920;
 
     let mediaRecorder: MediaRecorder;
-    const chunks: Blob[] = [];
-    let animationFrameId: number;
+    const chunks: Array<Blob> = [];
+    let animationFrameId: number | undefined;
 
     const watermarkImg = new Image();
     
@@ -44,6 +44,18 @@ export function WebCodecsCompositor({ videoUrls, removeWatermark, layout = "9:16
         v.src = url;
         return v;
     });
+
+    const stopPlayback = () => {
+      if (animationFrameId !== undefined) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = undefined;
+      }
+      videos.forEach((video) => {
+        video.pause();
+        video.removeAttribute("src");
+        video.load();
+      });
+    };
 
     let currentVideoIndex = 0; // For sequential layout
     
@@ -162,6 +174,7 @@ export function WebCodecsCompositor({ videoUrls, removeWatermark, layout = "9:16
         mediaRecorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 5000000 });
         mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
       mediaRecorder.onstop = () => {
+        stopPlayback();
         if (isCancelledRef.current) return;
         const blob = new Blob(chunks, { type: mimeType });
         const url = URL.createObjectURL(blob);
@@ -182,6 +195,17 @@ export function WebCodecsCompositor({ videoUrls, removeWatermark, layout = "9:16
       }
     };
 
+    const playVideo = (video: HTMLVideoElement) => {
+        void video.play().catch((error: unknown) => {
+            const message = error instanceof Error ? error.message : "Playback was blocked by the browser.";
+            isCancelledRef.current = true;
+            setCaptureError(`Unable to play source video: ${message}`);
+            stopPlayback();
+            if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
+            setIsProcessing(false);
+        });
+    };
+
     const playVideoSequentially = (index: number) => {
         if (index >= videos.length) {
             if (mediaRecorder && mediaRecorder.state !== "inactive") {
@@ -191,7 +215,7 @@ export function WebCodecsCompositor({ videoUrls, removeWatermark, layout = "9:16
         }
         currentVideoIndex = index;
         const v = videos[index];
-        v.play();
+        playVideo(v);
         v.onended = () => playVideoSequentially(index + 1);
     };
 
@@ -208,8 +232,8 @@ export function WebCodecsCompositor({ videoUrls, removeWatermark, layout = "9:16
       
       if (layout === "split-screen") {
           // Play first two videos simultaneously
-          videos[0]?.play();
-          videos[1]?.play();
+          if (videos[0]) playVideo(videos[0]);
+          if (videos[1]) playVideo(videos[1]);
           
           // Stop recording when the longest one ends
           let endedCount = 0;
@@ -227,7 +251,7 @@ export function WebCodecsCompositor({ videoUrls, removeWatermark, layout = "9:16
           playVideoSequentially(0);
       } else {
           // Default 9:16
-          videos[0]?.play();
+          if (videos[0]) playVideo(videos[0]);
           if (videos[0]) videos[0].onended = () => {
               if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
           };
@@ -247,9 +271,8 @@ export function WebCodecsCompositor({ videoUrls, removeWatermark, layout = "9:16
 
     return () => {
       isCancelledRef.current = true;
-      cancelAnimationFrame(animationFrameId);
+      stopPlayback();
       if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
-      videos.forEach(v => { v.pause(); v.src = ""; });
     };
   }, [videoUrls, removeWatermark, layout, caption, duration]);
 
