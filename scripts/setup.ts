@@ -213,7 +213,7 @@ function dlx(): string {
 
 // ─── Args ────────────────────────────────────────────────────────────────────
 
-const HELP = `${BOLD}tanvex setup${RESET}
+const HELP = `${BOLD}StreamHuddle setup${RESET}
 
 ${BOLD}Usage:${RESET}
   ${DIM}<pm> run setup${RESET}              cloud Convex (interactive)

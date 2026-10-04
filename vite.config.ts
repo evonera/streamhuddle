@@ -10,17 +10,6 @@ import mdx from "@mdx-js/rollup"
 import remarkFrontmatter from "remark-frontmatter"
 import remarkMdxFrontmatter from "remark-mdx-frontmatter"
 
-const securityHeaders: Record<string, string> = {
-  "strict-transport-security": "max-age=63072000; includeSubDomains",
-  "x-content-type-options": "nosniff",
-  "x-frame-options": "DENY",
-  "referrer-policy": "strict-origin-when-cross-origin",
-  "permissions-policy": "camera=(), microphone=(), geolocation=()",
-  "cross-origin-opener-policy": "same-origin-allow-popups",
-  "cross-origin-resource-policy": "same-origin",
-  "origin-agent-cluster": "?1",
-}
-
 // Derive CONVEX_SITE_URL from CONVEX_DEPLOYMENT when not set explicitly.
 // e.g. "dev:foo" -> "https://foo.convex.site"
 function getConvexSiteUrl(deployment: string | undefined) {
@@ -45,7 +34,11 @@ export default defineConfig(({ mode, command }) => {
 
   const convexUrl = env.VITE_CONVEX_URL || wranglerVars.VITE_CONVEX_URL
   const convexSiteUrl = env.VITE_CONVEX_SITE_URL || wranglerVars.VITE_CONVEX_SITE_URL || getConvexSiteUrl(env.CONVEX_DEPLOYMENT)
-  const siteUrl = env.VITE_SITE_URL || wranglerVars.VITE_SITE_URL || env.SITE_URL || wranglerVars.SITE_URL || "http://localhost:3000"
+  const configuredSiteUrl = env.VITE_SITE_URL || wranglerVars.VITE_SITE_URL || env.SITE_URL || wranglerVars.SITE_URL
+  if (mode === "production" && !configuredSiteUrl) {
+    throw new Error("❌ Build failed: VITE_SITE_URL or SITE_URL must be set for production builds.")
+  }
+  const siteUrl = configuredSiteUrl || "http://localhost:3000"
 
   if (!convexUrl) {
     throw new Error("❌ Build failed: VITE_CONVEX_URL is missing. Ensure it is set in env vars or vars within wrangler.json.");
@@ -118,7 +111,7 @@ export default defineConfig(({ mode, command }) => {
       {
         name: "fix-convex-better-auth-dynamic-import",
         enforce: "pre",
-        transform(code, id) {
+        transform(code: string, id: string) {
           if (id.includes("@convex-dev/better-auth") && code.includes('@tanstack/react-start/server')) {
             const staticImport = `import { getRequestHeaders as _getRequestHeaders } from "@tanstack/react-start/server";\n`;
             const modifiedCode = code.replace(

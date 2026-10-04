@@ -32,6 +32,7 @@ import type * as seed from "../seed.js";
 import type * as syncAvatars from "../syncAvatars.js";
 import type * as twitch from "../twitch.js";
 import type * as twitchOAuth from "../twitchOAuth.js";
+import type * as upcoming from "../upcoming.js";
 import type * as users from "../users.js";
 import type * as validators from "../validators.js";
 
@@ -66,6 +67,7 @@ declare const fullApi: ApiFromModules<{
   syncAvatars: typeof syncAvatars;
   twitch: typeof twitch;
   twitchOAuth: typeof twitchOAuth;
+  upcoming: typeof upcoming;
   users: typeof users;
   validators: typeof validators;
 }>;

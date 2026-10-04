@@ -19,7 +19,7 @@ export const seedSUData = internalAction({
     // Fetch profile data from Twitch
     const twitchProfiles = await ctx.runAction(internal.twitch.fetchTwitchUsers, {
       usernames: twitchUsernames
-    }) as any[];
+    }) as Array<any>;
     
     const profileMap = new Map<string, any>(twitchProfiles.map((p: any) => [p.login.toLowerCase(), p]));
 
@@ -69,7 +69,7 @@ export const commitSeedData = internalMutation({
     const creatorMap = new Map(existingCreators.map(c => [`${c.platform}:${c.username.toLowerCase()}`, c]));
 
     const existingRosters = eventId 
-      ? await ctx.db.query("roster").withIndex("by_event", q => q.eq("eventId", eventId!)).collect()
+      ? await ctx.db.query("roster").withIndex("by_event", q => q.eq("eventId", eventId)).collect()
       : [];
     const rosterSet = new Set(existingRosters.map(r => `${r.creatorId}:${r.category}`));
 
@@ -93,8 +93,8 @@ export const commitSeedData = internalMutation({
       const rosterKey = `${creatorId}:${c.category}`;
       if (!rosterSet.has(rosterKey)) {
         await ctx.db.insert("roster", {
-          eventId: eventId!,
-          creatorId: creatorId!,
+          eventId: eventId,
+          creatorId: creatorId,
           category: c.category,
         });
         rosterSet.add(rosterKey);
@@ -127,7 +127,7 @@ export const fixCategories = internalMutation({
     }
 
     for (const c of creators) {
-      const categories: string[] = Array.from(rostersByCreator.get(c._id) || new Set<string>());
+      const categories: Array<string> = Array.from(rostersByCreator.get(c._id) || new Set<string>());
       await ctx.db.patch(c._id, { categories });
     }
   },

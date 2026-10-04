@@ -178,7 +178,7 @@ export interface PricingTableOneProps extends VariantProps<
   typeof sectionVariants
 > {
   className?: string;
-  plans: Plan[];
+  plans: Array<Plan>;
   title?: string;
   description?: string;
   onPlanSelect?: (planId: string) => void;
@@ -227,7 +227,7 @@ export function PricingTableOne({
           >
             <p className={cn(descriptionVariants({ size, theme }))}>
               {description ||
-                "Transparent pricing with no hidden fees. Upgrade or downgrade anytime."}
+                "Transparent pricing with no hidden fees. Lifetime Pro is a one-time payment."}
             </p>
 
           </div>

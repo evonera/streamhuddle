@@ -114,7 +114,7 @@ export const addCreator = mutation({
     // Add to roster if not already there
     const existingRoster = await ctx.db
       .query("roster")
-      .withIndex("by_creator", q => q.eq("creatorId", creatorId!))
+      .withIndex("by_creator", q => q.eq("creatorId", creatorId))
       .filter(q => q.eq(q.field("eventId"), activeEvent._id))
       .first();
 

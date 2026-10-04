@@ -79,6 +79,43 @@ http.route({
   }),
 })
 
+http.route({
+  path: "/twitch-oauth-token",
+  method: "POST",
+  handler: httpAction(async (ctx, req) => {
+    const expectedSecret = process.env.TWITCH_CLIENT_SECRET
+    const identity = await ctx.auth.getUserIdentity()
+    if (!expectedSecret || req.headers.get("x-twitch-oauth-secret") !== expectedSecret || !identity) {
+      return new Response("Unauthorized", { status: 401 })
+    }
+    let body: {
+      twitchUserId?: string; twitchUsername?: string; accessToken?: string;
+      refreshToken?: string; scopes?: string; expiresIn?: number
+    }
+    try {
+      body = await req.json()
+    } catch {
+      return new Response("Invalid JSON", { status: 400 })
+    }
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return new Response("Invalid token payload", { status: 400 })
+    }
+    if (!body.twitchUserId || !body.twitchUsername || !body.accessToken || !body.refreshToken || typeof body.expiresIn !== "number") {
+      return new Response("Invalid token payload", { status: 400 })
+    }
+    await ctx.runMutation(internal.twitchOAuth.saveTwitchToken, {
+      authId: identity.subject,
+      twitchUserId: body.twitchUserId,
+      twitchUsername: body.twitchUsername,
+      accessToken: body.accessToken,
+      refreshToken: body.refreshToken,
+      scopes: body.scopes ?? "",
+      expiresIn: body.expiresIn,
+    })
+    return new Response(null, { status: 204 })
+  }),
+})
+
 import { createDodoWebhookHandler } from "@dodopayments/convex"
 
 http.route({
@@ -89,7 +126,7 @@ http.route({
         // @ts-expect-error - Expected by dodopayments component internally even if types omit it
         webhookSecret: process.env.DODO_PAYMENTS_WEBHOOK_SECRET,
         onPaymentSucceeded: async (ctx, payload) => {
-          console.log("🎉 Payment Succeeded! Upgrading user...");
+          if (!payload.data.product_cart?.some(item => item.product_id === process.env.DODO_PRO_PRODUCT_ID)) return
           
           const customerId = payload.data.customer.customer_id;
           if (customerId) {
@@ -99,7 +136,7 @@ http.route({
           }
         },
         onSubscriptionActive: async (ctx, payload) => {
-          console.log("🎉 Subscription Activated! Upgrading user...");
+          if (payload.data.product_id !== process.env.DODO_PRO_PRODUCT_ID) return
           
           const customerId = payload.data.customer.customer_id;
           if (customerId) {
@@ -179,6 +216,9 @@ cors.route({
   path: "/api/users",
   method: "GET",
   handler: httpAction(async (ctx, request) => {
+    if (!await ctx.auth.getUserIdentity()) {
+      return new Response(JSON.stringify({ error: "Authentication required" }), { status: 401, headers: { "Content-Type": "application/json" } })
+    }
     const url = new URL(request.url)
     const userId = url.searchParams.get("id")
 
@@ -239,9 +279,15 @@ cors.route({
   path: "/api/users/list",
   method: "GET",
   handler: httpAction(async (ctx, request) => {
+    if (!await ctx.auth.getUserIdentity()) {
+      return new Response(JSON.stringify({ error: "Authentication required" }), { status: 401, headers: { "Content-Type": "application/json" } })
+    }
     const url = new URL(request.url)
     const cursor = url.searchParams.get("cursor") || undefined
     const limit = parseInt(url.searchParams.get("limit") || "20", 10)
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+      return new Response(JSON.stringify({ error: "Limit must be between 1 and 100" }), { status: 400, headers: { "Content-Type": "application/json" } })
+    }
 
     // Rate limit by client IP (handles x-forwarded-for properly)
     const ip = getClientIp(request)

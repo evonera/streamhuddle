@@ -56,9 +56,11 @@ function PrivacyPage() {
 
         <h2>4. Your rights</h2>
         <p>
-          You can update or delete your profile from the app at any time.
-          Deleting your account removes your layouts and votes. Contact us via
-          the repository issue tracker for data requests.
+          You can update your profile or delete your account from the
+          <a href="/profile" className="underline underline-offset-4"> account settings</a>.
+          Account deletion starts removal of your profile and app data. It does
+          not refund a Lifetime Pro purchase or remove billing records held by
+          Dodo Payments. Deleting the account removes its Pro access.
         </p>
       </div>
     </Container>

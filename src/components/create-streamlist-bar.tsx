@@ -8,7 +8,7 @@ import Tv01Icon from "@hugeicons/core-free-icons/Tv01Icon"
 import Cancel01Icon from "@hugeicons/core-free-icons/Cancel01Icon"
 import { toast } from "sonner"
 import { useNavigate } from "@tanstack/react-router"
-import { serializeStreamsParam } from "@/lib/streams-param"
+import { serializeStreamsParam, MAX_GRID_STREAMS } from "@/lib/streams-param"
 
 export default function CreateStreamlistBar() {
   const { isAuthenticated } = useConvexAuth()
@@ -40,8 +40,8 @@ export default function CreateStreamlistBar() {
   ).slice(0, 10)
 
   const handleAdd = (creator: any) => {
-    if (selected.length >= 20) {
-      toast.error("You can only add up to 20 streams.")
+    if (selected.length >= MAX_GRID_STREAMS) {
+      toast.error(`You can only add up to ${MAX_GRID_STREAMS} streams.`)
       return
     }
     setSelected([...selected, creator])
@@ -56,7 +56,7 @@ export default function CreateStreamlistBar() {
   const handleSave = async () => {
     if (!isAuthenticated) {
       toast.error("Please sign in to save a StreamList")
-      navigate({ to: "/sign-in" })
+      void navigate({ to: "/sign-in" })
       return
     }
     if (!listName.trim()) {
@@ -70,7 +70,7 @@ export default function CreateStreamlistBar() {
       const creatorIds = selected.map(s => ({ id: s._id, type: "stream" as const }))
       const { layoutId } = await saveLayout({ name: listName, creatorIds })
       toast.success("StreamList saved successfully!")
-      navigate({ to: "/roster", search: { list: layoutId } })
+      void navigate({ to: "/roster", search: { list: layoutId } })
     } catch (e: any) {
       toast.error(e.message || "Failed to save StreamList")
     } finally {
@@ -87,7 +87,7 @@ export default function CreateStreamlistBar() {
     // Shareable instant-watch URL — the roster page resolves roster creators
     // (with live status) and mounts the rest directly. No localStorage abuse.
     const param = serializeStreamsParam(selected)
-    navigate({ to: "/roster", search: { streams: param } as any })
+    void navigate({ to: "/roster", search: { streams: param } as any })
   }
 
   return (
@@ -117,6 +117,7 @@ export default function CreateStreamlistBar() {
               <input 
                 type="text"
                 placeholder="Search creators..."
+                aria-label="Search creators"
                 value={search}
                 onChange={e => { setSearch(e.target.value); setIsFocused(true) }}
                 onFocus={() => setIsFocused(true)}
@@ -132,8 +133,10 @@ export default function CreateStreamlistBar() {
                   <div className="p-1">
                     {filteredCreators.map(c => (
                       <button 
+                        type="button"
                         key={c._id}
                         onClick={() => handleAdd(c)}
+                        aria-label={`Add ${c.username} to StreamList`}
                         className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-white/10 transition-colors text-left group/btn"
                       >
                         <img src={c.avatarUrl || `https://avatar.vercel.sh/${c.username}`} alt="" className="w-10 h-10 rounded-full bg-zinc-800 object-cover shadow-sm group-hover/btn:ring-2 ring-primary/50 transition-all" />
@@ -167,6 +170,7 @@ export default function CreateStreamlistBar() {
                     </div>
                     <button 
                       onClick={() => handleRemove(s._id)}
+                      aria-label={`Remove ${s.username}`}
                       className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 hover:bg-red-600 rounded-full text-white flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-all scale-75 group-hover/avatar:scale-100 shadow-lg z-10"
                     >
                       <HugeiconsIcon icon={Cancel01Icon} className="w-3.5 h-3.5" />
@@ -174,7 +178,7 @@ export default function CreateStreamlistBar() {
                   </div>
                 ))}
                 <div className="h-12 px-3 flex items-center justify-center rounded-full bg-zinc-900 border border-white/5 text-xs font-mono font-bold text-zinc-500 ml-2 shadow-inner">
-                  {selected.length} / 20
+                  {selected.length} / {MAX_GRID_STREAMS}
                 </div>
               </div>
             )}

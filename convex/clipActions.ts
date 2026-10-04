@@ -67,13 +67,13 @@ export const getClipDownloadUrlsViaThumbnail = internalAction({
   args: {
     clipIds: v.array(v.string()),
   },
-  handler: async (ctx, args): Promise<string[]> => {
+  handler: async (ctx, args): Promise<Array<string>> => {
     if (args.clipIds.length === 0) return [];
     const token = await getTwitchAccessToken(ctx);
     
     // Split into chunks of 50 to avoid URL length limits
     const chunkSize = 50;
-    const allUrls: string[] = [];
+    const allUrls: Array<string> = [];
     
     for (let i = 0; i < args.clipIds.length; i += chunkSize) {
       const chunk = args.clipIds.slice(i, i + chunkSize);
@@ -120,17 +120,42 @@ export const getClipDownloadUrlsViaThumbnail = internalAction({
 export const downloadAndStoreInR2 = internalAction({
   args: {
     downloadUrls: v.array(v.string()),
+    clipRecordId: v.id("clips"),
   },
   handler: async (ctx, args) => {
-    // Download and store concurrently, preserving array order
-    const keys = await Promise.all(
+    // Download and store concurrently, preserving array order. Wait for every
+    // operation to settle so cleanup cannot miss an upload that finishes after
+    // an early Promise.all rejection.
+    const results = await Promise.allSettled(
       args.downloadUrls.map(async (url) => {
         const response = await fetch(url);
         if (!response.ok) {
           throw new Error(`Failed to download clip from Twitch: ${response.status}`);
         }
 
-        const blob = await response.blob();
+        const maxBytes = 100 * 1024 * 1024
+        const contentLength = Number(response.headers.get("content-length"))
+        if (Number.isFinite(contentLength) && contentLength > maxBytes) {
+          await response.body?.cancel()
+          throw new Error("Clip download exceeds the 100 MB limit")
+        }
+        if (!response.body) throw new Error("Clip download has no response body")
+        const reader = response.body.getReader()
+        const chunks: Array<ArrayBuffer> = []
+        let totalBytes = 0
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          totalBytes += value.byteLength
+          if (totalBytes > maxBytes) {
+            await reader.cancel()
+            throw new Error("Clip download exceeds the 100 MB limit")
+          }
+          const chunk = new Uint8Array(value.byteLength)
+          chunk.set(value)
+          chunks.push(chunk.buffer)
+        }
+        const blob = new Blob(chunks, { type: "video/mp4" })
         
         // Store in R2
         const key = `clips/${crypto.randomUUID()}.mp4`;
@@ -138,13 +163,48 @@ export const downloadAndStoreInR2 = internalAction({
             key,
             type: "video/mp4"
         });
-        return key;
+        return key
+        })
+    )
+    const keys = results.flatMap((result) => result.status === "fulfilled" ? [result.value] : [])
+    const failure = results.find((result) => result.status === "rejected")
+    if (failure?.status === "rejected") {
+      await Promise.all(keys.map((key) => r2.deleteObject(ctx, key)))
+      throw failure.reason
+    }
+
+    try {
+      // Persist the keys before the workflow advances. If account deletion
+      // removed the clip while this external action was storing files, the
+      // mutation rejects and the catch below removes those now-orphaned files.
+      await ctx.runMutation(internal.clipActions.attachClipFiles, {
+        clipRecordId: args.clipRecordId,
+        r2Keys: keys,
       })
-    );
+    } catch (error) {
+      await Promise.all(keys.map((key) => r2.deleteObject(ctx, key)))
+      throw error
+    }
 
     return keys;
   },
 });
+
+export const attachClipFiles = internalMutation({
+  args: {
+    clipRecordId: v.id("clips"),
+    r2Keys: v.array(v.string()),
+  },
+  handler: async (ctx, { clipRecordId, r2Keys }) => {
+    const clip = await ctx.db.get(clipRecordId)
+    if (!clip || clip.status !== "downloading") throw new Error("Clip is no longer active")
+    const streams = [...clip.streams]
+    for (let index = 0; index < streams.length; index++) {
+      if (r2Keys[index]) streams[index].r2Key = r2Keys[index]
+    }
+    await ctx.db.patch(clipRecordId, { streams })
+  },
+})
 
 export const updateClipStatus = internalMutation({
   args: {

@@ -2,16 +2,7 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { getEnv } from '@/lib/env'
 import { createServerFn } from '@tanstack/react-start'
 import { useEffect, useState } from 'react'
-
-interface TwitchUser {
-  id: string
-  login: string
-  display_name: string
-  profile_image_url: string
-  offline_image_url: string
-  description: string
-  view_count: number
-}
+import { SITE_URL } from '@/lib/site'
 
 interface TwitchStream {
   title: string
@@ -19,7 +10,7 @@ interface TwitchStream {
   viewer_count: number
   started_at: string
   thumbnail_url: string
-  tags: string[]
+  tags: Array<string>
 }
 
 interface TwitchChannel {
@@ -128,7 +119,7 @@ const fetchStreamerData = createServerFn({ method: 'GET' })
 
     const stream = (streamsData.data?.[0] as TwitchStream | undefined) ?? null
     const channel = (channelData.data?.[0] as TwitchChannel | undefined) ?? ({} as TwitchChannel)
-    const clips = (clipsData.data as TwitchClip[] | undefined) ?? []
+    const clips = (clipsData.data as Array<TwitchClip> | undefined) ?? []
 
     return {
       user: {
@@ -192,7 +183,7 @@ export const Route = createFileRoute('/streamer/$username')({
         { name: 'twitter:image', content: image },
       ],
       links: [
-        { rel: 'canonical', href: `https://streamhuddle.pages.dev/streamer/${params.username}` },
+        { rel: 'canonical', href: new URL(`/streamer/${encodeURIComponent(params.username)}`, SITE_URL).toString() },
       ],
     }
   },
@@ -218,7 +209,7 @@ function getStreamDuration(startedAt: string): string {
 
 function StreamerProfilePage() {
   const data = Route.useLoaderData()
-  const [parentDomain, setParentDomain] = useState('streamhuddle.pages.dev')
+  const [parentDomain, setParentDomain] = useState(() => new URL(SITE_URL).hostname)
 
   const creator = useQuery(api.creators.getByUsername, {
     platform: "twitch",
@@ -226,11 +217,10 @@ function StreamerProfilePage() {
   })
 
   const currentUser = useQuery(api.users.getMe)
+  const twitchAccount = useQuery(api.twitchOAuth.getTwitchToken, currentUser ? {} : "skip")
   const isStreamer = currentUser && creator && (
-    currentUser.username?.toLowerCase() === creator.username.toLowerCase() ||
-    // @ts-ignore - BetterAuth type fallback
-    currentUser.displayUsername?.toLowerCase() === creator.username.toLowerCase() ||
-    currentUser.role === "admin"
+    currentUser.role === "admin" ||
+    (creator.platform === "twitch" && !!creator.platformId && twitchAccount?.twitchUserId === creator.platformId)
   )
 
   useEffect(() => {
@@ -348,7 +338,6 @@ function StreamerProfilePage() {
                 <div className="flex flex-wrap gap-3 mt-2">
                   <Link
                     to="/roster"
-                    // @ts-expect-error - search param typing for streams
                     search={{ streams: user.login }}
                     className="inline-flex items-center gap-2 bg-primary text-background font-mono font-bold tracking-widest uppercase px-5 py-2.5 text-xs hover:bg-primary/90 transition-colors active:scale-[0.97]"
                   >
@@ -516,7 +505,6 @@ function StreamerProfilePage() {
               </p>
               <Link
                 to="/roster"
-                // @ts-expect-error - search param typing for streams
                 search={{ streams: user.login }}
                 className="inline-flex items-center gap-2 bg-primary text-background font-mono font-bold tracking-widest uppercase px-8 py-3.5 text-sm hover:bg-primary/90 transition-colors active:scale-[0.97]"
               >

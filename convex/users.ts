@@ -20,6 +20,7 @@ import {
   userProfileUpdateFields,
   validateBio,
   validateFavoriteStreamer,
+  isAllowedAvatarMetadata,
 } from "./validators"
 
 // ============================================================================
@@ -168,7 +169,7 @@ export const updateProfile = authMutation({
     }
 
     const updates: Partial<{ bio: string; favoriteStreamer: string; updatedAt: number }> = { updatedAt: Date.now() }
-    if (args.bio !== undefined) updates.bio = args.bio
+    if (args.bio !== undefined) updates.bio = args.bio || undefined
     if (args.favoriteStreamer !== undefined) updates.favoriteStreamer = args.favoriteStreamer
 
     await ctx.db.patch(ctx.user._id, updates)
@@ -204,9 +205,13 @@ export const updateAvatar = authMutation({
 
     // v.id("_storage") validates shape only; reject ids for blobs that were
     // never uploaded instead of storing a dangling reference.
-    const blob = await ctx.db.system.get(args.storageId)
-    if (!blob) {
+    const metadata = await ctx.db.system.get("_storage", args.storageId)
+    if (!metadata) {
       throw validationError("Uploaded file not found", "storageId")
+    }
+    if (!isAllowedAvatarMetadata(metadata.size, metadata.contentType)) {
+      await ctx.storage.delete(args.storageId)
+      throw validationError("Avatar must be a JPEG, PNG, WebP, or GIF under 5 MB", "storageId")
     }
 
     if (ctx.user.avatar) {

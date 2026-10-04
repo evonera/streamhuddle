@@ -22,7 +22,7 @@ export function ThemeToggle() {
 
   const handleTheme = (theme: string, isPro: boolean = false) => {
     if (isPro && (!me || !me.isPro)) {
-      navigate({ to: "/pricing" })
+      void navigate({ to: "/pricing" })
       return
     }
     setTheme(theme)

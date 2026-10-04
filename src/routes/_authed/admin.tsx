@@ -40,7 +40,7 @@ function AdminRoute() {
     return <div className="flex h-screen items-center justify-center text-muted-foreground">Loading admin dashboard...</div>
   }
 
-  if (isAdmin === false) {
+  if (!isAdmin) {
     return <div className="flex h-screen flex-col items-center justify-center gap-4">
       <h1 className="text-2xl font-bold">Unauthorized</h1>
       <p className="text-muted-foreground">You do not have permission to view this page.</p>
@@ -177,9 +177,9 @@ function AdminRoute() {
                     </tr>
                   ) : creators.map((creator: any) => (
                     <tr key={creator._id} className="bg-card hover:bg-muted/30 transition-colors">
-                      <td className="px-6 py-3">
+                      <td className="px-6 py-3" aria-label={`Creator ${creator.username}`}>
                         <div className="flex items-center gap-3">
-                          <img src={creator.avatarUrl || `https://avatar.vercel.sh/${creator.username}`} className="w-8 h-8 rounded-full" />
+                          <img src={creator.avatarUrl || `https://avatar.vercel.sh/${creator.username}`} alt="" className="w-8 h-8 rounded-full" />
                           <div>
                             <div className="font-semibold text-foreground">{creator.username}</div>
                             <div className="text-xs text-muted-foreground">{creator.categories?.join(", ")}</div>
@@ -207,6 +207,7 @@ function AdminRoute() {
                           size="sm" 
                           onClick={() => handleRemove(creator._id)}
                           className="text-red-500 hover:text-red-600 hover:bg-red-500/10"
+                          aria-label={`Remove ${creator.username}`}
                         >
                           <HugeiconsIcon icon={Delete02Icon} className="w-4 h-4" />
                         </Button>
@@ -227,9 +228,9 @@ function AdminRoute() {
           <CardContent>
             <form onSubmit={handleAddCreator} className="space-y-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Platform</label>
+                <label htmlFor="platform-trigger" className="text-sm font-medium text-foreground">Platform</label>
                 <Select value={platform} onValueChange={(val: string | null) => setPlatform(val || "twitch")}>
-                  <SelectTrigger className="bg-background">
+                  <SelectTrigger id="platform-trigger" className="bg-background" aria-label="Platform">
                     <SelectValue placeholder="Select platform" />
                   </SelectTrigger>
                   <SelectContent>
@@ -242,10 +243,11 @@ function AdminRoute() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">
+                <label htmlFor="creator-username" className="text-sm font-medium text-foreground">
                   {platform === "custom" ? "Display Name" : "Username / Channel ID"}
                 </label>
                 <Input 
+                  id="creator-username"
                   type="text" 
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
@@ -256,8 +258,9 @@ function AdminRoute() {
 
               {platform === "custom" && (
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">Stream URL</label>
+                  <label htmlFor="creator-stream-url" className="text-sm font-medium text-foreground">Stream URL</label>
                   <Input 
+                    id="creator-stream-url"
                     type="url" 
                     value={platformId}
                     onChange={(e) => setPlatformId(e.target.value)}
@@ -272,9 +275,9 @@ function AdminRoute() {
               )}
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Category</label>
+                <label htmlFor="category-trigger" className="text-sm font-medium text-foreground">Category</label>
                 <Select value={category} onValueChange={(val: string | null) => setCategory(val || "Student")}>
-                  <SelectTrigger className="bg-background">
+                  <SelectTrigger id="category-trigger" className="bg-background" aria-label="Category">
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>

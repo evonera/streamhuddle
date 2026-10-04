@@ -9,11 +9,11 @@ export interface Plan {
   yearlyPrice: string;
   buttonText: string;
   badge?: string;
-  features: {
+  features: Array<{
     name: string;
     icon: string;
     iconColor?: string;
-  }[];
+  }>;
 }
 
 export interface CurrentPlan {
@@ -25,7 +25,7 @@ export interface CurrentPlan {
   status: "active" | "inactive" | "past_due" | "cancelled";
 }
 
-export const plans: Plan[] = [
+export const plans: Array<Plan> = [
   {
     id: "free",
     title: "Free",
@@ -35,7 +35,7 @@ export const plans: Plan[] = [
     yearlyPrice: "0",
     buttonText: "Current Plan",
     features: [
-      { name: "Watch up to 20 Streams at once", icon: "check" },
+      { name: "Watch up to 30 Streams at once", icon: "check" },
       { name: "1 Saved Custom Layout", icon: "check" },
       { name: "Public Roster Access", icon: "check" },
     ],
@@ -43,7 +43,7 @@ export const plans: Plan[] = [
   {
     id: "pro",
     title: "Lifetime Pro",
-    description: "Unlock the ultimate multi-stream viewing experience forever.",
+    description: "Unlock more multi-stream customization with Lifetime Pro.",
     currency: "$",
     monthlyPrice: "29.99",
     yearlyPrice: "29.99",
@@ -53,7 +53,6 @@ export const plans: Plan[] = [
     features: [
       { name: "Unlimited Saved Layouts", icon: "check" },
       { name: "8+ Premium Custom Themes", icon: "check" },
-      { name: "Custom Profile Themes", icon: "check" },
       { name: "Exclusive Pro Badge", icon: "check" },
     ],
   }

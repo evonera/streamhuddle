@@ -3,20 +3,22 @@ import { action } from "./_generated/server";
 import { checkout, customerPortal } from "./dodo";
 
 export const createCheckout = action({
-  args: {
-    productId: v.string(), // Dodo Payments Product ID
-    returnUrl: v.string(),
-  },
+  args: {},
   returns: v.object({ checkout_url: v.string() }),
-  handler: async (ctx, args) => {
+  handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthenticated");
+
+    const productId = process.env.DODO_PRO_PRODUCT_ID
+    const siteUrl = process.env.SITE_URL
+    if (!productId || !siteUrl) throw new Error("Checkout is not configured")
+    const returnUrl = new URL("/roster", siteUrl).toString()
 
     try {
       const session = await checkout(ctx, {
         payload: {
-          product_cart: [{ product_id: args.productId, quantity: 1 }],
-          return_url: args.returnUrl,
+          product_cart: [{ product_id: productId, quantity: 1 }],
+          return_url: returnUrl,
           billing_currency: "USD",
           feature_flags: {
             allow_discount_code: true,
@@ -29,7 +31,7 @@ export const createCheckout = action({
       return session;
     } catch (error) {
       console.error("Failed to create checkout session", error);
-      throw new Error("Unable to create checkout session. Please try again.");
+      throw new Error("Unable to create checkout session. Please try again.", { cause: error });
     }
   },
 });
@@ -51,7 +53,7 @@ export const getCustomerPortal = action({
       return portal;
     } catch (error) {
       console.error("Failed to generate customer portal link", error);
-      throw new Error("Unable to generate customer portal link. Please try again.");
+      throw new Error("Unable to generate customer portal link. Please try again.", { cause: error });
     }
   },
 });

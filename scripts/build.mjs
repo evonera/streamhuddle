@@ -57,7 +57,20 @@ export default {
     }
 
     // Fallback to SSR
-    return server.fetch(request, env, ctx);
+    const response = await server.fetch(request, env, ctx);
+    const headers = new Headers(response.headers);
+    const securityHeaders = {
+      "strict-transport-security": "max-age=63072000; includeSubDomains",
+      "x-content-type-options": "nosniff",
+      "x-frame-options": "DENY",
+      "referrer-policy": "strict-origin-when-cross-origin",
+      "permissions-policy": "camera=(), microphone=(), geolocation=()",
+      "cross-origin-opener-policy": "same-origin-allow-popups",
+      "cross-origin-resource-policy": "same-origin",
+      "origin-agent-cluster": "?1",
+    };
+    for (const [name, value] of Object.entries(securityHeaders)) headers.set(name, value);
+    return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
   }
 };
 `;

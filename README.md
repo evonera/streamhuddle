@@ -84,13 +84,15 @@ The Clip Queue is a real-time, interactive feature that brings streamers and vie
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Node.js 22.12+ or [Bun](https://bun.sh)
+- Node.js 22.12+ and [Bun 1.4.0](https://bun.sh) (the project pins Bun for installs and scripts)
 - A [Convex](https://convex.dev) account (free tier)
 
 ### Installation
 
+`bun run setup` clears `node_modules`, lockfiles, build output, and generated Convex files before reinstalling and configuring the project. Use it for a fresh clone or to repair a broken setup; it preserves `.env.local` and reconnects to the configured deployment by default. `bun run setup --fresh` also deletes `.env.local` and creates a new Convex deployment. For ordinary environment variable changes, use `bun run convex:env` / `npx convex env set` instead.
+
 ```bash
-git clone https://github.com/StreamHuddleHQ/streamhuddle.git
+git clone https://github.com/evonera/streamhuddle.git
 cd streamhuddle
 bun install
 bun run setup
@@ -105,15 +107,20 @@ Open [http://localhost:3000](http://localhost:3000) to view the app locally.
 
 The application requires environment variables defined during the build step and in the Cloudflare deployment.
 
-Required variables in `wrangler.toml` (Build Time):
+Required build variables in Cloudflare Pages and local `.env.local` builds:
 - `VITE_CONVEX_URL`: The URL to your Convex deployment.
 - `VITE_CONVEX_SITE_URL`: The URL to your Convex HTTP site routing.
 - `SITE_URL` / `VITE_SITE_URL`: The production URL of the app.
 
-Required variables in Convex (`.env.convex.example` / Convex Dashboard):
+Required variables in Convex (see `.env.convex.example` / Convex Dashboard):
 - `BETTER_AUTH_SECRET`: Secret used for signing auth tokens.
 - `TWITCH_CLIENT_ID` & `TWITCH_CLIENT_SECRET`: For Twitch API integration.
+- `DODO_PRO_PRODUCT_ID`: The Lifetime Pro product ID for the selected Dodo environment.
 - `RESEND_*`: For email services.
+
+For Twitch OAuth, set `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET`, and `TWITCH_REDIRECT_BASE_URL` in Cloudflare Pages runtime variables. Configure the redirect base URL to the deployed app origin and register its `/api/twitch/callback` URL with Twitch.
+
+See [docs/ENV.md](docs/ENV.md) for the complete variable list and [docs/DEPLOY.md](docs/DEPLOY.md) for the separate Cloudflare Preview and Production build settings.
 
 ---
 
@@ -131,6 +138,8 @@ bun run build
 # Or deploy using wrangler:
 bun run deploy
 ```
+
+See [docs/DEPLOY.md](docs/DEPLOY.md) before configuring a Cloudflare Pages project.
 
 ---
 
@@ -155,3 +164,4 @@ If you enjoy using StreamHuddle, consider supporting the development!
 ## 📄 License
 
 This project is licensed under the [GNU Affero General Public License v3.0 (AGPLv3)](LICENSE).
+Third-party runtime dependencies are inventoried in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md). Confirm the Dodo Convex package's license grant and the public files listed in [public/ASSETS.md](public/ASSETS.md) before redistributing a production build.

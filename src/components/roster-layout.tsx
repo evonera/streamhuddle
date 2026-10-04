@@ -1,6 +1,16 @@
 import { useQuery, useMutation } from 'convex/react'
 import { api } from "@convex/_generated/api"
 import { useState, useEffect, useRef } from 'react'
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core"
 import { type StreamData } from '@/components/player/StreamPlayer'
 import { StreamGrid } from '@/components/player/StreamGrid'
 import { ChatBox } from '@/components/player/ChatBox'
@@ -15,7 +25,6 @@ import PanelLeftCloseIcon from "@hugeicons/core-free-icons/PanelLeftCloseIcon"
 import PanelLeftOpenIcon from "@hugeicons/core-free-icons/PanelLeftOpenIcon"
 import PanelRightCloseIcon from "@hugeicons/core-free-icons/PanelRightCloseIcon"
 import PanelRightOpenIcon from "@hugeicons/core-free-icons/PanelRightOpenIcon"
-import Message01Icon from "@hugeicons/core-free-icons/Message01Icon"
 import PauseIcon from "@hugeicons/core-free-icons/PauseIcon"
 import PlayIcon from "@hugeicons/core-free-icons/PlayIcon"
 import ReloadIcon from "@hugeicons/core-free-icons/ReloadIcon"
@@ -38,8 +47,9 @@ import { ClipModal } from "./clip/ClipModal"
 import { authClient } from "@/lib/auth-client"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { MultiClipQueueWidget } from "./clip-queue/ClipQueueWidget"
+import { RosterCreatorRow } from "./roster-creator-row"
 import { pauseAllTwitch, playAllTwitch, setAllTwitchQuality } from "@/components/player/twitch-registry"
-import { parseStreamsParam } from "@/lib/streams-param"
+import { parseStreamsParam, MAX_GRID_STREAMS } from "@/lib/streams-param"
 import type { Id } from "@convex/_generated/dataModel"
 
 const SESSION_STORAGE_KEY = 'streamhuddle-session'
@@ -67,7 +77,7 @@ function loadPrefs(): Prefs {
 const TOUR_STEPS = [
   {
     title: "1 · Build your grid",
-    body: "Search the roster and hit Stream to add a creator, or paste any Twitch / Kick / YouTube URL into an empty slot. Up to 20 cells.",
+    body: "Search the roster and hit Stream to add a creator, or paste any Twitch / Kick / YouTube URL into an empty slot. Up to 30 cells.",
   },
   {
     title: "2 · One stream has audio",
@@ -83,18 +93,18 @@ const TOUR_STEPS = [
   },
 ]
 
-function loadSession(): StreamData[] {
+function loadSession(): Array<StreamData> {
   if (typeof window === 'undefined') return []
   try {
     const saved = localStorage.getItem(SESSION_STORAGE_KEY)
     if (!saved) return []
-    return JSON.parse(saved) as StreamData[]
+    return JSON.parse(saved) as Array<StreamData>
   } catch {
     return []
   }
 }
 
-function saveSession(streams: StreamData[]) {
+function saveSession(streams: Array<StreamData>) {
   if (typeof window === 'undefined') return
   try {
     if (streams.length === 0) {
@@ -119,7 +129,7 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
   const layoutPickerRef = useRef<HTMLDivElement>(null)
 
   const [activeLayoutId, setActiveLayoutId] = useState<string | null>(initialListId || null)
-  const [activeStreams, setActiveStreams] = useState<StreamData[]>([])
+  const [activeStreams, setActiveStreams] = useState<Array<StreamData>>([])
   const [gridSize, setGridSize] = useState<"auto" | number>("auto")
 
   const [activeChatId, setActiveChatId] = useState<string | null>(null)
@@ -138,6 +148,7 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
   const [remountKey, setRemountKey] = useState(0)
   const [tourOpen, setTourOpen] = useState(false)
   const [tourStep, setTourStep] = useState(0)
+  const tourDialogRef = useRef<HTMLDialogElement>(null)
 
   const [addStreamDialog, setAddStreamDialog] = useState<{isOpen: boolean; gridIndex?: number}>({ isOpen: false })
   const [customUrlInput, setCustomUrlInput] = useState("")
@@ -150,6 +161,41 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
 
   // Clip state
   const [clipModalOpen, setClipModalOpen] = useState(false)
+
+  // Drag-and-drop (dnd-kit): sidebar rows and grid headers are draggables,
+  // grid slots are droppables. Pointer sensor covers mouse + touch; the
+  // distance constraint keeps plain clicks working.
+  const dndSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor),
+  )
+  const [dragOverlayLabel, setDragOverlayLabel] = useState<string | null>(null)
+
+  const handleDndStart = (event: DragStartEvent) => {
+    const label = (event.active.data.current as { label?: string } | undefined)?.label
+    setDragOverlayLabel(label ?? null)
+  }
+
+  const handleDndEnd = (event: DragEndEvent) => {
+    setDragOverlayLabel(null)
+    const overGridIndex = (event.over?.data.current as { gridIndex?: number } | undefined)?.gridIndex
+    if (overGridIndex === undefined) return
+    const data = (event.active.data.current ?? {}) as {
+      source?: string
+      creatorId?: string
+      cellType?: "stream" | "chat"
+      streamId?: string
+      streamType?: "stream" | "chat"
+    }
+    if (data.source === "sidebar" && data.creatorId) {
+      const creator = creatorsQuery?.find(c => c._id === data.creatorId)
+      if (creator) handleAddCell(creator, data.cellType ?? "stream", overGridIndex)
+    } else if (data.source === "cell" && data.streamId) {
+      handleSwapStream(data.streamId, data.streamType ?? "stream", overGridIndex)
+    }
+  }
+
+  const handleDndCancel = () => setDragOverlayLabel(null)
   
   // User isPro check (via BetterAuth or Convex)
   const { data: session } = authClient.useSession()
@@ -275,19 +321,19 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
           type: s.type || "stream",
           gridIndex: idx
         }
-      }).filter(Boolean) as StreamData[]
+      }).filter(Boolean) as Array<StreamData>
       setActiveStreams(loadedStreams)
       setGridSize("auto")
       incrementViewsMutation({ id: initialListId as any }).catch(console.error)
     }
-  }, [sharedListQuery, creatorsQuery])
+  }, [sharedListQuery, creatorsQuery, activeStreams.length, activeLayoutId, initialListId, incrementViewsMutation])
 
   // Auto-load all creators for specific routes (like /university)
   const hasAutoLoadedRef = useRef(false)
   useEffect(() => {
     if (hasAutoLoadedRef.current) return
     if (autoLoadAll && creatorsQuery && activeStreams.length === 0 && !activeLayoutId) {
-      const loadedStreams = (creatorsQuery || []).slice(0, 20).map((creator, idx) => ({
+      const loadedStreams = (creatorsQuery || []).slice(0, MAX_GRID_STREAMS).map((creator, idx) => ({
         id: creator._id,
         platform: creator.platform as any,
         channel: creator.platform === "custom" && creator.platformId ? creator.platformId : creator.username,
@@ -331,7 +377,7 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
       seen.add(key)
       return true
     })
-    const loaded: StreamData[] = unique.map((p, idx) => {
+    const loaded: Array<StreamData> = unique.map((p, idx) => {
       const match = byPlatformAndName.get(lookupKey(p))
       if (match) {
         return {
@@ -368,7 +414,13 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
     }
   }, [creatorsQuery, activeStreams.length, initialListId, autoLoadAll, initialStreamsParam])
 
+  useEffect(() => {
+    const dialog = tourDialogRef.current
+    if (tourOpen && dialog && !dialog.open) dialog.showModal()
+  }, [tourOpen])
+
   const closeTour = () => {
+    if (tourDialogRef.current?.open) tourDialogRef.current.close()
     setTourOpen(false)
     try {
       localStorage.setItem(TOUR_SEEN_KEY, "1")
@@ -404,7 +456,9 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
     if (initialListId || autoLoadAll || initialStreamsParam) return
     const saved = loadSession()
     if (saved.length > 0) {
-      setActiveStreams(saved)
+      // Normalize legacy sessions: every cell gets an explicit gridIndex so
+      // later occupancy checks can't stack two cells on one slot.
+      setActiveStreams(saved.map((s, i) => ({ ...s, gridIndex: s.gridIndex ?? i })))
       sessionLoadedRef.current = true
       toast.info("Session restored from last visit", {
         description: isAuthenticated ? "Save it permanently from the toolbar." : "Sign in to save it permanently.",
@@ -443,8 +497,8 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
       if (exists) {
         return prev.filter(s => !(s.id === creator._id && s.type === type))
       } else {
-        if (prev.length >= 20) {
-          toast.error("Absolute limit of 20 cells reached.")
+        if (prev.length >= MAX_GRID_STREAMS) {
+          toast.error(`Absolute limit of ${MAX_GRID_STREAMS} cells reached.`)
           return prev;
         }
         
@@ -465,20 +519,52 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
           } else {
             // Prevent collisions in auto mode if streams were removed from the middle
             nextGridIndex = prev.length > 0 ? Math.max(...prev.map(s => s.gridIndex ?? 0)) + 1 : 0;
-            if (prev.length === 8) {
-              toast.warning("Warning: Loading more than 8 streams requires significant RAM and bandwidth. Your browser may experience lag.")
+            if (prev.length === 10) {
+              toast.warning("Warning: Loading more than 10 streams requires significant RAM and bandwidth. Your browser may experience lag. Tip: set Twitch quality to Audio only.")
             }
           }
         } else {
+          // Explicit drop target (sidebar drag or empty-slot add): an occupied
+          // slot relocates its occupant instead of stacking two cells on one
+          // grid index (the second would render hidden but still count).
           if (gridSize !== "auto" && targetGridIndex >= gridSize) {
              toast.error("Invalid grid cell.");
              return prev;
+          }
+          nextGridIndex = targetGridIndex;
+          const occupantIdx = prev.findIndex((s, i) => (s.gridIndex ?? i) === targetGridIndex);
+          if (occupantIdx !== -1) {
+            let freeIdx: number | null = null;
+            if (gridSize === "auto") {
+              freeIdx = prev.length > 0 ? Math.max(...prev.map(s => s.gridIndex ?? 0)) + 1 : 0;
+            } else {
+              // Same gridIndex ?? arrayIndex fallback as the occupancy check:
+              // legacy restored streams without an explicit gridIndex must
+              // count as occupying their position, or freeIdx can collide.
+              const used = new Set(prev.map((s, i) => s.gridIndex ?? i));
+              for (let i = 0; i < gridSize; i++) {
+                if (!used.has(i)) { freeIdx = i; break; }
+              }
+            }
+            if (freeIdx === null) {
+              toast.error("Grid is full. Increase grid size or remove a stream.");
+              return prev;
+            }
+            const relocated = prev.map((s, i) => i === occupantIdx ? { ...s, gridIndex: freeIdx } : s);
+            return [...relocated, {
+              id: creator._id,
+              platform: creator.platform,
+              channel: creator.platform === "custom" && creator.platformId ? creator.platformId : creator.username,
+              displayName: creator.username,
+              type,
+              gridIndex: nextGridIndex
+            }];
           }
         }
         
         return [...prev, {
           id: creator._id,
-          platform: creator.platform as any,
+          platform: creator.platform,
           channel: creator.platform === "custom" && creator.platformId ? creator.platformId : creator.username,
           displayName: creator.username,
           type,
@@ -507,7 +593,7 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
         platform = 'kick';
         channel = parsedUrl.pathname.split('/').filter(Boolean)[0] || url;
       }
-    } catch (e) {}
+    } catch {}
 
     const dummyCreator = {
       _id: `custom-${Date.now()}`,
@@ -605,6 +691,12 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
   )
 
   return (
+    <DndContext
+      sensors={dndSensors}
+      onDragStart={handleDndStart}
+      onDragEnd={handleDndEnd}
+      onDragCancel={handleDndCancel}
+    >
     <div className="flex flex-col md:flex-row w-full h-screen md:p-2 gap-2 bg-background overflow-hidden relative">
       
       {/* Mobile Notice & Navbar */}
@@ -629,7 +721,7 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
       {/* Left Sidebar: Roster */}
       {leftSidebarOpen && !theaterMode && (
         <>
-          <div className="md:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[60]" onClick={() => setLeftSidebarOpen(false)} />
+          <button type="button" aria-label="Close roster sidebar" className="md:hidden fixed inset-0 appearance-none border-0 p-0 cursor-pointer bg-black/60 backdrop-blur-sm z-[60]" onClick={() => setLeftSidebarOpen(false)} />
           <div className="fixed md:relative top-0 left-0 md:top-auto md:left-auto z-[70] md:z-40 w-[85vw] max-w-[320px] md:w-80 shrink-0 h-full md:h-[calc(100vh-1rem)] flex flex-col gap-4 bg-card border-r md:border border-border md:rounded-xl p-4 shadow-2xl md:shadow-xl">
           <div className="flex items-center justify-between pb-2 border-b border-border">
             <h2 className="font-bold text-foreground">Roster</h2>
@@ -684,56 +776,13 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
             ) : filteredCreators.length === 0 ? (
               <div className="text-muted-foreground text-sm text-center pt-4">No creators found.</div>
             ) : filteredCreators.map(creator => (
-              <div 
+              <RosterCreatorRow
                 key={creator._id}
-                className={`p-2 rounded-lg border relative transition-all ${
-                  !creator.isLive ? 'opacity-60 hover:opacity-100 grayscale hover:grayscale-0' : ''
-                } bg-background border-border hover:border-primary/50`}
-              >
-                <div className="flex items-center gap-3">
-                  <img src={creator.avatarUrl || `https://avatar.vercel.sh/${creator.username}`} className="w-8 h-8 rounded-full bg-muted" />
-                  <div className="flex-1">
-                    <div className="font-semibold text-foreground text-sm leading-tight">{creator.username}</div>
-                    <div className="text-[10px] text-muted-foreground capitalize">{creator.platform}</div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/50">
-                  <button
-                    onClick={() => handleAddCell(creator, "stream")}
-                    className={`flex-1 flex items-center justify-center gap-1 p-1.5 rounded text-xs transition-colors ${
-                      activeStreams.find(s => s.id === creator._id && (!s.type || s.type === "stream"))
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-zinc-800/50 hover:bg-zinc-800 text-muted-foreground'
-                    }`}
-                  >
-                    <HugeiconsIcon icon={Tv01Icon} size={14} /> Stream
-                  </button>
-                  <button
-                    onClick={() => handleAddCell(creator, "chat")}
-                    className={`flex-1 flex items-center justify-center gap-1 p-1.5 rounded text-xs transition-colors ${
-                      activeStreams.find(s => s.id === creator._id && s.type === "chat")
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-zinc-800/50 hover:bg-zinc-800 text-muted-foreground'
-                    }`}
-                  >
-                    <HugeiconsIcon icon={Message01Icon} size={14} /> Chat
-                  </button>
-                </div>
-                {creator.isLive ? (
-                  <div className="absolute top-2 right-2 flex flex-col items-end">
-                    <div className="flex items-center gap-1 text-red-500 font-bold text-[10px] uppercase animate-pulse">
-                      <div className="w-1.5 h-1.5 rounded-full bg-red-500"></div> Live
-                    </div>
-                    {creator.viewerCount && (
-                      <div className="text-[9px] font-bold text-muted-foreground bg-background/50 px-1 rounded mt-0.5">
-                        {creator.viewerCount.toLocaleString()} Viewers
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="absolute top-2 right-2 text-[10px] text-muted-foreground font-medium">Offline</div>
-                )}
-              </div>
+                creator={creator}
+                isStreamActive={!!activeStreams.find(s => s.id === creator._id && (!s.type || s.type === "stream"))}
+                isChatActive={!!activeStreams.find(s => s.id === creator._id && s.type === "chat")}
+                onAdd={(c, type) => handleAddCell(c, type)}
+              />
             ))}
           </div>
 
@@ -807,8 +856,7 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
                   onClick={() => {
                     const url = new URL(window.location.href);
                     url.searchParams.set("list", activeLayoutId);
-                    navigator.clipboard.writeText(url.toString());
-                    toast.success("Share link copied to clipboard!");
+                    void navigator.clipboard.writeText(url.toString()).then(() => toast.success("Share link copied to clipboard!")).catch(() => toast.error("Unable to copy share link"));
                   }}
                   size="sm"
                   variant="outline"
@@ -902,8 +950,8 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
 
           {/* Grid Size Selector */}
           <div className="hidden lg:flex shrink-0 items-center gap-1 bg-zinc-900/50 rounded-lg p-1 border border-border mx-2">
-            <span className="text-[10px] text-muted-foreground px-2 font-bold tracking-wider">{activeStreams.length} / 20</span>
-            {(["auto", 2, 4, 6, 8, 12, 16, 18, 20] as const).map(size => (
+            <span className="text-[10px] text-muted-foreground px-2 font-bold tracking-wider">{activeStreams.length} / {MAX_GRID_STREAMS}</span>
+            {(["auto", 2, 4, 6, 8, 12, 16, 18, 20, 24, 30] as const).map(size => (
               <button
                 key={size}
                 onClick={() => setGridSize(size)}
@@ -944,7 +992,6 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
                     <div className="relative">
                       <HugeiconsIcon icon={Search01Icon} className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500" />
                       <input
-                        autoFocus
                         type="text"
                         placeholder="Search layouts..."
                         value={layoutSearch}
@@ -990,7 +1037,7 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
                                     type: s.type || "stream",
                                     gridIndex: idx
                                   }
-                                }).filter(Boolean) as StreamData[]
+                                }).filter(Boolean) as Array<StreamData>
                                 setActiveStreams(loadedStreams)
                               }
                             }}
@@ -1054,7 +1101,6 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
                 setLeftSidebarOpen(true);
               }
             }}
-            onSwapStream={handleSwapStream}
             globalMuted={globalMuted}
             twitchQuality={twitchQuality === "auto" ? undefined : twitchQuality}
             remountKey={remountKey}
@@ -1111,9 +1157,8 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
                   placeholder="e.g. Night Stream, Study Session..."
                   value={saveLayoutName}
                   onChange={(e) => setSaveLayoutName(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleConfirmSave() }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') void handleConfirmSave() }}
                   className="bg-muted border-border"
-                  autoFocus
                 />
                 <div className="flex gap-2 justify-end">
                   <Button variant="ghost" onClick={() => setSaveDialogOpen(false)}>Cancel</Button>
@@ -1157,7 +1202,7 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
       {/* Right Sidebar */}
       {rightSidebarOpen && !theaterMode && (
         <>
-          <div className="md:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[60]" onClick={() => setRightSidebarOpen(false)} />
+          <button type="button" aria-label="Close chat and clips sidebar" className="md:hidden fixed inset-0 appearance-none border-0 p-0 cursor-pointer bg-black/60 backdrop-blur-sm z-[60]" onClick={() => setRightSidebarOpen(false)} />
           <div className="fixed md:relative top-0 right-0 md:top-auto md:right-auto z-[70] md:z-40 w-[85vw] max-w-[340px] md:w-80 shrink-0 h-full md:h-[calc(100vh-1rem)] flex flex-col bg-card border-l md:border border-border md:rounded-xl shadow-2xl md:shadow-xl overflow-hidden">
             <Tabs defaultValue="chat" className="flex flex-col h-full">
               <div className="flex items-center justify-between p-2 border-b border-border bg-card/80 backdrop-blur shrink-0">
@@ -1226,10 +1271,15 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
       )}
       {/* Onboarding tour overlay */}
       {tourOpen && (
-        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-4" role="dialog" aria-modal="true" aria-label="StreamHuddle tour">
+        <dialog
+          ref={tourDialogRef}
+          onCancel={(event) => { event.preventDefault(); closeTour() }}
+          className="fixed inset-0 z-[100] m-0 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-4 w-full h-full max-w-none max-h-none border-0"
+          aria-labelledby="streamhuddle-tour-title"
+        >
           <div className="bg-zinc-950 border border-zinc-800 rounded-xl w-full max-w-md p-6 shadow-2xl flex flex-col gap-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-bold text-lg text-foreground">{TOUR_STEPS[tourStep].title}</h3>
+              <h3 id="streamhuddle-tour-title" className="font-bold text-lg text-foreground">{TOUR_STEPS[tourStep].title}</h3>
               <button onClick={closeTour} aria-label="Close tour" className="text-muted-foreground hover:text-foreground">✕</button>
             </div>
             <p className="text-sm text-muted-foreground leading-relaxed">{TOUR_STEPS[tourStep].body}</p>
@@ -1252,8 +1302,17 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
               )}
             </div>
           </div>
-        </div>
+        </dialog>
       )}
+      {/* Drag ghost */}
+      <DragOverlay dropAnimation={null}>
+        {dragOverlayLabel ? (
+          <div className="bg-zinc-900 border border-primary/50 rounded-lg px-4 py-2 text-sm font-semibold text-foreground shadow-2xl cursor-grabbing">
+            {dragOverlayLabel}
+          </div>
+        ) : null}
+      </DragOverlay>
     </div>
+    </DndContext>
   )
 }

@@ -5,10 +5,11 @@ import type { BetterAuthOptions } from "better-auth"
 import { betterAuth } from "better-auth"
 import { emailOTP, username } from "better-auth/plugins"
 import { v } from "convex/values"
+import type { WorkflowId } from "@convex-dev/workflow"
 
 import { components, internal } from "./_generated/api"
 import type { DataModel, Doc } from "./_generated/dataModel"
-import { internalAction, query } from "./_generated/server"
+import { internalAction, internalMutation, query } from "./_generated/server"
 import type { MutationCtx, QueryCtx } from "./_generated/server"
 import authConfig from "./auth.config"
 import {
@@ -20,6 +21,8 @@ import {
   isReservedUsername,
 } from "./constants"
 import { sendAuthOTP } from "./email"
+import { r2 } from "./r2"
+import { workflow } from "./clipWorkflow"
 import { authenticationRequired } from "./errors"
 import { getSiteUrl, getTrustedOrigins } from "./origins"
 
@@ -83,10 +86,10 @@ export const authComponent = createClient<DataModel>(components.betterAuth, {
       },
       onDelete: async (ctx, authUser) => {
         const user = await getUserByAuthId(ctx, authUser._id)
-        if (!user) return
-        // Free the avatar blob before dropping the row so we don't leak storage.
-        if (user.avatar) await ctx.storage.delete(user.avatar)
-        await ctx.db.delete(user._id)
+        await ctx.scheduler.runAfter(0, internal.auth.cleanupDeletedUserData, {
+          userId: user?._id ?? null,
+          authId: authUser._id,
+        })
       },
     },
   },
@@ -94,6 +97,80 @@ export const authComponent = createClient<DataModel>(components.betterAuth, {
 
 // Export trigger handlers - these become available at internal.auth
 export const { onCreate, onDelete } = authComponent.triggersApi()
+
+/** Remove app-owned data in bounded batches after Better Auth deletes an identity. */
+export const cleanupDeletedUserData = internalMutation({
+  args: { userId: v.union(v.id("users"), v.null()), authId: v.string() },
+  handler: async (ctx, { userId, authId }) => {
+    const batchSize = 25
+    const reschedule = async () => {
+      await ctx.scheduler.runAfter(0, internal.auth.cleanupDeletedUserData, { userId, authId })
+    }
+
+    const ownVotes = userId
+      ? await ctx.db.query("clipQueueVotes").withIndex("by_user", q => q.eq("userId", userId)).take(batchSize)
+      : []
+    for (const vote of ownVotes) {
+      const item = await ctx.db.get(vote.queueItemId)
+      if (item) await ctx.db.patch(item._id, { upvotes: Math.max(0, item.upvotes - 1) })
+      await ctx.db.delete(vote._id)
+    }
+    if (ownVotes.length === batchSize) return await reschedule()
+
+    const submittedItem = userId
+      ? await ctx.db.query("clipQueue").withIndex("by_submitter", q => q.eq("submitterId", userId)).first()
+      : null
+    if (submittedItem) {
+      const itemVotes = await ctx.db.query("clipQueueVotes").withIndex("by_item", q => q.eq("queueItemId", submittedItem._id)).take(batchSize)
+      await Promise.all(itemVotes.map(vote => ctx.db.delete(vote._id)))
+      if (itemVotes.length < batchSize) await ctx.db.delete(submittedItem._id)
+      return await reschedule()
+    }
+
+    const clip = userId
+      ? await ctx.db.query("clips").withIndex("by_user", q => q.eq("userId", userId)).first()
+      : null
+    if (clip) {
+      if (clip.workflowId && (clip.status === "creating" || clip.status === "downloading")) {
+        try {
+          await workflow.cancel(ctx, clip.workflowId as WorkflowId)
+        } catch (error) {
+          // A job may finish between reading the clip and cancelling it.
+          console.warn("Could not cancel clip workflow during account cleanup", error)
+        }
+      }
+      const streamsWithFiles = clip.streams.filter(stream => stream.r2Key)
+      const filesToDelete = streamsWithFiles.slice(0, batchSize)
+      for (const stream of filesToDelete) {
+        if (stream.r2Key) await r2.deleteObject(ctx, stream.r2Key)
+      }
+      const deletedKeys = new Set(filesToDelete.map(stream => stream.r2Key))
+      const remainingStreams = clip.streams
+        .filter(stream => !stream.r2Key || !deletedKeys.has(stream.r2Key))
+      if (remainingStreams.some(stream => stream.r2Key)) {
+        await ctx.db.patch(clip._id, { streams: remainingStreams, workflowId: undefined })
+      } else {
+        await ctx.db.delete(clip._id)
+      }
+      return await reschedule()
+    }
+
+    const layouts = await ctx.db.query("layouts").withIndex("by_user", q => q.eq("authId", authId)).take(batchSize)
+    await Promise.all(layouts.map(layout => ctx.db.delete(layout._id)))
+    if (layouts.length === batchSize) return await reschedule()
+
+    const tokens = userId
+      ? await ctx.db.query("twitchUserTokens").withIndex("by_user", q => q.eq("userId", userId)).take(batchSize)
+      : []
+    await Promise.all(tokens.map(token => ctx.db.delete(token._id)))
+    if (tokens.length === batchSize) return await reschedule()
+
+    const user = userId ? await ctx.db.get(userId) : null
+    if (user?.avatar) await ctx.storage.delete(user.avatar)
+    if (user) await ctx.db.delete(user._id)
+    return null
+  },
+})
 
 // Export client API for AuthBoundary and other client-side auth checks
 export const { getAuthUser } = authComponent.clientApi()
@@ -112,6 +189,9 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) =>
         clientId: process.env.TWITCH_CLIENT_ID as string,
         clientSecret: process.env.TWITCH_CLIENT_SECRET as string,
       }
+    },
+    user: {
+      deleteUser: { enabled: true },
     },
     emailAndPassword: {
       enabled: true,
