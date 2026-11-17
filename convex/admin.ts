@@ -2,6 +2,7 @@ import { query, mutation, action, internalMutation } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
 import { requireAuthenticatedUser } from "./auth";
 import { internal, api } from "./_generated/api";
+import { invalidatePollTargets } from "./polling";
 
 // ----------------------------------------------------------------------------
 // Admin Authorization Helper
@@ -32,13 +33,13 @@ export const getStats = query({
 
     // Bounded queries to prevent OOM. For true scaling, implement an aggregate counter.
     const creators = await ctx.db.query("creators").take(1000);
-    const liveStatuses = await ctx.db.query("liveStatusCache").withIndex("by_isLive", q => q.eq("isLive", true)).take(1000);
+    const liveCreators = await ctx.db.query("creators").withIndex("by_isLive", q => q.eq("isLive", true)).take(1000);
     const layouts = await ctx.db.query("layouts").take(1000);
     const users = await ctx.db.query("users").take(1000);
 
     return {
       totalCreators: creators.length,
-      currentlyLive: liveStatuses.length,
+      currentlyLive: liveCreators.length,
       totalLayouts: layouts.length,
       totalUsers: users.length,
     };
@@ -124,6 +125,7 @@ export const addCreator = mutation({
         creatorId: creatorId,
         category: args.category,
       });
+      await invalidatePollTargets(ctx);
     }
 
     return { success: true, creatorId };
@@ -147,6 +149,7 @@ export const removeCreator = mutation({
     for (const r of rosters) {
       await ctx.db.delete(r._id);
     }
+    await invalidatePollTargets(ctx);
 
     // Delete live status cache
     const liveStatuses = await ctx.db
