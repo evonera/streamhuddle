@@ -25,6 +25,7 @@ import { r2 } from "./r2"
 import { workflow } from "./clipWorkflow"
 import { authenticationRequired } from "./errors"
 import { getSiteUrl, getTrustedOrigins } from "./origins"
+import { authRateLimitStorage } from "./rateLimit"
 
 const authFunctions: AuthFunctions = internal.auth
 
@@ -165,6 +166,17 @@ export const cleanupDeletedUserData = internalMutation({
     await Promise.all(tokens.map(token => ctx.db.delete(token._id)))
     if (tokens.length === batchSize) return await reschedule()
 
+    const purchase = userId
+      ? await ctx.db.query("proPayments").withIndex("by_user", q => q.eq("userId", userId)).first()
+      : null
+    if (purchase) {
+      const disputes = await ctx.db.query("proPaymentDisputes")
+        .withIndex("by_paymentId", q => q.eq("paymentId", purchase.paymentId)).take(batchSize)
+      await Promise.all(disputes.map(dispute => ctx.db.delete(dispute._id)))
+      if (disputes.length < batchSize) await ctx.db.delete(purchase._id)
+      return await reschedule()
+    }
+
     const user = userId ? await ctx.db.get(userId) : null
     if (user?.avatar) await ctx.storage.delete(user.avatar)
     if (user) await ctx.db.delete(user._id)
@@ -229,9 +241,12 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) =>
     // verification hit /email-otp/* rather than the link-based endpoints.
     rateLimit: {
       enabled: true,
+      customStorage: authRateLimitStorage(ctx),
       window: 60,
       max: 100,
       customRules: {
+        "/convex/jwks": false,
+        "/convex/.well-known/openid-configuration": false,
         "/sign-in/*": { window: 60, max: 5 },
         "/sign-up/*": { window: 60, max: 3 },
         "/email-otp/request-password-reset": { window: 3600, max: 3 },
@@ -243,7 +258,9 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) =>
     },
     advanced: {
       ipAddress: {
-        ipAddressHeaders: ["x-forwarded-for", "x-real-ip"],
+        // Set only by the secret-authenticated app proxy. Direct public JWT
+        // discovery endpoints have this header removed and are limit-exempt.
+        ipAddressHeaders: ["x-streamhuddle-client-ip"],
       },
     },
     plugins: [
@@ -336,7 +353,6 @@ export const authUserValidator = v.object({
   _creationTime: v.number(),
   authId: v.string(),
   bio: v.optional(v.string()),
-  avatar: v.optional(v.id("_storage")),
   updatedAt: v.number(),
   authUserId: v.string(),
   email: v.string(),

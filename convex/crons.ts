@@ -6,6 +6,9 @@ import { internalMutation } from "./_generated/server"
 
 const crons = cronJobs()
 
+crons.interval("remove-unclaimed-avatars", { minutes: 20 }, internal.avatars.cleanupOrphans, {})
+crons.interval("remove-expired-streamer-profiles", { minutes: 10 }, internal.streamerProfiles.cleanup, {})
+
 // The Resend component retains finalized (delivered, cancelled, bounced)
 // emails and it's our job to clear them. Run hourly to keep the emails table
 // bounded. See @convex-dev/resend README → "Data retention".

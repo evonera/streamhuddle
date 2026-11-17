@@ -20,7 +20,6 @@ import {
   userProfileUpdateFields,
   validateBio,
   validateFavoriteStreamer,
-  isAllowedAvatarMetadata,
 } from "./validators"
 
 // ============================================================================
@@ -37,7 +36,10 @@ export const getMe = optionalAuthQuery({
   args: {},
   returns: v.union(authUserValidator, v.null()),
   handler: async (ctx) => {
-    return ctx.user ?? null
+    if (!ctx.user) return null
+    // The client only needs the avatar URL and the uploaded-avatar boolean.
+    const { avatar: _avatar, avatarUploadPending: _avatarUploadPending, ...user } = ctx.user
+    return user
   },
 })
 
@@ -179,51 +181,26 @@ export const updateProfile = authMutation({
 })
 
 /**
- * Generate an upload URL for avatar images.
- * The URL expires in 1 hour.
+ * Retired direct-upload API. Stale clients fail safely and can reload to use
+ * POST /api/avatar, which validates bytes and associates the file server-side.
  */
 export const generateAvatarUploadUrl = authMutation({
   args: {},
   returns: v.string(),
-  handler: async (ctx) => {
-    await rateLimitWithThrow(ctx, "userAction", ctx.user._id.toString())
-
-    return await ctx.storage.generateUploadUrl()
+  handler: async () => {
+    throw validationError("Reload the page to upload your avatar", "avatar")
   },
 })
 
 /**
- * Update the current user's avatar with a storage id.
- * Deletes the previous uploaded avatar from storage if one exists.
- * Does not touch Better Auth's image field - that's for provider-supplied URLs.
+ * Retired caller-supplied storage-id API. Only the internal upload completion
+ * mutation may associate an object created by the authenticated HTTP handler.
  */
 export const updateAvatar = authMutation({
   args: { storageId: v.id("_storage") },
   returns: v.object({ avatarUrl: v.union(v.string(), v.null()) }),
-  handler: async (ctx, args) => {
-    await rateLimitWithThrow(ctx, "userAction", ctx.user._id.toString())
-
-    // v.id("_storage") validates shape only; reject ids for blobs that were
-    // never uploaded instead of storing a dangling reference.
-    const metadata = await ctx.db.system.get("_storage", args.storageId)
-    if (!metadata) {
-      throw validationError("Uploaded file not found", "storageId")
-    }
-    if (!isAllowedAvatarMetadata(metadata.size, metadata.contentType)) {
-      await ctx.storage.delete(args.storageId)
-      throw validationError("Avatar must be a JPEG, PNG, WebP, or GIF under 5 MB", "storageId")
-    }
-
-    if (ctx.user.avatar) {
-      await ctx.storage.delete(ctx.user.avatar)
-    }
-
-    await ctx.db.patch(ctx.user._id, {
-      avatar: args.storageId,
-      updatedAt: Date.now(),
-    })
-
-    return { avatarUrl: await ctx.storage.getUrl(args.storageId) }
+  handler: async () => {
+    throw validationError("Reload the page to upload your avatar", "storageId")
   },
 })
 

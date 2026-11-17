@@ -1,3 +1,4 @@
+import type { ComponentProps } from "react";
 import ArrowUpRight01Icon from "@hugeicons/core-free-icons/ArrowUpRight01Icon";
 import NewTwitterIcon from "@hugeicons/core-free-icons/NewTwitterIcon";
 import GithubIcon from "@hugeicons/core-free-icons/GithubIcon";
@@ -17,8 +18,8 @@ function Crosshair({ position }: { position: 'top-left' | 'top-right' | 'bottom-
             isTop ? "top-0" : "bottom-0",
             isLeft ? "left-0" : "right-0"
         )}>
-            <div className={cn("absolute h-full w-px bg-white/10", isTop ? "top-0" : "bottom-0", isLeft ? "left-4" : "right-4")} />
-            <div className={cn("absolute h-px w-full bg-white/10", isTop ? "top-4" : "bottom-4", isLeft ? "left-0" : "right-0")} />
+            <div className={cn("absolute h-full w-px bg-muted", isTop ? "top-0" : "bottom-0", isLeft ? "left-4" : "right-4")} />
+            <div className={cn("absolute h-px w-full bg-muted", isTop ? "top-4" : "bottom-4", isLeft ? "left-0" : "right-0")} />
         </div>
     );
 }
@@ -36,17 +37,18 @@ function FooterLinkColumn({ title, children }: { title: string; children: React.
 
 function FooterLink({ href, children }: { href: string; children: React.ReactNode }) {
     return (
-        <a href={href} className="text-sm text-white/50 transition-colors hover:text-white">
+        <a href={href} className="text-sm text-muted-foreground transition-colors hover:text-foreground">
             {children}
         </a>
     );
 }
 
-function SocialLink({ href, icon: Icon }: { href: string; icon: any }) {
+function SocialLink({ href, icon: Icon, label }: { href: string; icon: ComponentProps<typeof HugeiconsIcon>["icon"]; label: string }) {
     return (
         <a
             href={href}
-            className="flex h-8 w-8 items-center justify-center border border-white/10 bg-white/2 text-white/50 transition-all hover:border-white/30 hover:text-white"
+            aria-label={label}
+            className="flex h-8 w-8 items-center justify-center border border-border bg-muted text-muted-foreground transition-all hover:border-border hover:text-foreground"
         >
             <HugeiconsIcon icon={Icon} className="h-4 w-4" />
         </a>
@@ -55,9 +57,9 @@ function SocialLink({ href, icon: Icon }: { href: string; icon: any }) {
 
 export default function Footer() {
     return (
-        <footer className="bg-background text-foreground relative mt-24 overflow-hidden border-t border-white/5 font-mono">
+        <footer className="bg-background text-foreground relative mt-24 overflow-hidden border-t border-border font-mono">
             {/* STREAMHUDDLE Text Hover Effect */}
-            <div className="relative border-b border-white/5 py-2 overflow-hidden">
+            <div className="relative border-b border-border py-2 overflow-hidden">
               <div className="mx-auto max-w-5xl px-4" style={{ height: '100px' }}>
                 <TextHoverEffect text="STREAMHUDDLE" automatic />
               </div>
@@ -69,7 +71,7 @@ export default function Footer() {
 
             <div className="relative z-10 container mx-auto px-4 pt-20 pb-12 md:px-8 lg:px-12 xl:px-16">
                 {/* Top Grid */}
-                <div className="relative grid grid-cols-1 gap-12 border-b border-white/5 pb-16 lg:grid-cols-12 lg:gap-8">
+                <div className="relative grid grid-cols-1 gap-12 border-b border-border pb-16 lg:grid-cols-12 lg:gap-8">
                     {/* Left Side: Brand & Newsletter (span 5) */}
                     <div className="flex flex-col items-start pr-0 lg:col-span-5 lg:pr-8">
                         <div className="text-primary mb-6 flex items-center gap-3 font-mono text-xs tracking-widest">
@@ -80,13 +82,13 @@ export default function Footer() {
                             Building the future <br className="hidden lg:block" /> of
                             multi-streaming
                         </h3>
-                        <p className="mb-8 max-w-md text-sm leading-relaxed text-pretty text-white/50">
-                            StreamHuddle is the ultimate multi-stream viewing platform—beautifully designed, highly customizable, and completely free.
+                        <p className="mb-8 max-w-md text-sm leading-relaxed text-pretty text-muted-foreground">
+                            Watch multiple streams in one place for free, with optional Pro themes and layouts.
                         </p>
 
                         <a
                             href="/roster"
-                            className="text-background bg-primary hover:bg-primary/90 inline-flex w-fit items-center justify-center px-8 py-4 text-xs font-bold tracking-widest uppercase transition-colors active:scale-[0.96]"
+                            className="text-primary-foreground bg-primary hover:bg-primary/90 inline-flex w-fit items-center justify-center px-8 py-4 text-xs font-bold tracking-widest uppercase transition-colors active:scale-[0.96]"
                         >
                             Get Started <HugeiconsIcon icon={ArrowUpRight01Icon} className="ml-2 h-4 w-4" />
                         </a>
@@ -115,11 +117,11 @@ export default function Footer() {
                     </div>
 
                     {/* Vertical divider line for desktop */}
-                    <div className="absolute top-0 bottom-0 left-[41.666%] hidden w-px bg-white/5 lg:block" />
+                    <div className="absolute top-0 bottom-0 left-[41.666%] hidden w-px bg-muted lg:block" />
                 </div>
 
                 {/* Middle Section (Strip) */}
-                <div className="relative flex flex-col items-center justify-between gap-6 overflow-hidden border-b border-white/5 py-6 md:flex-row">
+                <div className="relative flex flex-col items-center justify-between gap-6 overflow-hidden border-b border-border py-6 md:flex-row">
                     <div className="absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.05)_1px,transparent_1px)] bg-size-[16px_16px]" />
                     <div className="relative z-10 flex w-full flex-col items-center justify-between gap-6 px-2 md:flex-row">
                         <div className="flex items-center gap-3">
@@ -136,7 +138,7 @@ export default function Footer() {
                                     key={i}
                                     className={cn(
                                         'h-4 w-1.5 transition-colors',
-                                        i < 12 ? 'bg-primary' : 'bg-white/10',
+                                        i < 12 ? 'bg-primary' : 'bg-muted',
                                     )}
                                 />
                             ))}
@@ -156,31 +158,31 @@ export default function Footer() {
                             <div className="group relative flex h-8 w-8 items-center justify-center">
                                 <LogoIcon className="text-primary h-full w-full" />
                             </div>
-                            <span className="font-sans text-lg font-bold tracking-tight text-white/90">
+                            <span className="font-sans text-lg font-bold tracking-tight text-foreground">
                                 StreamHuddle
                             </span>
                         </div>
 
-                        <div className="hidden flex-col border-l border-white/10 pl-8 md:flex">
-                            <span className="text-xs tracking-widest text-white/40">
+                        <div className="hidden flex-col border-l border-border pl-8 md:flex">
+                            <span className="text-xs tracking-widest text-muted-foreground">
                                 The ultimate multi-stream experience.
                             </span>
-                            <span className="text-xs tracking-widest text-white/40">
+                            <span className="text-xs tracking-widest text-muted-foreground">
                                 Free. Open Source. Customizable.
                             </span>
                         </div>
                     </div>
 
-                    <div className="flex w-full flex-col items-start justify-between gap-4 text-xs tracking-widest text-white/40 uppercase md:flex-row md:items-center md:gap-16 xl:w-auto xl:justify-end">
+                    <div className="flex w-full flex-col items-start justify-between gap-4 text-xs tracking-widest text-muted-foreground uppercase md:flex-row md:items-center md:gap-16 xl:w-auto xl:justify-end">
                         <div className="flex flex-col gap-1">
                             <span>&copy; 2026 StreamHuddle.</span>
                             <span>All rights reserved.</span>
                         </div>
                         <div className="flex gap-4 md:gap-6">
-                            <Link to="/privacy" className="transition-colors hover:text-white">
+                            <Link to="/privacy" className="transition-colors hover:text-foreground">
                                 Privacy Policy
                             </Link>
-                            <Link to="/terms" className="transition-colors hover:text-white">
+                            <Link to="/terms" className="transition-colors hover:text-foreground">
                                 Terms of Service
                             </Link>
                         </div>
@@ -191,13 +193,13 @@ export default function Footer() {
                             <span className="opacity-70">{'//'}</span> CONNECT
                         </div>
                         <div className="flex items-center gap-4">
-                            <SocialLink href="https://x.com/streamhuddlehq" icon={NewTwitterIcon} />
-                            <SocialLink href="https://github.com/evonera/streamhuddle" icon={GithubIcon} />
+                            <SocialLink href="https://x.com/streamhuddlehq" icon={NewTwitterIcon} label="StreamHuddle on X" />
+                            <SocialLink href="https://github.com/evonera/streamhuddle" icon={GithubIcon} label="StreamHuddle on GitHub" />
                             <a
                                 href="https://ko-fi.com/streamhuddle"
                                 target="_blank"
                                 rel="noreferrer"
-                                className="flex h-8 w-8 items-center justify-center border border-white/10 bg-[#13C3FF]/10 text-[#13C3FF] transition-all hover:border-[#13C3FF]/30 hover:bg-[#13C3FF]/20"
+                                className="flex h-8 w-8 items-center justify-center border border-border bg-[#13C3FF]/10 text-[#13C3FF] transition-all hover:border-[#13C3FF]/30 hover:bg-[#13C3FF]/20"
                                 aria-label="Support on Ko-fi"
                             >
                                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">

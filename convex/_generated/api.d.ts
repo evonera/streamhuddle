@@ -10,6 +10,7 @@
 
 import type * as admin from "../admin.js";
 import type * as auth from "../auth.js";
+import type * as avatars from "../avatars.js";
 import type * as clipActions from "../clipActions.js";
 import type * as clipQueue from "../clipQueue.js";
 import type * as clipWorkflow from "../clipWorkflow.js";
@@ -29,6 +30,8 @@ import type * as r2 from "../r2.js";
 import type * as rateLimit from "../rateLimit.js";
 import type * as roster from "../roster.js";
 import type * as seed from "../seed.js";
+import type * as streamerData from "../streamerData.js";
+import type * as streamerProfiles from "../streamerProfiles.js";
 import type * as syncAvatars from "../syncAvatars.js";
 import type * as twitch from "../twitch.js";
 import type * as twitchOAuth from "../twitchOAuth.js";
@@ -45,6 +48,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   admin: typeof admin;
   auth: typeof auth;
+  avatars: typeof avatars;
   clipActions: typeof clipActions;
   clipQueue: typeof clipQueue;
   clipWorkflow: typeof clipWorkflow;
@@ -64,6 +68,8 @@ declare const fullApi: ApiFromModules<{
   rateLimit: typeof rateLimit;
   roster: typeof roster;
   seed: typeof seed;
+  streamerData: typeof streamerData;
+  streamerProfiles: typeof streamerProfiles;
   syncAvatars: typeof syncAvatars;
   twitch: typeof twitch;
   twitchOAuth: typeof twitchOAuth;

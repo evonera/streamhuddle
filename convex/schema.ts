@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from "convex/server"
 import { v } from "convex/values"
+import { streamerDataValidator } from "./streamerData"
 
 // Rate limiting uses @convex-dev/rate-limiter component which manages its own tables.
 // Better Auth handles identity tables (user, session, account, verification) via @convex-dev/better-auth.
@@ -28,12 +29,54 @@ export default defineSchema({
     authId: userFields.authId,
     bio: userFields.bio,
     avatar: userFields.avatar,
+    // Legacy lease field: ignored by the one-request upload flow. Retained so
+    // deployments with older records can accept the new schema without a backfill.
+    avatarUploadPending: v.optional(v.boolean()),
     isPro: userFields.isPro,
     dodoCustomerId: userFields.dodoCustomerId,
     role: userFields.role,
     favoriteStreamer: userFields.favoriteStreamer,
     updatedAt: userFields.updatedAt,
-  }).index("authId", ["authId"]).index("by_dodoCustomerId", ["dodoCustomerId"]),
+  }).index("authId", ["authId"]).index("by_dodoCustomerId", ["dodoCustomerId"])
+    .index("by_avatar", ["avatar"]),
+
+  avatarUploads: defineTable({
+    userId: v.id("users"),
+    expiresAt: v.number(),
+  }).index("by_userId", ["userId"]),
+
+  streamerProfiles: defineTable({
+    username: v.string(),
+    data: v.optional(streamerDataValidator),
+    expiresAt: v.number(),
+    lease: v.optional(v.string()),
+    leaseExpiresAt: v.optional(v.number()),
+    purgeAt: v.number(),
+  }).index("by_username", ["username"]).index("by_purgeAt", ["purgeAt"]),
+
+  // Only verified payment events write entitlements. Reversal tombstones may
+  // arrive before payment.succeeded, so user/customer fields start optional.
+  proPayments: defineTable({
+    paymentId: v.string(),
+    userId: v.optional(v.id("users")),
+    customerId: v.optional(v.string()),
+    productId: v.optional(v.string()),
+    paid: v.boolean(),
+    refunded: v.boolean(),
+    active: v.boolean(),
+  }).index("by_paymentId", ["paymentId"])
+    .index("by_customerId", ["customerId"])
+    .index("by_user", ["userId"])
+    .index("by_user_and_active", ["userId", "active"]),
+
+  proPaymentDisputes: defineTable({
+    disputeId: v.string(),
+    paymentId: v.string(),
+    blocked: v.boolean(),
+    eventAt: v.number(),
+  }).index("by_disputeId", ["disputeId"])
+    .index("by_paymentId", ["paymentId"])
+    .index("by_paymentId_and_blocked", ["paymentId", "blocked"]),
 
   // 1. Events: General containers for tournaments/shows
   events: defineTable({
@@ -175,7 +218,8 @@ export default defineSchema({
     .index("by_creator_and_status", ["creatorId", "status"])
     .index("by_creator_status_upvotes", ["creatorId", "status", "upvotes"])
     .index("by_creator_and_createdAt", ["creatorId", "createdAt"])
-    .index("by_creator_and_url", ["creatorId", "clipUrl"]),
+    .index("by_creator_and_url", ["creatorId", "clipUrl"])
+    .index("by_creator_url_status", ["creatorId", "clipUrl", "status"]),
 
   // 10. Clip Queue Votes: One vote per user per queue item
   clipQueueVotes: defineTable({

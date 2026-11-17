@@ -182,6 +182,8 @@ export interface PricingTableOneProps extends VariantProps<
   title?: string;
   description?: string;
   onPlanSelect?: (planId: string) => void;
+  disabledPlanIds?: Array<string>;
+  pendingPlanId?: string;
 }
 
 export function PricingTableOne({
@@ -190,6 +192,8 @@ export function PricingTableOne({
   title,
   description,
   onPlanSelect,
+  disabledPlanIds = [],
+  pendingPlanId,
   size,
   theme = "minimal",
 }: PricingTableOneProps) {
@@ -277,6 +281,7 @@ export function PricingTableOne({
                       )}
                       {plan.monthlyPrice === "0" ? "Free" : plan.monthlyPrice}
                     </span>
+                    {plan.badge && <p className="mt-2 text-sm text-muted-foreground">{plan.badge}</p>}
                   </div>
 
                 <Separator
@@ -318,6 +323,8 @@ export function PricingTableOne({
                   <Button
                     className={buttonVariants({ theme })}
                     onClick={() => onPlanSelect?.(plan.id)}
+                    disabled={disabledPlanIds.includes(plan.id) || !!pendingPlanId}
+                    aria-busy={pendingPlanId === plan.id}
                     aria-label={`Select ${plan.title} plan`}
                   >
                     {theme === "classic" && plan.highlight && (
