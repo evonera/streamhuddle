@@ -119,7 +119,9 @@ export default defineSchema({
     .index("by_event", ["eventId"])
     .index("by_creator", ["creatorId"]),
 
-  // 4. Live Status Cache: Updated by crons every 10 mins (Will be phased out in favor of denormalized creators table, kept for backward compatibility during migration)
+  // 4. Live Status Cache: DEPRECATED, no longer written. Live status lives on
+  // `creators` (isLive/viewerCount/streamTitle) and in `pollLive`. Kept only so
+  // existing rows still validate; safe to clear and drop later.
   liveStatusCache: defineTable({
     creatorId: v.id("creators"),
     isLive: v.boolean(),
@@ -129,6 +131,24 @@ export default defineSchema({
   })
     .index("by_creator", ["creatorId"])
     .index("by_isLive", ["isLive"]),
+
+  // 4b. Live-status poll state (convex/polling.ts). Two singleton docs kept
+  // deliberately tiny because the poller reads them every few minutes.
+  // Bounded by the active roster size (hundreds), well under array limits.
+  pollTargets: defineTable({
+    twitch: v.array(v.string()), // usernames to poll on Twitch
+    kick: v.array(v.string()),   // usernames to poll on Kick
+    builtAt: v.number(),         // ms; rebuilt when stale or invalidated
+  }),
+  pollLive: defineTable({
+    // Creators currently live, with the values last written to their docs.
+    live: v.array(v.object({
+      platform: v.union(v.literal("twitch"), v.literal("kick")),
+      username: v.string(),
+      viewerCount: v.optional(v.number()),
+      streamTitle: v.optional(v.string()),
+    })),
+  }),
 
   // 5. Custom Layouts: User saved rosters (e.g. "Night Stream")
   layouts: defineTable({

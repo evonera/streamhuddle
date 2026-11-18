@@ -2,6 +2,7 @@ import { internalMutation, internalAction } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import suData from "./su-seed-data.json";
+import { invalidatePollTargets } from "./polling";
 export const seedSUData = internalAction({
   args: {
     creators: v.array(v.object({
@@ -100,6 +101,7 @@ export const commitSeedData = internalMutation({
         rosterSet.add(rosterKey);
       }
     }
+    await invalidatePollTargets(ctx);
     return null;
   }
 });
