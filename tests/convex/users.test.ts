@@ -28,6 +28,8 @@ describe("auth enforcement on the wrappers", () => {
     expect(me?.email).toBe("ada@example.com")
     expect(me?.bio).toBeUndefined()
     expect(me?.avatarUrl).toBeNull()
+    expect(me).not.toHaveProperty("avatar")
+    expect(me).not.toHaveProperty("avatarUploadPending")
   })
 
   test("an identity without a live session is not authenticated", async () => {
@@ -85,6 +87,12 @@ describe("updateProfile bio validation", () => {
 })
 
 describe("avatar storage-id handling", () => {
+  test("retired upload URLs cannot mint storage capabilities", async () => {
+    const t = initConvexTest()
+    const { asUser } = await seedAuthedUser(t)
+    await expect(asUser.mutation(api.users.generateAvatarUploadUrl, {})).rejects.toThrow(/Reload the page/)
+  })
+
   test("allows supported image formats only when they are under 5 MB", () => {
     for (const type of ["image/jpeg", "image/png", "image/webp", "image/gif"]) {
       expect(isAllowedAvatarMetadata(5 * 1024 * 1024, type)).toBe(true)
@@ -97,6 +105,9 @@ describe("avatar storage-id handling", () => {
   test("updateAvatar rejects a storage id whose blob does not exist", async () => {
     const t = initConvexTest()
     const { asUser } = await seedAuthedUser(t)
+    const appUser = await asUser.query(api.users.getMe, {})
+    if (!appUser) throw new Error("Expected seeded user")
+    await t.run((ctx) => ctx.db.patch(appUser._id, { avatarUploadPending: true }))
     const storageId = await t.run(async (ctx) => {
       const id = await ctx.storage.store(new Blob(["gone"]))
       await ctx.storage.delete(id)
@@ -107,6 +118,19 @@ describe("avatar storage-id handling", () => {
       .catch((e: unknown) => e)
     expect(err).toBeInstanceOf(ConvexError)
     expect((err as ConvexError<{ code: string }>).data.code).toBe("VAL_3001")
+  })
+
+  test("updateAvatar requires an outstanding upload lease", async () => {
+    const t = initConvexTest()
+    const { asUser } = await seedAuthedUser(t)
+    const storageId = await t.run((ctx) => ctx.storage.store(new Blob(["image"], { type: "image/png" })))
+
+    const err = await asUser.mutation(api.users.updateAvatar, { storageId }).catch((error: unknown) => error)
+    expect(err).toBeInstanceOf(ConvexError)
+    expect((err as ConvexError<{ code: string; field?: string }>).data).toMatchObject({
+      code: "VAL_3001",
+      field: "storageId",
+    })
   })
 
 })

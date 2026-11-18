@@ -4,10 +4,12 @@ import { v } from "convex/values"
 
 import { internal } from "./_generated/api"
 import { httpAction, internalMutation } from "./_generated/server"
-import { authComponent, createAuth } from "./auth"
+import { createAuth } from "./auth"
+import { uploadAvatar } from "./avatars"
 import { resend } from "./email"
 import { getAllowedOrigins } from "./origins"
 import { consumeLimit } from "./rateLimit"
+import { getProfile } from "./streamerProfiles"
 
 // ============================================================================
 // Internal mutation for HTTP rate limiting
@@ -43,11 +45,62 @@ export const checkApiRateLimit = internalMutation({
 // Create base HTTP router
 const http = httpRouter()
 
-// Register Better Auth routes lazily so Better Auth is not initialized at
-// module load. This reduces http.ts memory footprint during `convex deploy`.
-// No CORS/trustedOrigins passed — this app uses the TanStack Start proxy at
-// src/routes/api/auth/$.ts, so browser→Convex auth traffic is never cross-origin.
-authComponent.registerRoutesLazy(http, createAuth)
+http.route({ path: "/streamer-profile", method: "GET", handler: getProfile })
+
+// Better Auth endpoints are reachable through Convex Site as well as the app
+// proxy. Require a shared server-only header for browser-facing routes so a
+// direct caller cannot select arbitrary rate-limit identities. Only JWKS and
+// OIDC discovery stay public; browser and SSR token requests use the app proxy.
+const authRequestHandler = httpAction(async (ctx, request) => {
+  const path = new URL(request.url).pathname
+  const isPublicConvexEndpoint =
+    request.method === "GET" &&
+    ["/api/auth/convex/jwks", "/api/auth/convex/.well-known/openid-configuration"].includes(path)
+  const proxySecret = process.env.AUTH_PROXY_SECRET
+
+  if (!isPublicConvexEndpoint) {
+    if (!proxySecret) {
+      return new Response("Auth proxy is not configured", { status: 503 })
+    }
+    if (request.headers.get("x-streamhuddle-auth-proxy") !== proxySecret) {
+      return new Response("Unauthorized", { status: 401 })
+    }
+  }
+
+  const headers = new Headers(request.headers)
+  if (headers.get("x-streamhuddle-auth-proxy") !== proxySecret || !proxySecret) {
+    headers.delete("x-streamhuddle-client-ip")
+    headers.delete("x-better-auth-forwarded-host")
+    headers.delete("x-better-auth-forwarded-proto")
+  }
+  headers.delete("x-streamhuddle-auth-proxy")
+  headers.delete("cf-connecting-ip")
+  headers.delete("x-forwarded-for")
+  headers.delete("x-real-ip")
+  headers.delete("x-forwarded-host")
+  headers.delete("x-forwarded-proto")
+  const originalHost = headers.get("x-better-auth-forwarded-host")
+  const originalProto = headers.get("x-better-auth-forwarded-proto")
+  if (originalHost) headers.set("x-forwarded-host", originalHost)
+  if (originalProto) headers.set("x-forwarded-proto", originalProto)
+
+  return await createAuth(ctx).handler(new Request(request, { headers }))
+})
+
+http.route({ pathPrefix: "/api/auth/", method: "GET", handler: authRequestHandler })
+http.route({ pathPrefix: "/api/auth/", method: "POST", handler: authRequestHandler })
+http.route({
+  path: "/.well-known/openid-configuration",
+  method: "GET",
+  handler: httpAction(async (_ctx, request) =>
+    Response.redirect(
+      new URL(
+        "/api/auth/convex/.well-known/openid-configuration",
+        process.env.CONVEX_SITE_URL ?? request.url,
+      ),
+    ),
+  ),
+})
 
 // Resend delivery events webhook. Point your Resend dashboard webhook at
 // https://<your-project>.convex.site/resend-webhook and set
@@ -85,12 +138,20 @@ http.route({
   handler: httpAction(async (ctx, req) => {
     const expectedSecret = process.env.TWITCH_CLIENT_SECRET
     const identity = await ctx.auth.getUserIdentity()
-    if (!expectedSecret || req.headers.get("x-twitch-oauth-secret") !== expectedSecret || !identity) {
+    if (
+      !expectedSecret ||
+      req.headers.get("x-twitch-oauth-secret") !== expectedSecret ||
+      !identity
+    ) {
       return new Response("Unauthorized", { status: 401 })
     }
     let body: {
-      twitchUserId?: string; twitchUsername?: string; accessToken?: string;
-      refreshToken?: string; scopes?: string; expiresIn?: number
+      twitchUserId?: string
+      twitchUsername?: string
+      accessToken?: string
+      refreshToken?: string
+      scopes?: string
+      expiresIn?: number
     }
     try {
       body = await req.json()
@@ -100,7 +161,13 @@ http.route({
     if (!body || typeof body !== "object" || Array.isArray(body)) {
       return new Response("Invalid token payload", { status: 400 })
     }
-    if (!body.twitchUserId || !body.twitchUsername || !body.accessToken || !body.refreshToken || typeof body.expiresIn !== "number") {
+    if (
+      !body.twitchUserId ||
+      !body.twitchUsername ||
+      !body.accessToken ||
+      !body.refreshToken ||
+      typeof body.expiresIn !== "number"
+    ) {
       return new Response("Invalid token payload", { status: 400 })
     }
     await ctx.runMutation(internal.twitchOAuth.saveTwitchToken, {
@@ -121,32 +188,70 @@ import { createDodoWebhookHandler } from "@dodopayments/convex"
 http.route({
   path: "/dodopayments-webhook",
   method: "POST",
-  handler: process.env.DODO_PAYMENTS_WEBHOOK_SECRET 
+  handler: process.env.DODO_PAYMENTS_WEBHOOK_SECRET
     ? createDodoWebhookHandler({
-        // @ts-expect-error - Expected by dodopayments component internally even if types omit it
-        webhookSecret: process.env.DODO_PAYMENTS_WEBHOOK_SECRET,
-        onPaymentSucceeded: async (ctx, payload) => {
-          if (!payload.data.product_cart?.some(item => item.product_id === process.env.DODO_PRO_PRODUCT_ID)) return
-          
-          const customerId = payload.data.customer.customer_id;
-          if (customerId) {
-            await ctx.runMutation(internal.users.upgradeToPro, {
-              dodoCustomerId: customerId,
-            });
-          }
-        },
-        onSubscriptionActive: async (ctx, payload) => {
-          if (payload.data.product_id !== process.env.DODO_PRO_PRODUCT_ID) return
-          
-          const customerId = payload.data.customer.customer_id;
-          if (customerId) {
-            await ctx.runMutation(internal.users.upgradeToPro, {
-              dodoCustomerId: customerId,
-            });
+        // The adapter reads DODO_PAYMENTS_WEBHOOK_SECRET itself and verifies
+        // the raw body before invoking onPayload. Browser redirects grant no access.
+        onPayload: async (ctx, payload) => {
+          if (payload.type === "payment.succeeded") {
+            const payment = payload.data
+            const productId = process.env.DODO_PRO_PRODUCT_ID
+            if (
+              !productId ||
+              payment.subscription_id ||
+              payment.status !== "succeeded" ||
+              !payment.product_cart?.some(
+                (item) => item.product_id === productId && item.quantity > 0,
+              )
+            )
+              return
+            await ctx.runMutation(internal.payments.recordProPayment, {
+              paymentId: payment.payment_id,
+              customerId: payment.customer.customer_id,
+              productId,
+              appUserId:
+                typeof payment.metadata.streamhuddle_user_id === "string"
+                  ? payment.metadata.streamhuddle_user_id
+                  : undefined,
+              fullyRefunded:
+                payment.refund_status === "full" ||
+                payment.refunds.some(
+                  (refund) => !refund.is_partial && refund.status === "succeeded",
+                ),
+            })
+            for (const dispute of payment.disputes) {
+              await ctx.runMutation(internal.payments.recordProDispute, {
+                paymentId: payment.payment_id,
+                disputeId: dispute.dispute_id,
+                won: dispute.dispute_status === "dispute_won",
+                eventAt: payload.timestamp.getTime(),
+              })
+            }
+          } else if (payload.type === "refund.succeeded") {
+            // Partial refunds can be goodwill adjustments; reconcile those
+            // manually according to the refund policy, without revoking Pro.
+            if (!payload.data.is_partial) {
+              await ctx.runMutation(internal.payments.recordProRefund, {
+                paymentId: payload.data.payment_id,
+              })
+            }
+          } else if (payload.data.payload_type === "Dispute") {
+            await ctx.runMutation(internal.payments.recordProDispute, {
+              paymentId: payload.data.payment_id,
+              disputeId: payload.data.dispute_id,
+              won: payload.type === "dispute.won",
+              eventAt: payload.timestamp.getTime(),
+            })
           }
         },
       })
-    : httpAction(async () => new Response(JSON.stringify({ error: "Webhook not configured" }), { status: 503, headers: { "Content-Type": "application/json" } })),
+    : httpAction(
+        async () =>
+          new Response(JSON.stringify({ error: "Webhook not configured" }), {
+            status: 503,
+            headers: { "Content-Type": "application/json" },
+          }),
+      ),
 })
 
 // CORS configuration for custom API endpoints. Origins read from `SITE_URL` +
@@ -161,6 +266,8 @@ const corsConfig = {
 
 // Create CORS-enabled router for custom API routes
 const cors = corsRouter(http, corsConfig)
+
+cors.route({ path: "/api/avatar", method: "POST", handler: uploadAvatar })
 
 // ============================================================================
 // Public API Endpoints (rate limited with CORS)
@@ -216,8 +323,11 @@ cors.route({
   path: "/api/users",
   method: "GET",
   handler: httpAction(async (ctx, request) => {
-    if (!await ctx.auth.getUserIdentity()) {
-      return new Response(JSON.stringify({ error: "Authentication required" }), { status: 401, headers: { "Content-Type": "application/json" } })
+    if (!(await ctx.auth.getUserIdentity())) {
+      return new Response(JSON.stringify({ error: "Authentication required" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      })
     }
     const url = new URL(request.url)
     const userId = url.searchParams.get("id")
@@ -279,14 +389,20 @@ cors.route({
   path: "/api/users/list",
   method: "GET",
   handler: httpAction(async (ctx, request) => {
-    if (!await ctx.auth.getUserIdentity()) {
-      return new Response(JSON.stringify({ error: "Authentication required" }), { status: 401, headers: { "Content-Type": "application/json" } })
+    if (!(await ctx.auth.getUserIdentity())) {
+      return new Response(JSON.stringify({ error: "Authentication required" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      })
     }
     const url = new URL(request.url)
     const cursor = url.searchParams.get("cursor") || undefined
     const limit = parseInt(url.searchParams.get("limit") || "20", 10)
     if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
-      return new Response(JSON.stringify({ error: "Limit must be between 1 and 100" }), { status: 400, headers: { "Content-Type": "application/json" } })
+      return new Response(JSON.stringify({ error: "Limit must be between 1 and 100" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      })
     }
 
     // Rate limit by client IP (handles x-forwarded-for properly)

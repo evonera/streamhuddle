@@ -1,33 +1,12 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
-import { getEnv } from '@/lib/env'
+import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
+import { getRequest, setResponseStatus } from '@tanstack/react-start/server'
 import { useEffect, useState } from 'react'
 import { SITE_URL } from '@/lib/site'
+import { z } from 'zod'
+import { Button } from '@/components/ui/button'
+import { requestStreamerProfile } from '@/lib/streamer-profile.server'
 
-interface TwitchStream {
-  title: string
-  game_name: string
-  viewer_count: number
-  started_at: string
-  thumbnail_url: string
-  tags: Array<string>
-}
-
-interface TwitchChannel {
-  game_name: string
-  title: string
-  broadcaster_language: string
-}
-
-interface TwitchClip {
-  id: string
-  url: string
-  title: string
-  thumbnail_url: string
-  duration: number
-  view_count: number
-  game_id: string
-}
 import { motion } from 'motion/react'
 import Navbar from '@/components/home/navbar'
 import Footer from '@/components/home/footer'
@@ -38,118 +17,17 @@ import { StreamerControlPanel } from "@/components/clip-queue/StreamerControlPan
 import { ChatQueueListener } from "@/components/clip-queue/ChatQueueListener"
 import { useQuery } from "convex/react"
 import { api } from "@convex/_generated/api"
+import type { StreamerData } from "@convex/streamerData"
+type TwitchClip = StreamerData["clips"][number]
 
-// ─── Twitch API helpers ──────────────────────────────────────────────────────
-
-let _cachedToken: { token: string; expiresAt: number } | null = null
-
-async function getTwitchToken(): Promise<string> {
-  if (_cachedToken && Date.now() < _cachedToken.expiresAt - 60_000) {
-    return _cachedToken.token
-  }
-  const clientId = getEnv('TWITCH_CLIENT_ID')
-  const clientSecret = getEnv('TWITCH_CLIENT_SECRET')
-  if (!clientId || !clientSecret) throw new Error('Missing TWITCH_CLIENT_ID or TWITCH_CLIENT_SECRET')
-
-  const res = await fetch('https://id.twitch.tv/oauth2/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      client_id: clientId,
-      client_secret: clientSecret,
-      grant_type: 'client_credentials',
-    }),
-  })
-  if (!res.ok) throw new Error('Failed to get Twitch token')
-  const data = await res.json()
-  _cachedToken = { token: data.access_token, expiresAt: Date.now() + data.expires_in * 1000 }
-  return _cachedToken.token
-}
-
-async function twitchFetch(path: string) {
-  const clientId = getEnv('TWITCH_CLIENT_ID')
-  const token = await getTwitchToken()
-  const res = await fetch(`https://api.twitch.tv/helix${path}`, {
-    headers: {
-      'Client-ID': clientId as string,
-      Authorization: `Bearer ${token}`,
-    },
-  })
-  if (!res.ok) throw new Error(`Twitch API error: ${res.status} ${path}`)
-  return res.json()
-}
-
-// ─── Server function ─────────────────────────────────────────────────────────
-
+// Provider work, cache leases, and rate budgets are shared across all app
+// instances in Convex. This server function only forwards trusted edge identity.
 const fetchStreamerData = createServerFn({ method: 'GET' })
-  .validator((d: { username: string }) => d)
+  .validator(z.object({ username: z.string() }))
   .handler(async ({ data }) => {
-    const { username } = data
-
-    // 1. Get user
-    let usersData
-    try {
-      usersData = await twitchFetch(`/users?login=${username}`)
-    } catch (err: any) {
-      console.error("TWITCH_FETCH_ERROR", err)
-      const rawError = err.message || String(err)
-      const safeError = rawError.includes('TWITCH_CLIENT') 
-        ? "Server is missing Twitch API credentials."
-        : rawError
-      return { user: null, stream: null, channel: null, clips: [], error: safeError }
-    }
-    const user = usersData.data?.[0]
-    if (!user) return { user: null, stream: null, channel: null, clips: [], error: "User not found on Twitch" }  
-    
-    const broadcasterId = user.id
-
-    // 2. Get live status, channel info, clips in parallel
-    let streamsData: any = { data: [] }
-    let channelData: any = { data: [] }
-    let clipsData: any = { data: [] }
-    try {
-      ;[streamsData, channelData, clipsData] = await Promise.all([
-        twitchFetch(`/streams?user_id=${broadcasterId}`),
-        twitchFetch(`/channels?broadcaster_id=${broadcasterId}`),
-        twitchFetch(`/clips?broadcaster_id=${broadcasterId}&first=6`),
-      ])
-    } catch (err) {
-      console.error("TWITCH_FETCH_PARALLEL_ERROR", err)
-    }
-
-    const stream = (streamsData.data?.[0] as TwitchStream | undefined) ?? null
-    const channel = (channelData.data?.[0] as TwitchChannel | undefined) ?? ({} as TwitchChannel)
-    const clips = (clipsData.data as Array<TwitchClip> | undefined) ?? []
-
-    return {
-      user: {
-        id: user.id,
-        login: user.login,
-        displayName: user.display_name,
-        profileImageUrl: user.profile_image_url,
-        offlineImageUrl: user.offline_image_url,
-        description: user.description,
-        viewCount: user.view_count,
-      },
-      stream: stream
-        ? {
-            title: stream.title,
-            gameName: stream.game_name,
-            viewerCount: stream.viewer_count,
-            startedAt: stream.started_at,
-            thumbnailUrl: stream.thumbnail_url
-              ?.replace('{width}', '640')
-              .replace('{height}', '360'),
-            tags: stream.tags ?? [],
-          }
-        : null,
-      channel: {
-        gameName: channel.game_name,
-        title: channel.title,
-        language: channel.broadcaster_language,
-      },
-      clips,
-    }
+    const profile = await requestStreamerProfile(getRequest(), data.username)
+    if (profile.status === "rate-limited") setResponseStatus(429)
+    return profile
   })
 
 // ─── Route ───────────────────────────────────────────────────────────────────
@@ -209,12 +87,18 @@ function getStreamDuration(startedAt: string): string {
 
 function StreamerProfilePage() {
   const data = Route.useLoaderData()
+  const router = useRouter()
+  const [retrying, setRetrying] = useState(false)
+  const retry = async () => {
+    setRetrying(true)
+    try { await router.invalidate() } catch { /* retain the useful retry state */ } finally { setRetrying(false) }
+  }
   const [parentDomain, setParentDomain] = useState(() => new URL(SITE_URL).hostname)
 
-  const creator = useQuery(api.creators.getByUsername, {
+  const creator = useQuery(api.creators.getByUsername, data.user ? {
     platform: "twitch",
-    username: data?.user?.login ?? "",
-  })
+    username: data.user.login,
+  } : "skip")
 
   const currentUser = useQuery(api.users.getMe)
   const twitchAccount = useQuery(api.twitchOAuth.getTwitchToken, currentUser ? {} : "skip")
@@ -229,37 +113,49 @@ function StreamerProfilePage() {
     }
   }, [])
 
-  if (!data || !data.user) return (
-    <main className="dark min-h-screen bg-[#101010] text-foreground flex items-center justify-center">
-      <div className="text-center p-8 max-w-md">
-        <h1 className="text-2xl font-bold mb-2">Streamer Not Found</h1>
-        <p className="text-white/60 mb-4">We couldn't load data for this streamer.</p>
-        {data?.error && (
-          <div className="bg-red-500/10 border border-red-500/20 rounded-md p-4 text-left">
-            <p className="text-red-400 text-sm font-mono break-words">{data.error}</p>
-          </div>
-        )}
+  if (!data.user) return (
+    <main className="min-h-screen bg-background text-foreground">
+      <Navbar />
+      <div className="mx-auto flex min-h-[70vh] max-w-md flex-col items-center justify-center gap-4 px-6 pt-24 text-center">
+        <h1 className="text-2xl font-bold">{data.status === "not-found" ? "Streamer not found" : "Unable to load streamer"}</h1>
+        <p className="text-muted-foreground">
+          {data.status === "not-found" ? "This Twitch channel doesn't exist. Check the username or choose another streamer." : data.status === "rate-limited" ? "Too many profile requests. Try again in a minute." : "Twitch is unavailable right now. Try again in a moment."}
+        </p>
+        {data.status !== "not-found" && <Button onClick={retry} disabled={retrying}>{retrying ? "Retrying…" : "Try again"}</Button>}
+        <Link to="/discover" className="text-sm underline underline-offset-4">Back to Discover</Link>
       </div>
+      <Footer />
     </main>
   )
 
   const { user, stream, channel, clips } = data
+  const channelDetails: NonNullable<StreamerData["channel"]> = channel ?? {
+    gameName: undefined,
+    title: undefined,
+    language: undefined,
+  }
   const isLive = !!stream
 
   return (
-    <main className="dark min-h-screen overflow-x-hidden bg-[#101010] text-foreground">
+    <main className="min-h-screen overflow-x-hidden bg-background text-foreground">
       <Navbar />
 
       <div className="pt-20">
+        {data.partialError && (
+          <output className="mx-auto mt-6 flex max-w-3xl flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-muted px-4 py-3 text-sm">
+            <p>Some Twitch details couldn't be loaded. Try again to refresh this profile.</p>
+            <Button variant="outline" size="sm" onClick={retry} disabled={retrying}>{retrying ? "Retrying…" : "Retry"}</Button>
+          </output>
+        )}
 
         {/* ── Hero banner ── */}
-        <section className="relative overflow-hidden border-b border-white/5">
+        <section className="relative overflow-hidden border-b border-border">
           {/* Background: offline image or blurred thumbnail */}
           <div
             className="absolute inset-0 bg-cover bg-center opacity-10 blur-2xl scale-105"
             style={{ backgroundImage: `url(${isLive ? stream.thumbnailUrl : user.offlineImageUrl || user.profileImageUrl})` }}
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-[#101010]/60 via-transparent to-[#101010]" />
+          <div className="absolute inset-0 bg-gradient-to-b from-background/60 via-transparent to-background" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-size-[24px_24px]" />
 
           <Container className="relative z-10 py-16">
@@ -274,7 +170,7 @@ function StreamerProfilePage() {
                 <img
                   src={user.profileImageUrl}
                   alt={user.displayName}
-                  className="h-28 w-28 rounded-2xl border-2 border-white/10 object-cover shadow-2xl"
+                  className="h-28 w-28 rounded-2xl border-2 border-border object-cover shadow-2xl"
                 />
                 {isLive && (
                   <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-red-500 text-white text-[9px] font-bold tracking-widest uppercase px-2 py-0.5 font-mono shadow-lg">
@@ -287,26 +183,26 @@ function StreamerProfilePage() {
               {/* Info */}
               <div className="flex flex-col gap-3 min-w-0">
                 <div>
-                  <h1 className="text-4xl md:text-5xl font-bold font-sans text-white leading-tight">
+                  <h1 className="text-4xl md:text-5xl font-bold font-sans text-foreground leading-tight">
                     {user.displayName}
                   </h1>
-                  <p className="text-white/40 font-mono text-sm mt-1">@{user.login}</p>
+                  <p className="text-muted-foreground font-mono text-sm mt-1">@{user.login}</p>
                 </div>
 
                 {isLive ? (
                   <div className="flex flex-col gap-1">
-                    <p className="text-white/80 text-sm font-medium line-clamp-1">{stream.title}</p>
+                    <p className="text-muted-foreground text-sm font-medium line-clamp-1">{stream.title}</p>
                     <div className="flex flex-wrap items-center gap-3 text-xs font-mono">
                       <span className="text-primary font-bold">{stream.gameName}</span>
-                      <span className="text-white/30">·</span>
-                      <span className="text-white/50">{formatViewerCount(stream.viewerCount)} viewers</span>
-                      <span className="text-white/30">·</span>
-                      <span className="text-white/50">Live for {getStreamDuration(stream.startedAt)}</span>
+                      <span className="text-muted-foreground">·</span>
+                      <span className="text-muted-foreground">{formatViewerCount(stream.viewerCount)} viewers</span>
+                      <span className="text-muted-foreground">·</span>
+                      <span className="text-muted-foreground">Live for {getStreamDuration(stream.startedAt)}</span>
                     </div>
                     {stream.tags.length > 0 && (
                       <div className="flex flex-wrap gap-1.5 mt-1">
                         {stream.tags.slice(0, 4).map((tag: string) => (
-                          <span key={tag} className="border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-mono text-white/50">
+                          <span key={tag} className="border border-border bg-muted px-2 py-0.5 text-[10px] font-mono text-muted-foreground">
                             {tag}
                           </span>
                         ))}
@@ -315,12 +211,12 @@ function StreamerProfilePage() {
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-white/20" />
-                    <span className="text-white/40 font-mono text-sm">Offline</span>
-                    {channel.gameName && (
+                    <span className="h-2 w-2 rounded-full bg-muted-foreground/20" />
+                    <span className="text-muted-foreground font-mono text-sm">{data.streamUnavailable ? "Live status unavailable" : "Offline"}</span>
+                    {channelDetails.gameName && (
                       <>
-                        <span className="text-white/20">·</span>
-                        <span className="text-white/40 font-mono text-xs">Usually plays {channel.gameName}</span>
+                        <span className="text-muted-foreground">·</span>
+                        <span className="text-muted-foreground font-mono text-xs">Usually plays {channelDetails.gameName}</span>
                       </>
                     )}
                   </div>
@@ -329,8 +225,8 @@ function StreamerProfilePage() {
                 {/* Stats row */}
                 <div className="flex flex-wrap gap-4 mt-1">
                   <div className="flex flex-col">
-                    <span className="text-white font-bold text-lg font-mono">{formatViewerCount(user.viewCount)}</span>
-                    <span className="text-white/30 text-[10px] font-mono uppercase tracking-widest">Total Views</span>
+                    <span className="text-foreground font-bold text-lg font-mono">{formatViewerCount(user.viewCount)}</span>
+                    <span className="text-muted-foreground text-[10px] font-mono uppercase tracking-widest">Total Views</span>
                   </div>
                 </div>
 
@@ -339,7 +235,7 @@ function StreamerProfilePage() {
                   <Link
                     to="/roster"
                     search={{ streams: user.login }}
-                    className="inline-flex items-center gap-2 bg-primary text-background font-mono font-bold tracking-widest uppercase px-5 py-2.5 text-xs hover:bg-primary/90 transition-colors active:scale-[0.97]"
+                    className="inline-flex items-center gap-2 bg-primary text-primary-foreground font-mono font-bold tracking-widest uppercase px-5 py-2.5 text-xs hover:bg-primary/90 transition-colors active:scale-[0.97]"
                   >
                     + Add to SquadView
                   </Link>
@@ -347,7 +243,7 @@ function StreamerProfilePage() {
                     href={`https://twitch.tv/${user.login}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-2 border border-white/10 text-white font-mono font-bold tracking-widest uppercase px-5 py-2.5 text-xs hover:bg-white/5 transition-colors"
+                    className="inline-flex items-center gap-2 border border-border text-foreground font-mono font-bold tracking-widest uppercase px-5 py-2.5 text-xs hover:bg-muted transition-colors"
                   >
                     <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="#9146FF">
                       <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z" />
@@ -362,17 +258,17 @@ function StreamerProfilePage() {
 
         {/* ── Live embed ── */}
         {isLive && (
-          <section className="border-b border-white/5 py-12">
+          <section className="border-b border-border py-12">
             <Container>
               <div className="flex items-center gap-2 mb-6">
                 <div className="inline-flex items-center gap-2 border border-red-500/30 bg-red-500/10 px-3 py-1 text-xs font-bold tracking-widest uppercase text-red-400 font-mono">
                   <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
                   Live Stream
                 </div>
-                <span className="text-white/30 text-xs font-mono">{formatViewerCount(stream.viewerCount)} watching now</span>
+                <span className="text-muted-foreground text-xs font-mono">{formatViewerCount(stream.viewerCount)} watching now</span>
               </div>
               <motion.div
-                className="relative w-full overflow-hidden border border-white/10 bg-black shadow-2xl"
+                className="relative w-full overflow-hidden border border-border bg-black shadow-2xl"
                 style={{ paddingBottom: '56.25%' }}
                 initial={{ opacity: 0, scale: 0.98 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -392,7 +288,7 @@ function StreamerProfilePage() {
 
         {/* ── Clip Queue (only when live + creator exists) ── */}
         {isLive && creator && (
-          <section className="border-b border-white/5 py-12">
+          <section className="border-b border-border py-12">
             <Container>
               {isStreamer && <ChatQueueListener channelName={data.user.login} creatorId={creator._id} />}
               {isStreamer ? (
@@ -406,31 +302,31 @@ function StreamerProfilePage() {
 
         {/* ── About ── */}
         {user.description && (
-          <section className="border-b border-white/5 py-12">
+          <section className="border-b border-border py-12">
             <Container>
               <div className="flex items-center gap-2 mb-6">
-                <span className="text-white/30 text-xs font-bold tracking-widest uppercase font-mono">About</span>
-                <span className="h-px flex-1 bg-white/5" />
+                <span className="text-muted-foreground text-xs font-bold tracking-widest uppercase font-mono">About</span>
+                <span className="h-px flex-1 bg-muted" />
               </div>
-              <p className="text-white/60 text-sm leading-relaxed max-w-2xl font-mono">{user.description}</p>
+              <p className="text-muted-foreground text-sm leading-relaxed max-w-2xl font-mono">{user.description}</p>
             </Container>
           </section>
         )}
 
         {/* ── Top Clips ── */}
         {clips.length > 0 && (
-          <section className="border-b border-white/5 py-12">
+          <section className="border-b border-border py-12">
             <Container>
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-2">
-                  <span className="text-white/40 text-xs font-bold tracking-widest uppercase font-mono">Top Clips</span>
-                  <span className="h-px w-8 bg-white/5" />
+                  <span className="text-muted-foreground text-xs font-bold tracking-widest uppercase font-mono">Top Clips</span>
+                  <span className="h-px w-8 bg-muted" />
                 </div>
                 <a
                   href={`https://twitch.tv/${user.login}/clips`}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-xs text-white/30 font-mono hover:text-white/60 transition-colors"
+                  className="text-xs text-muted-foreground font-mono hover:text-foreground transition-colors"
                 >
                   See all on Twitch →
                 </a>
@@ -443,7 +339,7 @@ function StreamerProfilePage() {
                     href={clip.url}
                     target="_blank"
                     rel="noreferrer"
-                    className="group relative flex flex-col overflow-hidden border border-white/5 hover:border-primary/30 bg-[#141414] hover:bg-[#181818] transition-all"
+                    className="group relative flex flex-col overflow-hidden border border-border hover:border-primary/30 bg-card hover:bg-accent transition-all"
                     initial={{ opacity: 0, y: 16 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.06 + 0.2 }}
@@ -456,7 +352,7 @@ function StreamerProfilePage() {
                         className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                       />
                       <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <div className="h-12 w-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                        <div className="h-12 w-12 rounded-full bg-muted-foreground/20 backdrop-blur-sm flex items-center justify-center">
                           <svg className="h-5 w-5 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M8 5v14l11-7z" />
                           </svg>
@@ -469,11 +365,11 @@ function StreamerProfilePage() {
 
                     {/* Info */}
                     <div className="p-3 flex flex-col gap-1">
-                      <p className="text-white text-xs font-medium line-clamp-1 group-hover:text-primary transition-colors">
+                      <p className="text-foreground text-xs font-medium line-clamp-1 group-hover:text-primary transition-colors">
                         {clip.title}
                       </p>
                       <div className="flex items-center justify-between">
-                        <span className="text-white/30 text-[10px] font-mono">{formatViewerCount(clip.view_count)} views</span>
+                        <span className="text-muted-foreground text-[10px] font-mono">{formatViewerCount(clip.view_count)} views</span>
                       </div>
                     </div>
                   </motion.a>
@@ -487,26 +383,26 @@ function StreamerProfilePage() {
         <section className="py-20">
           <Container>
             <motion.div
-              className="relative border border-white/8 bg-white/2 p-12 text-center overflow-hidden"
+              className="relative border border-border bg-muted/50 p-12 text-center overflow-hidden"
               initial={{ opacity: 0 }}
               whileInView={{ opacity: 1 }}
               transition={{ duration: 0.6 }}
             >
               <div
                 className="pointer-events-none absolute inset-0"
-                style={{ background: 'radial-gradient(ellipse at center, rgba(163,255,18,0.04) 0%, transparent 70%)' }}
+                style={{ background: 'radial-gradient(ellipse at center, color-mix(in oklch, var(--primary) 4%, transparent) 0%, transparent 70%)' }}
               />
-              <p className="text-white/30 font-mono text-xs tracking-widest uppercase mb-3">Multi-stream with {user.displayName}</p>
-              <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+              <p className="text-muted-foreground font-mono text-xs tracking-widest uppercase mb-3">Multi-stream with {user.displayName}</p>
+              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
                 Add to your <span className="text-primary">SquadView</span>
               </h2>
-              <p className="text-white/40 font-mono text-sm max-w-md mx-auto mb-8">
+              <p className="text-muted-foreground font-mono text-sm max-w-md mx-auto mb-8">
                 Watch {user.displayName} alongside any other streamers — all in one screen, zero tab switching.
               </p>
               <Link
                 to="/roster"
                 search={{ streams: user.login }}
-                className="inline-flex items-center gap-2 bg-primary text-background font-mono font-bold tracking-widest uppercase px-8 py-3.5 text-sm hover:bg-primary/90 transition-colors active:scale-[0.97]"
+                className="inline-flex items-center gap-2 bg-primary text-primary-foreground font-mono font-bold tracking-widest uppercase px-8 py-3.5 text-sm hover:bg-primary/90 transition-colors active:scale-[0.97]"
               >
                 Open in SquadView →
               </Link>

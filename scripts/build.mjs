@@ -37,7 +37,13 @@ export default {
     if (hasExtension) {
       try {
         const assetResponse = await env.ASSETS.fetch(request);
-        if (assetResponse.status !== 404) {
+        // Pages answers a missing file with the prerendered index.html (200).
+        // Treat HTML for a non-.html path as a miss so server routes such as
+        // /robots.txt and /llms.txt reach SSR instead of returning the homepage.
+        const isHtmlFallback =
+          !/\\.html?$/.test(url.pathname) &&
+          (assetResponse.headers.get("content-type") || "").includes("text/html");
+        if (assetResponse.status !== 404 && !isHtmlFallback) {
           return assetResponse;
         }
       } catch (err) {
@@ -63,6 +69,7 @@ export default {
       "strict-transport-security": "max-age=63072000; includeSubDomains",
       "x-content-type-options": "nosniff",
       "x-frame-options": "DENY",
+      "content-security-policy": "frame-ancestors 'none'; base-uri 'self'; object-src 'none'",
       "referrer-policy": "strict-origin-when-cross-origin",
       "permissions-policy": "camera=(), microphone=(), geolocation=()",
       "cross-origin-opener-policy": "same-origin-allow-popups",

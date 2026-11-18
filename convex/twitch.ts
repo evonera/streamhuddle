@@ -1,6 +1,7 @@
 import { internalAction, internalQuery, internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
+import type { ActionCtx } from "./_generated/server";
 
 // ----------------------------------------------------------------------------
 // Token Caching Helpers
@@ -39,7 +40,7 @@ export const cacheTwitchToken = internalMutation({
   }
 });
 
-export async function getTwitchAccessToken(ctx: any): Promise<string> {
+export async function getTwitchAccessToken(ctx: ActionCtx): Promise<string> {
   // Try cache first
   const cached = await ctx.runQuery(internal.twitch.getCachedTwitchToken);
   if (cached) return cached;
@@ -53,6 +54,7 @@ export async function getTwitchAccessToken(ctx: any): Promise<string> {
   }
 
   const response = await fetch("https://id.twitch.tv/oauth2/token", {
+    signal: AbortSignal.timeout(8_000),
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({

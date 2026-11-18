@@ -21,11 +21,13 @@ export const Route = createFileRoute("/api/twitch/callback")({
         }
         const callbackUrl = new URL("/api/twitch/callback", base)
         const clearCookie = `twitch_oauth_state=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0${base.protocol === "https:" ? "; Secure" : ""}`
-        const redirect = (path: string) => {
-          const response = Response.redirect(new URL(path, base).toString())
-          response.headers.set("Set-Cookie", clearCookie)
-          return response
-        }
+        // Response.redirect() returns immutable headers, so build the 302 by hand
+        // to be able to clear the state cookie on every outcome.
+        const redirect = (path: string) =>
+          new Response(null, {
+            status: 302,
+            headers: { Location: new URL(path, base).toString(), "Set-Cookie": clearCookie },
+          })
         const params = new URL(request.url).searchParams
         const code = params.get("code")
         const stateParam = params.get("state")
