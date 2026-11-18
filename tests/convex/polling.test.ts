@@ -79,6 +79,25 @@ describe("poll state + commitLiveStatuses", () => {
     expect(read?.live).toHaveLength(1)
   })
 
+  test("rebuild caches upcoming targets: active Twitch/YouTube creators with a platformId", async () => {
+    const t = setup()
+    const { alice } = await seed(t)
+    await t.run(async (ctx) => {
+      await ctx.db.patch(alice, { platformId: "111" })
+      const yt = await ctx.db
+        .query("creators")
+        .withIndex("by_platform_and_username", (q) => q.eq("platform", "youtube").eq("username", "yt"))
+        .first()
+      await ctx.db.patch(yt!._id, { platformId: "UC123" })
+    })
+    await t.mutation(internal.polling.rebuildPollTargets, {})
+    const cached = await t.query(internal.polling.getUpcomingTargets, {})
+    expect(cached?.targets.map((c) => [c.platform, c.username, c.platformId]).toSorted()).toEqual([
+      ["twitch", "alice", "111"],
+      ["youtube", "yt", "UC123"],
+    ])
+  })
+
   test("writes changed creators and skips unchanged or repeated updates", async () => {
     const t = setup()
     const { alice, bob } = await seed(t)
@@ -120,5 +139,6 @@ describe("poll state + commitLiveStatuses", () => {
       await invalidatePollTargets(ctx)
     })
     expect(await t.query(internal.polling.getPollState, {})).toBeNull()
+    expect(await t.query(internal.polling.getUpcomingTargets, {})).toBeNull()
   })
 })
