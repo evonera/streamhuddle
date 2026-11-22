@@ -42,7 +42,6 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { useConvexAuth } from 'convex/react'
 import Video01Icon from "@hugeicons/core-free-icons/Video01Icon"
-import { ClipModal } from "./clip/ClipModal"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { MultiClipQueueWidget } from "./clip-queue/ClipQueueWidget"
 import { RosterCreatorRow } from "./roster-creator-row"
@@ -159,7 +158,6 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
   const [isSaving, setIsSaving] = useState(false)
 
   // Clip state
-  const [clipModalOpen, setClipModalOpen] = useState(false)
 
   // Drag-and-drop (dnd-kit): sidebar rows and grid headers are draggables,
   // grid slots are droppables. Pointer sensor covers mouse + touch; the
@@ -196,11 +194,6 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
 
   const handleDndCancel = () => setDragOverlayLabel(null)
   
-  // Pro lives on the app users row (set by the payments webhook), not on the
-  // Better Auth session user, so read it from Convex.
-  const me = useQuery(api.users.getMe)
-  const isPro = me?.isPro ?? false
-
   useEffect(() => {
     // Load saved prefs first on every viewport: the persistence effect writes
     // on every change, so skipping the load on mobile would let mobile
@@ -674,6 +667,10 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
   // Filter to only actual video streams for the Universal Chat selector
   const videoStreams = activeStreams.filter(s => !s.type || s.type === "stream");
   const activeChatStream = videoStreams.find(s => s.id === activeChatId) || videoStreams[0];
+  // Clipping happens on Twitch itself: prefer the stream whose chat is open.
+  const clipTarget = activeChatStream?.platform === "twitch"
+    ? activeChatStream
+    : videoStreams.find(s => s.platform === "twitch")
 
   const filteredCreators = (creatorsQuery || []).filter(c => 
     c.username.toLowerCase().includes(searchQuery.toLowerCase())
@@ -816,15 +813,21 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
             
             <div className="flex flex-wrap items-center gap-2">
               {/* Clip Feature Button */}
-              <Button 
-                onClick={() => setClipModalOpen(true)}
-                size="sm"
-                variant="outline"
-                className="h-8 gap-1.5 text-xs"
-                title="Create a Clip"
-              >
-                <HugeiconsIcon icon={Video01Icon} className="w-3.5 h-3.5" /> Clip
-              </Button>
+              {clipTarget ? (
+                <a
+                  href={`https://www.twitch.tv/${encodeURIComponent(clipTarget.channel)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8 gap-1.5 text-xs")}
+                  title={`Open ${clipTarget.channel} on Twitch to clip it with Twitch's clip button (Alt+X)`}
+                >
+                  <HugeiconsIcon icon={Video01Icon} className="w-3.5 h-3.5" /> Clip
+                </a>
+              ) : (
+                <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" disabled title="Add a Twitch stream to clip it">
+                  <HugeiconsIcon icon={Video01Icon} className="w-3.5 h-3.5" /> Clip
+                </Button>
+              )}
 
               {/* Save Layout Button */}
               <Button 
@@ -1155,23 +1158,6 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
             </form>
           </RosterDialog>
 
-          {clipModalOpen && (
-            <ClipModal 
-              broadcasters={activeStreams
-                .filter(s => s.platform === 'twitch' && (!s.type || s.type === 'stream'))
-                .map(s => {
-                  const creator = creatorsQuery?.find(c => c._id === s.id);
-                  return {
-                    broadcasterId: creator?.platformId || "",
-                    broadcasterName: s.channel
-                  };
-                })
-                .filter(b => b.broadcasterId && /^\d+$/.test(b.broadcasterId))
-              }
-              isPro={isPro}
-              onClose={() => setClipModalOpen(false)}
-            />
-          )}
 
           {/* Escape Theater Mode Overlay */}
           {theaterMode && (

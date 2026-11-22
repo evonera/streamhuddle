@@ -64,8 +64,8 @@ The backend uses Convex with the following primary tables:
 | `roster` | Junction table mapping creators to specific events. |
 | `layouts` | User-saved multi-stream setups (e.g. "Night Stream") and snapshot views. |
 | `twitchTokens` | Cached App Access Tokens for Twitch API calls. |
-| `clips` | Records of clips being processed, generated, and downloaded via Convex R2 workflow. |
-| `twitchUserTokens` | User OAuth tokens required for Twitch integrations. |
+| `clips` | Retired clip-creation records; emptied by `clipRemoval:start` and dropped in a later deploy. |
+| `twitchUserTokens` | Retired clip-creation OAuth tokens; revoked and emptied by `clipRemoval:start`, then dropped. |
 | `clipQueue` | Viewer-submitted clips awaiting streamer review or playback. |
 | `clipQueueVotes` | Tracks individual user upvotes on clip queue items. |
 
@@ -118,7 +118,7 @@ Required variables in Convex (see `.env.convex.example` / Convex Dashboard):
 - `DODO_PRO_PRODUCT_ID`: The Lifetime Pro product ID for the selected Dodo environment.
 - `RESEND_*`: For email services.
 
-For Twitch OAuth, set `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET`, and `TWITCH_REDIRECT_BASE_URL` in Cloudflare Pages runtime variables. Configure the redirect base URL to the deployed app origin and register its `/api/twitch/callback` URL with Twitch.
+For Twitch sign-in and live-status polling, set `TWITCH_CLIENT_ID` and `TWITCH_CLIENT_SECRET` on Convex and register `${SITE_URL}/api/auth/callback/twitch` with Twitch. Cloudflare Pages needs no Twitch variables.
 
 See [docs/ENV.md](docs/ENV.md) for the complete variable list and [docs/DEPLOY.md](docs/DEPLOY.md) for the separate Cloudflare Preview and Production build settings.
 

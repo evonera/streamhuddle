@@ -736,7 +736,7 @@ function ProfileContent({ preloadedUser }: { preloadedUser: PreloadedUser }) {
         <CardHeader>
           <CardTitle className="text-lg text-destructive">Delete account</CardTitle>
           <CardDescription>
-            Permanently remove your profile, saved layouts, clip queue activity, connected Twitch tokens, and saved clip files.
+            Permanently remove your profile, saved layouts, and clip queue activity.
             This cannot be undone.
           </CardDescription>
         </CardHeader>

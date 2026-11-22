@@ -13,11 +13,11 @@ Cloudflare Pages must expose these variables during the build, separately in Pre
 
 The Preview environment should point to a non-production Convex deployment. Configure its canonical origin to the stable branch preview hostname you intend to use. Production should point to the production Convex deployment and public app origin. The production build intentionally fails when its canonical site URL is absent.
 
-Set `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET`, and `TWITCH_REDIRECT_BASE_URL` in Cloudflare Pages' runtime variables for each environment that supports Twitch OAuth. Keep the Twitch client secret as a secret. The Twitch client credentials are also needed on Convex for API polling, clips, and Twitch sign-in. Register each environment's callback URI with Twitch where needed.
+Set `TWITCH_CLIENT_ID` and `TWITCH_CLIENT_SECRET` on Convex; they power live-status polling, streamer pages, and "Continue with Twitch" sign-in. Cloudflare Pages no longer needs Twitch variables. Register each environment's Better Auth callback, `${SITE_URL}/api/auth/callback/twitch`, with Twitch.
 
 ## Convex configuration
 
-Set the matching `SITE_URL` on Convex. Add `TRUSTED_ORIGINS` only for additional frontend origins that should be allowed to call the backend. Configure auth, mail, Twitch, payments, and R2 variables from [ENV.md](ENV.md). Keep secrets in Convex, never in `wrangler.json`, source files, or `VITE_*` variables.
+Set the matching `SITE_URL` on Convex. Add `TRUSTED_ORIGINS` only for additional frontend origins that should be allowed to call the backend. Configure auth, mail, Twitch, and payments variables (plus R2 until the clip-creation teardown has run) from [ENV.md](ENV.md). Keep secrets in Convex, never in `wrangler.json`, source files, or `VITE_*` variables.
 
 Register the production and preview Twitch callback URLs only when those environments need Twitch OAuth. Use test-mode Dodo credentials and a development Convex backend for previews.
 

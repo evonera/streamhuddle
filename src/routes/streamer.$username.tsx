@@ -101,7 +101,7 @@ function StreamerProfilePage() {
   } : "skip")
 
   const currentUser = useQuery(api.users.getMe)
-  const twitchAccount = useQuery(api.twitchOAuth.getTwitchToken, currentUser ? {} : "skip")
+  const twitchAccount = useQuery(api.twitchAccount.getMyTwitchAccount, currentUser ? {} : "skip")
   const isStreamer = currentUser && creator && (
     currentUser.role === "admin" ||
     (creator.platform === "twitch" && !!creator.platformId && twitchAccount?.twitchUserId === creator.platformId)

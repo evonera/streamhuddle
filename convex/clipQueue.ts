@@ -7,6 +7,7 @@ import type { MutationCtx } from "./_generated/server"
 import type { AuthUser } from "./functions"
 import { authMutation, optionalAuthQuery } from "./functions"
 import { rateLimitWithThrow } from "./rateLimit"
+import { getLinkedTwitchId } from "./twitchAccount"
 
 async function isVerifiedStreamer(
   ctx: MutationCtx,
@@ -16,12 +17,8 @@ async function isVerifiedStreamer(
   if (user.role === "admin") return true
   if (creator.platform !== "twitch" || !creator.platformId) return false
 
-  const linkedAccount = await ctx.db
-    .query("twitchUserTokens")
-    .withIndex("by_user", (q) => q.eq("userId", user._id))
-    .first()
-
-  return linkedAccount?.twitchUserId === creator.platformId
+  // Ownership comes from the Twitch account linked through Better Auth.
+  return (await getLinkedTwitchId(ctx, user.authId)) === creator.platformId
 }
 
 // ============================================================================
