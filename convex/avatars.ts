@@ -135,7 +135,7 @@ export const uploadAvatar = httpAction(async (ctx, request) => {
   }
 })
 
-// Convex storage is used only for avatars; clips live in R2. Recover objects
+// Convex storage is used only for avatars. Recover objects
 // left by old direct URLs or a server interruption between store and attach.
 export const cleanupOrphans = internalMutation({
   args: { cursor: v.optional(v.string()), cutoff: v.optional(v.number()) },

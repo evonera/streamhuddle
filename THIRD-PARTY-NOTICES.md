@@ -9,11 +9,9 @@ StreamHuddle uses the direct runtime dependencies below. Versions are pinned in 
 | `@content-collections/mdx` | 0.2.2 | MIT |
 | `@content-collections/vite` | 0.3.0 | MIT |
 | `@convex-dev/better-auth` | 0.12.5 | Apache-2.0 |
-| `@convex-dev/r2` | 0.10.2 | Apache-2.0 |
 | `@convex-dev/rate-limiter` | 0.3.2 | Apache-2.0 |
 | `@convex-dev/react-query` | 0.1.0 | Apache-2.0 |
 | `@convex-dev/resend` | 0.2.5 | Apache-2.0 |
-| `@convex-dev/workflow` | 0.4.4 | Apache-2.0 |
 | `@dnd-kit/core` | 6.3.1 | MIT |
 | `@dnd-kit/sortable` | 10.0.0 | MIT |
 | `@dnd-kit/utilities` | 3.2.2 | MIT |

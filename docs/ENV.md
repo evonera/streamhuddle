@@ -50,7 +50,6 @@ Set these on the Convex deployment using `bun run convex:env` or the Convex dash
 | `YOUTUBE_API_KEY` | Optional | Enables YouTube upcoming-event lookups. |
 | `KICK_PROXY_URL` | Optional | HTTPS URL of a compatible Kick proxy. |
 | `TRUSTED_PROXY` | Optional | Set to `true` only when requests arrive through a trusted proxy that sets the expected client IP headers. |
-| `R2_BUCKET`, `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | Only until the clip-creation teardown has run (`npx convex run clipRemoval:start`); remove in phase 2 | Variables read by the R2 component, now used only to delete files left by the retired clip-creation feature. Endpoint format: `https://<account-id>.r2.cloudflarestorage.com`. Keep credentials server-side. |
 
 Register the Better Auth callback URI `${SITE_URL}/api/auth/callback/twitch` with Twitch for "Continue with Twitch".
 
@@ -68,4 +67,4 @@ Avatars use authenticated `POST /api/avatar` with a Convex bearer token. Both ol
 
 Streamer responses are cached in Convex for 15 seconds (missing usernames for 60 seconds). Requests are limited to 20 per IP per minute; cache misses reserve four calls from a shared 120-per-minute provider budget. A shared expiring lease coalesces misses, and a prior profile can be served during refresh or provider throttling. Cache cleanup runs every ten minutes. These are application budgets; edge protection remains a deployment concern.
 
-Clip creation has been retired: the Clip button opens the stream on Twitch, where Twitch's own clip tool is used. To tear down existing data on a deployment, run `npx convex run clipRemoval:start` once; it deletes stored clip files and rows and revokes stored Twitch user tokens. See `convex/clipRemoval.ts` for the phase-2 cleanup.
+Clip creation has been retired: the Clip button opens the stream on Twitch, where Twitch's own clip tool is used. The `R2_*` variables are no longer read and can be removed from existing deployments.
