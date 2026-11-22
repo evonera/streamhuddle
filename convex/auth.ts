@@ -122,7 +122,7 @@ export const cleanupDeletedUserData = internalMutation({
       ? await ctx.db.query("clipQueue").withIndex("by_submitter", q => q.eq("submitterId", userId)).first()
       : null
     if (submittedItem) {
-      const itemVotes = await ctx.db.query("clipQueueVotes").withIndex("by_item", q => q.eq("queueItemId", submittedItem._id)).take(batchSize)
+      const itemVotes = await ctx.db.query("clipQueueVotes").withIndex("by_item_and_user", q => q.eq("queueItemId", submittedItem._id)).take(batchSize)
       await Promise.all(itemVotes.map(vote => ctx.db.delete(vote._id)))
       if (itemVotes.length < batchSize) await ctx.db.delete(submittedItem._id)
       return await reschedule()
@@ -167,11 +167,11 @@ export const cleanupDeletedUserData = internalMutation({
     if (tokens.length === batchSize) return await reschedule()
 
     const purchase = userId
-      ? await ctx.db.query("proPayments").withIndex("by_user", q => q.eq("userId", userId)).first()
+      ? await ctx.db.query("proPayments").withIndex("by_user_and_active", q => q.eq("userId", userId)).first()
       : null
     if (purchase) {
       const disputes = await ctx.db.query("proPaymentDisputes")
-        .withIndex("by_paymentId", q => q.eq("paymentId", purchase.paymentId)).take(batchSize)
+        .withIndex("by_paymentId_and_blocked", q => q.eq("paymentId", purchase.paymentId)).take(batchSize)
       await Promise.all(disputes.map(dispute => ctx.db.delete(dispute._id)))
       if (disputes.length < batchSize) await ctx.db.delete(purchase._id)
       return await reschedule()

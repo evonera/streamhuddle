@@ -1,6 +1,8 @@
 import { v } from "convex/values"
 
+import { internal } from "./_generated/api"
 import type { Id } from "./_generated/dataModel"
+import { internalMutation } from "./_generated/server"
 import type { MutationCtx } from "./_generated/server"
 import type { AuthUser } from "./functions"
 import { authMutation, optionalAuthQuery } from "./functions"
@@ -316,14 +318,29 @@ export const deleteClip = authMutation({
       throw new Error("Unauthorized: Only the streamer can delete their queue items")
     }
 
-    // Delete any associated votes to keep the database clean
+    // Votes on a popular clip are unbounded, so remove them in scheduled batches.
+    await ctx.db.delete(args.queueItemId)
+    await ctx.scheduler.runAfter(0, internal.clipQueue.deleteVotesForItem, {
+      queueItemId: args.queueItemId,
+    })
+  },
+})
+
+const VOTE_DELETE_BATCH = 500
+
+/** Delete a removed queue item's votes in bounded batches. */
+export const deleteVotesForItem = internalMutation({
+  args: { queueItemId: v.id("clipQueue") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
     const votes = await ctx.db
       .query("clipQueueVotes")
-      .withIndex("by_item", (q) => q.eq("queueItemId", args.queueItemId))
-      .collect()
-      
-    await Promise.all(votes.map(vote => ctx.db.delete(vote._id)))
-
-    await ctx.db.delete(args.queueItemId)
+      .withIndex("by_item_and_user", (q) => q.eq("queueItemId", args.queueItemId))
+      .take(VOTE_DELETE_BATCH)
+    await Promise.all(votes.map((vote) => ctx.db.delete(vote._id)))
+    if (votes.length === VOTE_DELETE_BATCH) {
+      await ctx.scheduler.runAfter(0, internal.clipQueue.deleteVotesForItem, args)
+    }
+    return null
   },
 })

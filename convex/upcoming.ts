@@ -272,8 +272,7 @@ export const commitUpcoming = internalMutation({
     // Prune past events first so the table stays bounded.
     const stale = await ctx.db
       .query("upcomingEvents")
-      .withIndex("by_startsAt")
-      .filter((q) => q.lt(q.field("startsAt"), now))
+      .withIndex("by_startsAt", (q) => q.lt("startsAt", now))
       .take(500);
     await Promise.all(stale.map((s) => ctx.db.delete(s._id)));
 
@@ -323,8 +322,7 @@ export const getUpcomingEvents = query({
     const now = Date.now();
     const rows = await ctx.db
       .query("upcomingEvents")
-      .withIndex("by_startsAt")
-      .filter((q) => q.gte(q.field("startsAt"), now))
+      .withIndex("by_startsAt", (q) => q.gte("startsAt", now))
       .take(limit);
     return await Promise.all(
       rows.map(async (row) => {

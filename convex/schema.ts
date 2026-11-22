@@ -66,7 +66,6 @@ export default defineSchema({
     active: v.boolean(),
   }).index("by_paymentId", ["paymentId"])
     .index("by_customerId", ["customerId"])
-    .index("by_user", ["userId"])
     .index("by_user_and_active", ["userId", "active"]),
 
   proPaymentDisputes: defineTable({
@@ -75,7 +74,6 @@ export default defineSchema({
     blocked: v.boolean(),
     eventAt: v.number(),
   }).index("by_disputeId", ["disputeId"])
-    .index("by_paymentId", ["paymentId"])
     .index("by_paymentId_and_blocked", ["paymentId", "blocked"]),
 
   // 1. Events: General containers for tournaments/shows
@@ -117,7 +115,7 @@ export default defineSchema({
     team: v.optional(v.string()), // e.g. "Team A" (for esports)
   })
     .index("by_event", ["eventId"])
-    .index("by_creator", ["creatorId"]),
+    .index("by_creator_and_event", ["creatorId", "eventId"]),
 
   // 4. Live Status Cache: DEPRECATED, no longer written. Live status lives on
   // `creators` (isLive/viewerCount/streamTitle) and in `pollLive`. Kept only so
@@ -234,11 +232,10 @@ export default defineSchema({
     upvotes: v.number(),
     createdAt: v.number(),
   })
+    // Upvotes patch this table constantly, so keep only indexes that are read.
+    // by_creator_status_upvotes also serves (creatorId, status) lookups.
     .index("by_submitter", ["submitterId"])
-    .index("by_creator_and_status", ["creatorId", "status"])
     .index("by_creator_status_upvotes", ["creatorId", "status", "upvotes"])
-    .index("by_creator_and_createdAt", ["creatorId", "createdAt"])
-    .index("by_creator_and_url", ["creatorId", "clipUrl"])
     .index("by_creator_url_status", ["creatorId", "clipUrl", "status"]),
 
   // 10. Clip Queue Votes: One vote per user per queue item
@@ -246,9 +243,9 @@ export default defineSchema({
     queueItemId: v.id("clipQueue"),
     userId: v.id("users"),
   })
+    // by_item_and_user also serves per-item lookups (queueItemId prefix).
     .index("by_user", ["userId"])
-    .index("by_item_and_user", ["queueItemId", "userId"])
-    .index("by_item", ["queueItemId"]),
+    .index("by_item_and_user", ["queueItemId", "userId"]),
 
   // 11. Upcoming Events: Scheduled streams polled from platform schedule
   // APIs (Twitch schedule, YouTube upcoming; Kick has no schedule API).

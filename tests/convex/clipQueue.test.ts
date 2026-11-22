@@ -1,7 +1,7 @@
 // @vitest-environment edge-runtime
-import { describe, expect, test } from "vitest"
+import { describe, expect, test, vi } from "vitest"
 
-import { api } from "../../convex/_generated/api"
+import { api, internal } from "../../convex/_generated/api"
 import { initConvexTest, seedAuthedUser } from "../../convex/test.helpers"
 
 describe("clip queue leaderboards", () => {
@@ -113,5 +113,54 @@ describe("clip queue submission and multi-creator boundaries", () => {
     expect(await t.query(api.clipQueue.getLiveQueueMulti, { creatorIds: [] })).toEqual([])
     await expect(t.query(api.clipQueue.getLiveQueueMulti, { creatorIds: Array.from({ length: 31 }, () => firstCreator) })).rejects.toThrow("up to 30")
     await expect(t.mutation(api.clipQueue.submitClip, { creatorId: firstCreator, clipUrl, title: "No auth" })).rejects.toThrow(/AUTH_1001/)
+  })
+})
+
+describe("clip queue vote cleanup", () => {
+  test("removing a queue item deletes its votes in bounded batches", async () => {
+    vi.useFakeTimers()
+    try {
+      const t = initConvexTest()
+      const { otherItemId, itemId } = await t.run(async (ctx) => {
+        const creatorId = await ctx.db.insert("creators", { platform: "twitch", username: "vote-cleanup" })
+        const clip = (slug: string) => ({
+          creatorId,
+          submitterName: "Viewer",
+          clipUrl: `https://clips.twitch.tv/${slug}`,
+          title: "Clip",
+          status: "approved" as const,
+          upvotes: 0,
+          createdAt: 1,
+        })
+        const itemId = await ctx.db.insert("clipQueue", clip("doomed"))
+        const otherItemId = await ctx.db.insert("clipQueue", clip("kept"))
+        // More votes than one batch so the job must reschedule itself.
+        for (let index = 0; index < 650; index++) {
+          const userId = await ctx.db.insert("users", { authId: `voter-${index}`, updatedAt: 0 })
+          await ctx.db.insert("clipQueueVotes", { queueItemId: itemId, userId })
+          if (index < 3) await ctx.db.insert("clipQueueVotes", { queueItemId: otherItemId, userId })
+        }
+        await ctx.db.delete(itemId)
+        return { itemId, otherItemId }
+      })
+
+      await t.mutation(internal.clipQueue.deleteVotesForItem, { queueItemId: itemId })
+      await t.finishAllScheduledFunctions(vi.runAllTimers)
+
+      const remaining = await t.run(async (ctx) => ({
+        deleted: await ctx.db
+          .query("clipQueueVotes")
+          .withIndex("by_item_and_user", (q) => q.eq("queueItemId", itemId))
+          .take(1),
+        kept: await ctx.db
+          .query("clipQueueVotes")
+          .withIndex("by_item_and_user", (q) => q.eq("queueItemId", otherItemId))
+          .take(10),
+      }))
+      expect(remaining.deleted).toHaveLength(0)
+      expect(remaining.kept).toHaveLength(3)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
