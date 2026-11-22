@@ -782,7 +782,7 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
         
         {/* Sleek Toolbar */}
         {!theaterMode && (
-          <div id="roster-controls" aria-label="Roster controls" className={cn("flex flex-wrap md:flex-nowrap md:overflow-x-auto max-md:max-h-[45dvh] max-md:overflow-y-auto items-center justify-between bg-card/50 backdrop-blur-md border border-border rounded-xl px-3 md:px-4 py-2 shrink-0 shadow-sm gap-3", !mobileControlsOpen && "max-md:hidden")}>
+          <div id="roster-controls" aria-label="Roster controls" className={cn("flex flex-wrap max-md:max-h-[45dvh] max-md:overflow-y-auto items-center justify-between bg-card/50 backdrop-blur-md border border-border rounded-xl px-3 md:px-4 py-2 shrink-0 shadow-sm gap-3", !mobileControlsOpen && "max-md:hidden")}>
           <div className="flex flex-wrap items-center gap-2">
             {!leftSidebarOpen && (
               <button type="button" aria-label="Open roster sidebar" onClick={() => setLeftSidebarOpen(true)} className="hidden md:block text-muted-foreground hover:text-foreground">

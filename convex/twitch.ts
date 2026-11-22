@@ -126,16 +126,22 @@ export const fetchTwitchUsers = internalAction({
   }
 });
 
+/**
+ * Fetch live streams for the given logins. `failedLogins` lists every login
+ * whose chunk request failed: its live status is unknown, so callers must not
+ * treat it as offline.
+ */
 export const fetchTwitchStreams = internalAction({
   args: { logins: v.array(v.string()) },
-  returns: v.array(v.any()),
+  returns: v.object({ streams: v.array(v.any()), failedLogins: v.array(v.string()) }),
   handler: async (ctx, args) => {
-    if (args.logins.length === 0) return [];
-    
+    const failedLogins: Array<string> = [];
+    if (args.logins.length === 0) return { streams: [], failedLogins };
+
     // Twitch usernames must be alphanumeric/underscores only and not contain spaces.
     // Invalid characters will cause Twitch to throw a 400 Malformed query params error.
     const validLogins = args.logins.filter(u => /^[a-zA-Z0-9_]+$/.test(u));
-    if (validLogins.length === 0) return [];
+    if (validLogins.length === 0) return { streams: [], failedLogins };
     
     const token = await getTwitchAccessToken(ctx);
     const clientId = process.env.TWITCH_CLIENT_ID;
@@ -148,20 +154,27 @@ export const fetchTwitchStreams = internalAction({
       const url = new URL("https://api.twitch.tv/helix/streams");
       chunk.forEach(login => url.searchParams.append("user_login", login));
 
-      const response = await fetch(url.toString(), {
-        headers: {
-          "Client-ID": clientId!,
-          "Authorization": `Bearer ${token}`
+      try {
+        const response = await fetch(url.toString(), {
+          signal: AbortSignal.timeout(8_000),
+          headers: {
+            "Client-ID": clientId!,
+            "Authorization": `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json() as { data: Array<any> };
+          allStreams.push(...data.data);
+        } else {
+          console.error("Twitch stream fetch failed:", response.status, await response.text());
+          failedLogins.push(...chunk);
         }
-      });
-      
-      if (response.ok) {
-        const data = await response.json() as { data: Array<any> };
-        allStreams.push(...data.data);
-      } else {
-        console.error("Twitch stream fetch failed:", await response.text(), "URL:", url.toString());
+      } catch (error) {
+        console.error("Twitch stream fetch errored:", error);
+        failedLogins.push(...chunk);
       }
     }
-    return allStreams;
+    return { streams: allStreams, failedLogins };
   }
 });

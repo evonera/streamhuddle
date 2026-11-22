@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import suData from "./su-seed-data.json";
 import { invalidatePollTargets } from "./polling";
+import { normalizeUsername } from "./constants";
 export const seedSUData = internalAction({
   args: {
     creators: v.array(v.object({
@@ -81,7 +82,7 @@ export const commitSeedData = internalMutation({
       if (!creatorId) {
         creatorId = await ctx.db.insert("creators", {
           platform: c.platform as any,
-          username: c.username,
+          username: normalizeUsername(c.platform, c.username),
           platformId: c.platformId,
           avatarUrl: c.avatarUrl,
           description: c.description,
@@ -223,7 +224,7 @@ export const commitPremadeList = internalMutation({
       const existing = await ctx.db
         .query("creators")
         .withIndex("by_platform_and_username", q => 
-          q.eq("platform", c.platform).eq("username", c.username)
+          q.eq("platform", c.platform).eq("username", normalizeUsername(c.platform, c.username))
         )
         .first();
       
@@ -231,7 +232,7 @@ export const commitPremadeList = internalMutation({
       if (!creatorId) {
         creatorId = await ctx.db.insert("creators", {
           platform: c.platform,
-          username: c.username,
+          username: normalizeUsername(c.platform, c.username),
           platformId: c.platformId,
           avatarUrl: c.avatarUrl,
           description: c.description,
@@ -255,4 +256,46 @@ export const commitPremadeList = internalMutation({
       streams
     });
   }
+});
+
+/**
+ * One-off repair: lowercase creator usernames stored in mixed case by older
+ * seeds, so `/streamer/$username` and admin lookups resolve them. Processes a
+ * page at a time and schedules itself until done. A row whose lowercase twin
+ * already exists is left alone and logged for manual merging.
+ *
+ * Run once per deployment: `npx convex run seed:normalizeCreatorUsernames`.
+ */
+export const normalizeCreatorUsernames = internalMutation({
+  args: { cursor: v.optional(v.union(v.string(), v.null())) },
+  returns: v.object({ fixed: v.number(), conflicts: v.array(v.string()), isDone: v.boolean() }),
+  handler: async (ctx, args) => {
+    const page = await ctx.db
+      .query("creators")
+      .paginate({ numItems: 100, cursor: args.cursor ?? null });
+    let fixed = 0;
+    const conflicts: Array<string> = [];
+    for (const creator of page.page) {
+      const normalized = normalizeUsername(creator.platform, creator.username);
+      if (normalized === creator.username) continue;
+      const twin = await ctx.db
+        .query("creators")
+        .withIndex("by_platform_and_username", (q) =>
+          q.eq("platform", creator.platform).eq("username", normalized),
+        )
+        .first();
+      if (twin) {
+        conflicts.push(`${creator.platform}:${creator.username} (${creator._id}) duplicates ${twin._id}`);
+        continue;
+      }
+      await ctx.db.patch(creator._id, { username: normalized });
+      fixed++;
+    }
+    if (conflicts.length > 0) console.warn("normalizeCreatorUsernames conflicts", conflicts);
+    if (fixed > 0) await invalidatePollTargets(ctx);
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(0, internal.seed.normalizeCreatorUsernames, { cursor: page.continueCursor });
+    }
+    return { fixed, conflicts, isDone: page.isDone };
+  },
 });

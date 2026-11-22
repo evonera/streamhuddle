@@ -54,8 +54,9 @@ export const createClipJob = mutation({
       .withIndex("by_user", (q) => q.eq("userId", user._id))
       .first()
 
-    if (!tokenRecord || tokenRecord.expiresAt < Date.now()) {
-      throw new Error("Twitch authentication required or expired. Please connect Twitch.")
+    // An expired access token is fine here: the clip action refreshes it with the stored refresh token.
+    if (!tokenRecord) {
+      throw new Error("Twitch authentication required. Please connect Twitch.")
     }
 
     // We no longer check if tokenRecord.twitchUserId === args.broadcasterId

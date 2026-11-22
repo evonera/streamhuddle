@@ -1,7 +1,9 @@
 import { v } from "convex/values"
 
 import { internal } from "./_generated/api"
+import type { Id } from "./_generated/dataModel"
 import { internalAction, internalMutation, internalQuery } from "./_generated/server"
+import type { ActionCtx } from "./_generated/server"
 import { r2 } from "./r2"
 import { getTwitchAccessToken } from "./twitch"
 
@@ -15,15 +17,83 @@ export const getClipUserId = internalQuery({
 
 export const getTwitchTokenByUser = internalQuery({
   args: { userId: v.string() },
+  returns: v.object({
+    tokenId: v.id("twitchUserTokens"),
+    accessToken: v.string(),
+    refreshToken: v.string(),
+    expiresAt: v.number(),
+  }),
   handler: async (ctx, args) => {
     const tokenRecord = await ctx.db
       .query("twitchUserTokens")
       .withIndex("by_user", (q) => q.eq("userId", args.userId))
       .first()
     if (!tokenRecord) throw new Error("No Twitch token connected for this user")
-    return tokenRecord.accessToken
+    return {
+      tokenId: tokenRecord._id,
+      accessToken: tokenRecord.accessToken,
+      refreshToken: tokenRecord.refreshToken,
+      expiresAt: tokenRecord.expiresAt,
+    }
   },
 })
+
+export const storeRefreshedTwitchToken = internalMutation({
+  args: {
+    tokenId: v.id("twitchUserTokens"),
+    accessToken: v.string(),
+    refreshToken: v.string(),
+    expiresIn: v.number(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.get(args.tokenId)
+    if (!existing) return null // user disconnected Twitch meanwhile
+    await ctx.db.patch(args.tokenId, {
+      accessToken: args.accessToken,
+      refreshToken: args.refreshToken,
+      expiresAt: Date.now() + args.expiresIn * 1000,
+    })
+    return null
+  },
+})
+
+const RECONNECT_TWITCH = "Twitch authorization expired. Please reconnect Twitch."
+
+/** Exchange the stored refresh token for a new user access token and persist it. */
+async function refreshUserToken(
+  ctx: ActionCtx,
+  record: { tokenId: Id<"twitchUserTokens">; refreshToken: string },
+): Promise<string> {
+  const clientId = process.env.TWITCH_CLIENT_ID
+  const clientSecret = process.env.TWITCH_CLIENT_SECRET
+  if (!clientId || !clientSecret) throw new Error("Missing TWITCH_CLIENT_ID or TWITCH_CLIENT_SECRET.")
+
+  const response = await fetch("https://id.twitch.tv/oauth2/token", {
+    method: "POST",
+    signal: AbortSignal.timeout(8_000),
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      grant_type: "refresh_token",
+      refresh_token: record.refreshToken,
+    }),
+  })
+  if (!response.ok) {
+    // 400/401 means the refresh token was revoked or is invalid: the user must reconnect.
+    console.error("Twitch token refresh failed:", response.status)
+    throw new Error(RECONNECT_TWITCH)
+  }
+  const data = (await response.json()) as { access_token: string; refresh_token: string; expires_in: number }
+  await ctx.runMutation(internal.clipActions.storeRefreshedTwitchToken, {
+    tokenId: record.tokenId,
+    accessToken: data.access_token,
+    refreshToken: data.refresh_token,
+    expiresIn: data.expires_in,
+  })
+  return data.access_token
+}
 
 export const createTwitchClip = internalAction({
   args: {
@@ -36,23 +106,35 @@ export const createTwitchClip = internalAction({
       clipRecordId: args.clipRecordId,
     })
     if (!clip) throw new Error("Clip not found")
-    const token: string = await ctx.runQuery(internal.clipActions.getTwitchTokenByUser, {
+    const record = await ctx.runQuery(internal.clipActions.getTwitchTokenByUser, {
       userId: clip.userId,
     })
+    // Refresh ahead of expiry (1 min buffer) so long-lived connections keep working.
+    let refreshed = record.expiresAt - 60_000 <= Date.now()
+    let token = refreshed ? await refreshUserToken(ctx, record) : record.accessToken
 
     // 1. Create Clip (Note: Twitch POST /helix/clips only accepts broadcaster_id and has_delay.
     // Every clip created via Twitch API captures ~30 seconds by default. The user-selected duration
     // is applied during the client-side compositing/trimming stage in WebCodecsCompositor.)
-    const response = await fetch(
-      `https://api.twitch.tv/helix/clips?broadcaster_id=${args.broadcasterId}`,
-      {
+    const createClip = (accessToken: string) =>
+      fetch(`https://api.twitch.tv/helix/clips?broadcaster_id=${args.broadcasterId}`, {
         method: "POST",
+        signal: AbortSignal.timeout(10_000),
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${accessToken}`,
           "Client-Id": process.env.TWITCH_CLIENT_ID!,
         },
-      },
-    )
+      })
+
+    let response = await createClip(token)
+    if (response.status === 401) {
+      // Twitch rotates refresh tokens, so a token refreshed moments ago can't be refreshed again.
+      if (refreshed) throw new Error(RECONNECT_TWITCH)
+      // Token was revoked or expired early: refresh once and retry.
+      token = await refreshUserToken(ctx, record)
+      refreshed = true
+      response = await createClip(token)
+    }
 
     if (!response.ok) {
       const errorText = await response.text()
