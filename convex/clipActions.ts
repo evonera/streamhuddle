@@ -41,6 +41,7 @@ export const getTwitchTokenByUser = internalQuery({
 export const storeRefreshedTwitchToken = internalMutation({
   args: {
     tokenId: v.id("twitchUserTokens"),
+    previousRefreshToken: v.string(),
     accessToken: v.string(),
     refreshToken: v.string(),
     expiresIn: v.number(),
@@ -49,6 +50,10 @@ export const storeRefreshedTwitchToken = internalMutation({
   handler: async (ctx, args) => {
     const existing = await ctx.db.get(args.tokenId)
     if (!existing) return null // user disconnected Twitch meanwhile
+    // Compare-and-set: multi-stream clips refresh in parallel, and the user may
+    // reconnect meanwhile. Only the first writer for a given grant wins, so a
+    // slower refresh can never replace newer tokens.
+    if (existing.refreshToken !== args.previousRefreshToken) return null
     await ctx.db.patch(args.tokenId, {
       accessToken: args.accessToken,
       refreshToken: args.refreshToken,
@@ -88,6 +93,7 @@ async function refreshUserToken(
   const data = (await response.json()) as { access_token: string; refresh_token: string; expires_in: number }
   await ctx.runMutation(internal.clipActions.storeRefreshedTwitchToken, {
     tokenId: record.tokenId,
+    previousRefreshToken: record.refreshToken,
     accessToken: data.access_token,
     refreshToken: data.refresh_token,
     expiresIn: data.expires_in,

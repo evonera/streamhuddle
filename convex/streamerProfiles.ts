@@ -16,10 +16,19 @@ type Reservation =
   | { kind: "fetch"; cacheId: Id<"streamerProfiles"> }
 
 export const reserve = internalMutation({
-  args: { username: v.string(), clientIp: v.string(), lease: v.string() },
+  args: {
+    username: v.string(),
+    clientIp: v.string(),
+    lease: v.string(),
+    // Set by the trusted app relay when it re-polls after a 202; the first
+    // attempt of that page load already paid for this read.
+    repoll: v.optional(v.boolean()),
+  },
   handler: async (ctx, args): Promise<Reservation> => {
-    const limit = await consumeLimit(ctx, "streamerRead", args.clientIp)
-    if (!limit.ok) return { kind: "limited", retryAfter: limit.retryAfter ?? 60_000 }
+    if (!args.repoll) {
+      const limit = await consumeLimit(ctx, "streamerRead", args.clientIp)
+      if (!limit.ok) return { kind: "limited", retryAfter: limit.retryAfter ?? 60_000 }
+    }
     const username = args.username.toLowerCase()
     const cached = await ctx.db
       .query("streamerProfiles")
@@ -161,6 +170,8 @@ export const getProfile = httpAction(async (ctx, request) => {
     username,
     clientIp: request.headers.get("x-streamhuddle-client-ip") ?? "0.0.0.0",
     lease,
+    // Only reachable with the proxy secret checked above, so callers can't forge it.
+    repoll: request.headers.get("x-streamhuddle-repoll") === "1",
   })
   if (reservation.kind === "limited")
     return Response.json(emptyStreamerData("rate-limited"), {

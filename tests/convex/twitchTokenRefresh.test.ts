@@ -98,4 +98,19 @@ describe("Twitch user token refresh", () => {
       t.action(internal.clipActions.createTwitchClip, { clipRecordId, broadcasterId: "1", duration: 30 }),
     ).rejects.toThrow(/reconnect Twitch/)
   })
+
+  test("a slower parallel refresh cannot overwrite tokens stored by the first", async () => {
+    const { t, tokenId } = await setup(Date.now() - 1_000)
+    await t.mutation(internal.clipActions.storeRefreshedTwitchToken, {
+      tokenId, previousRefreshToken: "old-refresh",
+      accessToken: "first-access", refreshToken: "first-refresh", expiresIn: 14_400,
+    })
+    await t.mutation(internal.clipActions.storeRefreshedTwitchToken, {
+      tokenId, previousRefreshToken: "old-refresh",
+      accessToken: "second-access", refreshToken: "second-refresh", expiresIn: 14_400,
+    })
+    const token = await storedToken(t, tokenId)
+    expect(token?.accessToken).toBe("first-access")
+    expect(token?.refreshToken).toBe("first-refresh")
+  })
 })

@@ -20,6 +20,7 @@ export async function requestStreamerProfile(
   url.searchParams.set("username", username.toLowerCase())
   try {
     for (let attempt = 0; attempt < 13; attempt++) {
+      if (attempt > 0) relayHeaders.set("x-streamhuddle-repoll", "1")
       const response = await fetch(url, {
         headers: relayHeaders,
         signal: AbortSignal.timeout(30_000),

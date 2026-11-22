@@ -171,4 +171,17 @@ describe("shared streamer cache and budgets", () => {
       partialError: true,
     })
   })
+
+  test("relay re-polls do not spend the caller's per-IP read budget", async () => {
+    const t = initConvexTest()
+    const lease = (n: number) => `lease-${n}`
+    // Another request holds the lease, so this caller sees "busy" and re-polls.
+    await t.mutation(internal.streamerProfiles.reserve, { username: "ada", clientIp: "198.51.100.1", lease: lease(0) })
+    for (let i = 1; i <= 25; i++) {
+      const r = await t.mutation(internal.streamerProfiles.reserve, {
+        username: "ada", clientIp: "203.0.113.20", lease: lease(i), repoll: i > 1,
+      })
+      expect(r.kind).toBe("busy")
+    }
+  })
 })
