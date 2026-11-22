@@ -96,18 +96,43 @@ async function readPollState(ctx: QueryCtx): Promise<PollState | null> {
 }
 
 /**
- * Drop the cached poll target list so the next poll rebuilds it. Call from any
- * mutation that changes rosters, active events, or polled creators.
+ * Drop the cached poll target lists (live and upcoming) so the next poll
+ * rebuilds them. Call from any mutation that changes rosters, active events,
+ * or polled creators.
  */
 export async function invalidatePollTargets(ctx: MutationCtx): Promise<void> {
   const docs = await ctx.db.query("pollTargets").take(10);
-  await Promise.all(docs.map((d) => ctx.db.delete(d._id)));
+  const upcoming = await ctx.db.query("upcomingTargets").take(10);
+  await Promise.all([...docs, ...upcoming].map((d) => ctx.db.delete(d._id)));
 }
 
 export const getPollState = internalQuery({
   args: {},
   returns: v.union(pollState, v.null()),
   handler: async (ctx) => readPollState(ctx),
+});
+
+const upcomingTarget = v.object({
+  creatorId: v.id("creators"),
+  platform: v.union(v.literal("twitch"), v.literal("youtube")),
+  platformId: v.string(),
+  username: v.string(),
+});
+
+const upcomingTargets = v.object({
+  targets: v.array(upcomingTarget),
+  builtAt: v.number(),
+});
+
+/** Cached schedule-poll targets for convex/upcoming.ts: active-roster Twitch
+ * and YouTube creators that have a platformId. Rebuilt with pollTargets. */
+export const getUpcomingTargets = internalQuery({
+  args: {},
+  returns: v.union(upcomingTargets, v.null()),
+  handler: async (ctx) => {
+    const doc = await ctx.db.query("upcomingTargets").first();
+    return doc ? { targets: doc.targets, builtAt: doc.builtAt } : null;
+  },
 });
 
 /** Expensive read: active events → roster → creator docs. */
@@ -125,26 +150,8 @@ async function loadActiveCreators(ctx: QueryCtx): Promise<Array<Doc<"creators">>
   );
 }
 
-/** Active-roster creators, slimmed to what callers need. Used by the hourly
- * upcoming-events poll; live polling uses the cached pollTargets instead. */
-export const getActiveCreators = internalQuery({
-  args: {},
-  returns: v.array(
-    v.object({
-      _id: v.id("creators"),
-      platform: v.string(),
-      username: v.string(),
-      platformId: v.optional(v.string()),
-    }),
-  ),
-  handler: async (ctx) => {
-    const creators = await loadActiveCreators(ctx);
-    return creators.map((c) => ({ _id: c._id, platform: c.platform, username: c.username, platformId: c.platformId }));
-  },
-});
-
-/** Rebuild path: run the expensive read, then cache the compact target list
- * and the current live set. */
+/** Rebuild path: run the expensive read, then cache the compact target lists
+ * (live and upcoming) and the current live set. */
 export const rebuildPollTargets = internalMutation({
   args: {},
   returns: pollState,
@@ -154,7 +161,11 @@ export const rebuildPollTargets = internalMutation({
     const twitch = new Set<string>();
     const kick = new Set<string>();
     const live = new Map<string, LiveEntry>();
+    const upcoming: Array<Infer<typeof upcomingTarget>> = [];
     for (const c of creators) {
+      if ((c.platform === "twitch" || c.platform === "youtube") && c.platformId) {
+        upcoming.push({ creatorId: c._id, platform: c.platform, platformId: c.platformId, username: c.username });
+      }
       if (c.platform !== "twitch" && c.platform !== "kick") continue;
       (c.platform === "twitch" ? twitch : kick).add(c.username);
       if (c.isLive) {
@@ -174,6 +185,7 @@ export const rebuildPollTargets = internalMutation({
 
     await invalidatePollTargets(ctx);
     await ctx.db.insert("pollTargets", { twitch: state.twitch, kick: state.kick, builtAt: state.builtAt });
+    await ctx.db.insert("upcomingTargets", { targets: upcoming, builtAt: state.builtAt });
     const liveDocs = await ctx.db.query("pollLive").take(10);
     await Promise.all(liveDocs.slice(1).map((d) => ctx.db.delete(d._id)));
     if (liveDocs[0]) await ctx.db.replace(liveDocs[0]._id, { live: state.live });

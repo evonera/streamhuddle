@@ -138,6 +138,17 @@ export default defineSchema({
     kick: v.array(v.string()),   // usernames to poll on Kick
     builtAt: v.number(),         // ms; rebuilt when stale or invalidated
   }),
+  // Schedule-poll targets for convex/upcoming.ts (hourly), rebuilt with
+  // pollTargets so the hourly poll doesn't re-read every creator doc.
+  upcomingTargets: defineTable({
+    targets: v.array(v.object({
+      creatorId: v.id("creators"),
+      platform: v.union(v.literal("twitch"), v.literal("youtube")),
+      platformId: v.string(),
+      username: v.string(),
+    })),
+    builtAt: v.number(),
+  }),
   pollLive: defineTable({
     // Creators currently live, with the values last written to their docs.
     live: v.array(v.object({

@@ -3,6 +3,7 @@ import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { getTwitchAccessToken } from "./twitch";
+import { TARGETS_MAX_AGE_MS } from "./polling";
 
 export type UpcomingDraft = {
   platform: "twitch" | "youtube" | "kick";
@@ -196,7 +197,12 @@ export const pollUpcoming = internalAction({
   args: {},
   returns: v.null(),
   handler: async (ctx) => {
-    const creators = await ctx.runQuery(internal.polling.getActiveCreators);
+    let cached = await ctx.runQuery(internal.polling.getUpcomingTargets);
+    if (!cached || Date.now() - cached.builtAt > TARGETS_MAX_AGE_MS) {
+      await ctx.runMutation(internal.polling.rebuildPollTargets);
+      cached = await ctx.runQuery(internal.polling.getUpcomingTargets);
+    }
+    const creators = cached?.targets ?? [];
     if (creators.length === 0) return null;
 
     const byName = [...creators].toSorted((a, b) => a.username.localeCompare(b.username));
@@ -207,7 +213,7 @@ export const pollUpcoming = internalAction({
     const twitchBroadcasters = rotateWindow(
       byName
         .filter((c) => c.platform === "twitch" && c.platformId)
-        .map((c) => ({ creatorId: c._id, broadcasterId: c.platformId!, username: c.username })),
+        .map((c) => ({ creatorId: c.creatorId, broadcasterId: c.platformId, username: c.username })),
       60,
       slot,
     );
@@ -215,7 +221,7 @@ export const pollUpcoming = internalAction({
     const youtubeChannels = rotateWindow(
       byName
         .filter((c) => c.platform === "youtube" && c.platformId)
-        .map((c) => ({ creatorId: c._id, channelId: c.platformId!, username: c.username })),
+        .map((c) => ({ creatorId: c.creatorId, channelId: c.platformId, username: c.username })),
       30,
       slot,
     );
