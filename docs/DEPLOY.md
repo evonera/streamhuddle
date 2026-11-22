@@ -1,6 +1,6 @@
 # Cloudflare Pages deployment
 
-The supported deployment target is Cloudflare Pages. The build command is `bun run build`, the output directory is `dist`, and the project expects Node.js 22.12+ and Bun 1.4.0. `wrangler.json` contains the Pages output configuration.
+The supported deployment target is Cloudflare Pages. The build command is `bun run build`, the output directory is `dist`, and the project expects Node.js 22.12+ and Bun 1.4.0. `wrangler.json` contains the Pages output configuration and the public build values (`VITE_CONVEX_URL`, `VITE_CONVEX_SITE_URL`, `SITE_URL`, `VITE_SITE_URL`) under `vars`; `vite.config.ts` reads them because Pages does not pass `vars` to the build. Only public values belong there. Set `AUTH_PROXY_SECRET` as a Pages secret for both production and preview (`wrangler pages secret put AUTH_PROXY_SECRET --project-name streamhuddle [--env preview]`) with the same value as the Convex deployment.
 
 ## Build variables
 
