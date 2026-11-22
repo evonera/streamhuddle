@@ -17,7 +17,7 @@ Set `TWITCH_CLIENT_ID` and `TWITCH_CLIENT_SECRET` on Convex; they power live-sta
 
 ## Convex configuration
 
-Set the matching `SITE_URL` on Convex. Add `TRUSTED_ORIGINS` only for additional frontend origins that should be allowed to call the backend. Configure auth, mail, Twitch, and payments variables (plus R2 until the clip-creation teardown has run) from [ENV.md](ENV.md). Keep secrets in Convex, never in `wrangler.json`, source files, or `VITE_*` variables.
+Set the matching `SITE_URL` on Convex. Add `TRUSTED_ORIGINS` only for additional frontend origins that should be allowed to call the backend. Configure auth, mail, Twitch, and payments variables from [ENV.md](ENV.md). Keep secrets in Convex, never in `wrangler.json`, source files, or `VITE_*` variables.
 
 Register the production and preview Twitch callback URLs only when those environments need Twitch OAuth. Use test-mode Dodo credentials and a development Convex backend for previews.
 

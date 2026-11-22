@@ -64,8 +64,6 @@ The backend uses Convex with the following primary tables:
 | `roster` | Junction table mapping creators to specific events. |
 | `layouts` | User-saved multi-stream setups (e.g. "Night Stream") and snapshot views. |
 | `twitchTokens` | Cached App Access Tokens for Twitch API calls. |
-| `clips` | Retired clip-creation records; emptied by `clipRemoval:start` and dropped in a later deploy. |
-| `twitchUserTokens` | Retired clip-creation OAuth tokens; revoked and emptied by `clipRemoval:start`, then dropped. |
 | `clipQueue` | Viewer-submitted clips awaiting streamer review or playback. |
 | `clipQueueVotes` | Tracks individual user upvotes on clip queue items. |
 
@@ -145,7 +143,7 @@ See [docs/DEPLOY.md](docs/DEPLOY.md) before configuring a Cloudflare Pages proje
 
 ## 📂 Project Structure
 
-- `convex/` — Backend logic, real-time database schemas (`schema.ts`), serverless functions (`clipQueue.ts`, `clips.ts`), and workflows.
+- `convex/` — Backend logic, real-time database schemas (`schema.ts`), serverless functions (`clipQueue.ts`, `polling.ts`), and crons.
 - `src/components/` — React UI components.
   - `clip-queue/` — Dedicated components for the clip queue feature (`ChatQueueListener.tsx`, `ClipQueueWidget.tsx`, `StreamerControlPanel.tsx`).
 - `src/routes/` — TanStack Start file-based routing. Includes core pages like `streamer.$username.tsx`.

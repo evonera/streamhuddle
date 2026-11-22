@@ -8,7 +8,6 @@
 - Twitch developer credentials for Twitch features
 - Resend credentials for email verification
 - Dodo Payments credentials only if testing checkout
-- Cloudflare R2 credentials only to run the one-off `clipRemoval:start` teardown on an existing deployment
 
 ## Install and configure
 

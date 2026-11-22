@@ -12,7 +12,6 @@ import type * as admin from "../admin.js";
 import type * as auth from "../auth.js";
 import type * as avatars from "../avatars.js";
 import type * as clipQueue from "../clipQueue.js";
-import type * as clipRemoval from "../clipRemoval.js";
 import type * as constants from "../constants.js";
 import type * as creators from "../creators.js";
 import type * as crons from "../crons.js";
@@ -24,7 +23,6 @@ import type * as http from "../http.js";
 import type * as origins from "../origins.js";
 import type * as payments from "../payments.js";
 import type * as polling from "../polling.js";
-import type * as r2 from "../r2.js";
 import type * as rateLimit from "../rateLimit.js";
 import type * as roster from "../roster.js";
 import type * as seed from "../seed.js";
@@ -48,7 +46,6 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   avatars: typeof avatars;
   clipQueue: typeof clipQueue;
-  clipRemoval: typeof clipRemoval;
   constants: typeof constants;
   creators: typeof creators;
   crons: typeof crons;
@@ -60,7 +57,6 @@ declare const fullApi: ApiFromModules<{
   origins: typeof origins;
   payments: typeof payments;
   polling: typeof polling;
-  r2: typeof r2;
   rateLimit: typeof rateLimit;
   roster: typeof roster;
   seed: typeof seed;
@@ -105,6 +101,4 @@ export declare const components: {
   rateLimiter: import("@convex-dev/rate-limiter/_generated/component.js").ComponentApi<"rateLimiter">;
   resend: import("@convex-dev/resend/_generated/component.js").ComponentApi<"resend">;
   dodopayments: import("@dodopayments/convex/_generated/component.js").ComponentApi<"dodopayments">;
-  r2: import("@convex-dev/r2/_generated/component.js").ComponentApi<"r2">;
-  workflow: import("@convex-dev/workflow/_generated/component.js").ComponentApi<"workflow">;
 };

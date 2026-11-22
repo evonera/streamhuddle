@@ -183,52 +183,7 @@ export default defineSchema({
     expiresAt: v.number(), // timestamp ms
   }),
 
-  // 7. Clips: RETIRED clip-creation records. Emptied by clipRemoval:start;
-  //    drop this table in the phase-2 deploy (see convex/clipRemoval.ts).
-  clips: defineTable({
-    userId: v.string(),           // Better Auth user authId
-    workflowId: v.optional(v.string()), // Convex Workflow ID
-    status: v.union(
-      v.literal("creating"),      // Twitch API creating clips
-      v.literal("downloading"),   // Downloading from Twitch CDN to R2
-      v.literal("ready"),         // Clips available for client compositing
-      v.literal("failed"),
-    ),
-    streams: v.array(v.object({   // Which streams were clipped
-      broadcasterId: v.string(),
-      broadcasterName: v.string(),
-      clipId: v.optional(v.string()),      // Twitch clip ID
-      r2Key: v.optional(v.string()),       // R2 storage key for downloaded .mp4
-    })),
-    duration: v.number(),         // Clip duration in seconds
-    layout: v.optional(v.union(
-      v.literal("split-screen"),
-      v.literal("sequential-ranking"),
-      v.literal("9:16-vertical")
-    )),
-    caption: v.optional(v.string()), // Custom dynamic text for the clip
-    removeWatermark: v.optional(v.boolean()), // Pro feature tracking
-    isMultiPov: v.boolean(),
-    createdAt: v.number(),
-  })
-    .index("by_user", ["userId"])
-    .index("by_status", ["status"]),
-
-  // 8. Twitch User Tokens: RETIRED clip-creation OAuth tokens. Revoked and
-  //    emptied by clipRemoval:start; drop in the phase-2 deploy.
-  twitchUserTokens: defineTable({
-    userId: v.string(),           // App users table ID
-    twitchUserId: v.string(),     // Twitch user ID
-    twitchUsername: v.string(),
-    accessToken: v.string(),      // OAuth access token
-    refreshToken: v.string(),     // OAuth refresh token
-    scopes: v.string(),           // Space-separated scopes
-    expiresAt: v.number(),        // Token expiry timestamp
-  })
-    .index("by_user", ["userId"])
-    .index("by_twitchUserId", ["twitchUserId"]),
-
-  // 9. Clip Queue: Viewer-submitted clips for streamer pages
+  // 7. Clip Queue: Viewer-submitted clips for streamer pages
   clipQueue: defineTable({
     creatorId: v.id("creators"),
     submitterId: v.optional(v.id("users")),
@@ -251,7 +206,7 @@ export default defineSchema({
     .index("by_creator_status_upvotes", ["creatorId", "status", "upvotes"])
     .index("by_creator_url_status", ["creatorId", "clipUrl", "status"]),
 
-  // 10. Clip Queue Votes: One vote per user per queue item
+  // 8. Clip Queue Votes: One vote per user per queue item
   clipQueueVotes: defineTable({
     queueItemId: v.id("clipQueue"),
     userId: v.id("users"),
@@ -260,7 +215,7 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_item_and_user", ["queueItemId", "userId"]),
 
-  // 11. Upcoming Events: Scheduled streams polled from platform schedule
+  // 9. Upcoming Events: Scheduled streams polled from platform schedule
   // APIs (Twitch schedule, YouTube upcoming; Kick has no schedule API).
   // Powers the Discover "Upcoming" section and event blog/streamlist curation.
   upcomingEvents: defineTable({
