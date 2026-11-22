@@ -183,7 +183,8 @@ export default defineSchema({
     expiresAt: v.number(), // timestamp ms
   }),
 
-  // 7. Clips: Records of clips being created/processed
+  // 7. Clips: RETIRED clip-creation records. Emptied by clipRemoval:start;
+  //    drop this table in the phase-2 deploy (see convex/clipRemoval.ts).
   clips: defineTable({
     userId: v.string(),           // Better Auth user authId
     workflowId: v.optional(v.string()), // Convex Workflow ID
@@ -213,7 +214,8 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_status", ["status"]),
 
-  // 8. Twitch User Tokens: User OAuth tokens for clip creation
+  // 8. Twitch User Tokens: RETIRED clip-creation OAuth tokens. Revoked and
+  //    emptied by clipRemoval:start; drop in the phase-2 deploy.
   twitchUserTokens: defineTable({
     userId: v.string(),           // App users table ID
     twitchUserId: v.string(),     // Twitch user ID

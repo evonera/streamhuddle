@@ -29,8 +29,6 @@ import { Route as BlogSlugRouteImport } from './routes/blog/$slug'
 import { Route as CategoryCategoryIdRouteImport } from './routes/category.$categoryId'
 import { Route as StreamerUsernameRouteImport } from './routes/streamer.$username'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
-import { Route as ApiTwitchCallbackRouteImport } from './routes/api/twitch/callback'
-import { Route as ApiTwitchConnectRouteImport } from './routes/api/twitch/connect'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -131,16 +129,6 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiTwitchCallbackRoute = ApiTwitchCallbackRouteImport.update({
-  id: '/api/twitch/callback',
-  path: '/api/twitch/callback',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiTwitchConnectRoute = ApiTwitchConnectRouteImport.update({
-  id: '/api/twitch/connect',
-  path: '/api/twitch/connect',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -162,8 +150,6 @@ export interface FileRoutesByFullPath {
   '/streamer/$username': typeof StreamerUsernameRoute
   '/blog/': typeof BlogIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
-  '/api/twitch/callback': typeof ApiTwitchCallbackRoute
-  '/api/twitch/connect': typeof ApiTwitchConnectRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -185,8 +171,6 @@ export interface FileRoutesByTo {
   '/streamer/$username': typeof StreamerUsernameRoute
   '/blog': typeof BlogIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
-  '/api/twitch/callback': typeof ApiTwitchCallbackRoute
-  '/api/twitch/connect': typeof ApiTwitchConnectRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -210,8 +194,6 @@ export interface FileRoutesById {
   '/streamer/$username': typeof StreamerUsernameRoute
   '/blog/': typeof BlogIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
-  '/api/twitch/callback': typeof ApiTwitchCallbackRoute
-  '/api/twitch/connect': typeof ApiTwitchConnectRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -235,8 +217,6 @@ export interface FileRouteTypes {
     | '/streamer/$username'
     | '/blog/'
     | '/api/auth/$'
-    | '/api/twitch/callback'
-    | '/api/twitch/connect'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -258,8 +238,6 @@ export interface FileRouteTypes {
     | '/streamer/$username'
     | '/blog'
     | '/api/auth/$'
-    | '/api/twitch/callback'
-    | '/api/twitch/connect'
   id:
     | '__root__'
     | '/'
@@ -282,8 +260,6 @@ export interface FileRouteTypes {
     | '/streamer/$username'
     | '/blog/'
     | '/api/auth/$'
-    | '/api/twitch/callback'
-    | '/api/twitch/connect'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -305,8 +281,6 @@ export interface RootRouteChildren {
   StreamerUsernameRoute: typeof StreamerUsernameRoute
   BlogIndexRoute: typeof BlogIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
-  ApiTwitchCallbackRoute: typeof ApiTwitchCallbackRoute
-  ApiTwitchConnectRoute: typeof ApiTwitchConnectRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -451,20 +425,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/twitch/callback': {
-      id: '/api/twitch/callback'
-      path: '/api/twitch/callback'
-      fullPath: '/api/twitch/callback'
-      preLoaderRoute: typeof ApiTwitchCallbackRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/twitch/connect': {
-      id: '/api/twitch/connect'
-      path: '/api/twitch/connect'
-      fullPath: '/api/twitch/connect'
-      preLoaderRoute: typeof ApiTwitchConnectRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
@@ -500,8 +460,6 @@ const rootRouteChildren: RootRouteChildren = {
   StreamerUsernameRoute: StreamerUsernameRoute,
   BlogIndexRoute: BlogIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
-  ApiTwitchCallbackRoute: ApiTwitchCallbackRoute,
-  ApiTwitchConnectRoute: ApiTwitchConnectRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

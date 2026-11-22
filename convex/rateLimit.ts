@@ -52,8 +52,6 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   // Twitch features even when callers use many addresses or usernames.
   streamerProvider: { kind: "token bucket", rate: 120, period: MINUTE, capacity: 40 },
 
-  clipJob: { kind: "fixed window", rate: 6, period: HOUR, capacity: 6 },
-
   // Public view-count increments, keyed by layout id. Caps refresh/view spam
   // at ~30 counted views per layout per minute while keeping counts roughly right.
   viewIncrement: {
@@ -71,7 +69,6 @@ export type RateLimitName =
   | "viewIncrement"
   | "streamerRead"
   | "streamerProvider"
-  | "clipJob"
 
 /** Better Auth supplies the normalized IP/path key and the effective rule.
  * Its default memory store isn't durable; the adapter's read/update fallback

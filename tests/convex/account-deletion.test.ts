@@ -29,23 +29,6 @@ describe("account deletion cleanup", () => {
         name: "Saved layout",
         streams: [],
       })
-      await ctx.db.insert("clips", {
-        userId: appUser._id,
-        status: "ready",
-        streams: [],
-        duration: 30,
-        isMultiPov: false,
-        createdAt: Date.now(),
-      })
-      await ctx.db.insert("twitchUserTokens", {
-        userId: appUser._id,
-        twitchUserId: "123",
-        twitchUsername: "testcreator",
-        accessToken: "access",
-        refreshToken: "refresh",
-        scopes: "clips:edit",
-        expiresAt: Date.now() + 60_000,
-      })
       const authoredId = await ctx.db.insert("clipQueue", {
         creatorId,
         submitterId: appUser._id,
@@ -85,8 +68,6 @@ describe("account deletion cleanup", () => {
     const data = await t.run(async (ctx) => ({
       user: await ctx.db.get(appUser._id),
       layout: await ctx.db.query("layouts").withIndex("by_user", (q) => q.eq("authId", authUser._id)).first(),
-      clip: await ctx.db.query("clips").withIndex("by_user", (q) => q.eq("userId", appUser._id)).first(),
-      token: await ctx.db.query("twitchUserTokens").withIndex("by_user", (q) => q.eq("userId", appUser._id)).first(),
       authoredItem: await ctx.db.get(authoredItemId),
       survivingItem: await ctx.db.get(survivingItemId),
       votes: await ctx.db.query("clipQueueVotes").collect(),
@@ -95,8 +76,6 @@ describe("account deletion cleanup", () => {
 
     expect(data.user).toBeNull()
     expect(data.layout).toBeNull()
-    expect(data.clip).toBeNull()
-    expect(data.token).toBeNull()
     expect(data.authoredItem).toBeNull()
     expect(data.survivingItem?.upvotes).toBe(1)
     expect(data.votes).toHaveLength(1)

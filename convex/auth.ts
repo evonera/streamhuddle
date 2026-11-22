@@ -5,7 +5,6 @@ import type { BetterAuthOptions } from "better-auth"
 import { betterAuth } from "better-auth"
 import { emailOTP, username } from "better-auth/plugins"
 import { v } from "convex/values"
-import type { WorkflowId } from "@convex-dev/workflow"
 
 import { components, internal } from "./_generated/api"
 import type { DataModel, Doc } from "./_generated/dataModel"
@@ -21,8 +20,6 @@ import {
   isReservedUsername,
 } from "./constants"
 import { sendAuthOTP } from "./email"
-import { r2 } from "./r2"
-import { workflow } from "./clipWorkflow"
 import { authenticationRequired } from "./errors"
 import { getSiteUrl, getTrustedOrigins } from "./origins"
 import { authRateLimitStorage } from "./rateLimit"
@@ -128,43 +125,9 @@ export const cleanupDeletedUserData = internalMutation({
       return await reschedule()
     }
 
-    const clip = userId
-      ? await ctx.db.query("clips").withIndex("by_user", q => q.eq("userId", userId)).first()
-      : null
-    if (clip) {
-      if (clip.workflowId && (clip.status === "creating" || clip.status === "downloading")) {
-        try {
-          await workflow.cancel(ctx, clip.workflowId as WorkflowId)
-        } catch (error) {
-          // A job may finish between reading the clip and cancelling it.
-          console.warn("Could not cancel clip workflow during account cleanup", error)
-        }
-      }
-      const streamsWithFiles = clip.streams.filter(stream => stream.r2Key)
-      const filesToDelete = streamsWithFiles.slice(0, batchSize)
-      for (const stream of filesToDelete) {
-        if (stream.r2Key) await r2.deleteObject(ctx, stream.r2Key)
-      }
-      const deletedKeys = new Set(filesToDelete.map(stream => stream.r2Key))
-      const remainingStreams = clip.streams
-        .filter(stream => !stream.r2Key || !deletedKeys.has(stream.r2Key))
-      if (remainingStreams.some(stream => stream.r2Key)) {
-        await ctx.db.patch(clip._id, { streams: remainingStreams, workflowId: undefined })
-      } else {
-        await ctx.db.delete(clip._id)
-      }
-      return await reschedule()
-    }
-
     const layouts = await ctx.db.query("layouts").withIndex("by_user", q => q.eq("authId", authId)).take(batchSize)
     await Promise.all(layouts.map(layout => ctx.db.delete(layout._id)))
     if (layouts.length === batchSize) return await reschedule()
-
-    const tokens = userId
-      ? await ctx.db.query("twitchUserTokens").withIndex("by_user", q => q.eq("userId", userId)).take(batchSize)
-      : []
-    await Promise.all(tokens.map(token => ctx.db.delete(token._id)))
-    if (tokens.length === batchSize) return await reschedule()
 
     const purchase = userId
       ? await ctx.db.query("proPayments").withIndex("by_user_and_active", q => q.eq("userId", userId)).first()

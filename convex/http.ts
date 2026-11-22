@@ -132,57 +132,6 @@ http.route({
   }),
 })
 
-http.route({
-  path: "/twitch-oauth-token",
-  method: "POST",
-  handler: httpAction(async (ctx, req) => {
-    const expectedSecret = process.env.TWITCH_CLIENT_SECRET
-    const identity = await ctx.auth.getUserIdentity()
-    if (
-      !expectedSecret ||
-      req.headers.get("x-twitch-oauth-secret") !== expectedSecret ||
-      !identity
-    ) {
-      return new Response("Unauthorized", { status: 401 })
-    }
-    let body: {
-      twitchUserId?: string
-      twitchUsername?: string
-      accessToken?: string
-      refreshToken?: string
-      scopes?: string
-      expiresIn?: number
-    }
-    try {
-      body = await req.json()
-    } catch {
-      return new Response("Invalid JSON", { status: 400 })
-    }
-    if (!body || typeof body !== "object" || Array.isArray(body)) {
-      return new Response("Invalid token payload", { status: 400 })
-    }
-    if (
-      !body.twitchUserId ||
-      !body.twitchUsername ||
-      !body.accessToken ||
-      !body.refreshToken ||
-      typeof body.expiresIn !== "number"
-    ) {
-      return new Response("Invalid token payload", { status: 400 })
-    }
-    await ctx.runMutation(internal.twitchOAuth.saveTwitchToken, {
-      authId: identity.subject,
-      twitchUserId: body.twitchUserId,
-      twitchUsername: body.twitchUsername,
-      accessToken: body.accessToken,
-      refreshToken: body.refreshToken,
-      scopes: body.scopes ?? "",
-      expiresIn: body.expiresIn,
-    })
-    return new Response(null, { status: 204 })
-  }),
-})
-
 import { createDodoWebhookHandler } from "@dodopayments/convex"
 
 http.route({
