@@ -59,3 +59,18 @@ export function isValidUsernameFormat(username: string): boolean {
     USERNAME_FORMAT_REGEX.test(username)
   )
 }
+
+// ============================================================================
+// Creator usernames
+// ============================================================================
+
+/**
+ * Canonical stored form of a creator username. Twitch, Kick and YouTube
+ * handles are case-insensitive, so they are stored lowercase to match the
+ * exact-match `by_platform_and_username` index. Custom entries are URLs and
+ * keep their case.
+ */
+export function normalizeUsername(platform: string, username: string): string {
+  const trimmed = username.trim()
+  return platform === "custom" ? trimmed : trimmed.toLowerCase()
+}

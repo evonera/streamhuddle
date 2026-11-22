@@ -25,6 +25,7 @@ Set these in the Pages runtime environment for each environment that supports Tw
 | --- | --- | --- |
 | `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET` | Required for Twitch integration | OAuth credentials used by the Twitch OAuth routes. Keep the secret in a Cloudflare secret binding. |
 | `TWITCH_REDIRECT_BASE_URL` | Required for Twitch OAuth | Fixed origin for `/api/twitch/callback`; normally the same origin configured as `SITE_URL`. |
+| `AUTH_PROXY_SECRET` | Yes | A unique secret shared with Convex to authorize auth proxying and public streamer-profile requests. |
 
 ## Convex server variables
 
@@ -35,6 +36,7 @@ Set these on the Convex deployment using `bun run convex:env` or the Convex dash
 | `SITE_URL` | Yes | Canonical app origin for Better Auth, CORS, OAuth redirects, and payment returns. |
 | `TRUSTED_ORIGINS` | No | Comma-separated extra allowed origins for a deliberate multi-host deployment. |
 | `BETTER_AUTH_SECRET` | Yes | Secret used by Better Auth. Use a unique random value per deployment. |
+| `AUTH_PROXY_SECRET` | Yes | Must exactly match the Cloudflare Pages runtime secret; blocks direct calls to browser-facing Better Auth and streamer relay routes. |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Optional | Google sign-in credentials. |
 | `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET` | Required for Twitch integration | Twitch app credentials used by Convex API actions and sign-in. The same credentials are also used by Cloudflare Pages OAuth routes. Keep the secret server-side in both environments. |
 | `RESEND_API_KEY` | Required for email delivery | Resend API key. |
@@ -49,8 +51,22 @@ Set these on the Convex deployment using `bun run convex:env` or the Convex dash
 | `YOUTUBE_API_KEY` | Optional | Enables YouTube upcoming-event lookups. |
 | `KICK_PROXY_URL` | Optional | HTTPS URL of a compatible Kick proxy. |
 | `TRUSTED_PROXY` | Optional | Set to `true` only when requests arrive through a trusted proxy that sets the expected client IP headers. |
-| `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | Required for clip file storage | Cloudflare R2 credentials. Keep all three server-side. |
+| `R2_BUCKET`, `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | Required for clip file storage | Variables read by the R2 component. Endpoint format: `https://<account-id>.r2.cloudflarestorage.com`. Keep credentials server-side. |
 
 Register the callback URI `${TWITCH_REDIRECT_BASE_URL}/api/twitch/callback` with Twitch. Do not use a request's Host header to construct an OAuth redirect.
 
 Use [.env.example](../.env.example) and [.env.convex.example](../.env.convex.example) as key lists. They contain placeholders, not credentials.
+
+## Security rollout
+
+Set the same random `AUTH_PROXY_SECRET` on the app runtime and its corresponding Convex deployment before deploying the backend and frontend together. Auth and the streamer relay return 503 when the secret is missing. Keep Preview and Production secrets distinct. Local development also needs this value in `.env.local`; setup preserves or provisions a matching backend value.
+
+The app trusts `CF-Connecting-IP` only on a Cloudflare request carrying runtime `cf` metadata. Other runtimes use one shared conservative bucket. Convex verifies the proxy secret before accepting the app's client-IP header. Authentication and streamer limits are stored by the Convex Rate Limiter component, so limits survive runtime restarts.
+
+Browser and SSR Convex token requests both pass through this trusted boundary; direct token requests are rejected before consuming an auth bucket. JWKS and OIDC discovery remain public and limit-exempt so Convex JWT verification continues to work.
+
+Avatars use authenticated `POST /api/avatar` with a Convex bearer token. Both old direct-upload mutations reject stale clients with a reload message. Upload attempts are limited to six per account per hour, reservations expire after two minutes, and the cleanup cron removes unreferenced Convex storage objects older than one hour. Existing attached avatars are retained. The legacy boolean lease is ignored, so previously abandoned uploads do not lock users out.
+
+Streamer responses are cached in Convex for 15 seconds (missing usernames for 60 seconds). Requests are limited to 20 per IP per minute; cache misses reserve four calls from a shared 120-per-minute provider budget. A shared expiring lease coalesces misses, and a prior profile can be served during refresh or provider throttling. Cache cleanup runs every ten minutes. These are application budgets; edge protection remains a deployment concern.
+
+Clip jobs use Workflow with four-way action concurrency and a six-jobs-per-account hourly budget. Twitch Create Clip is not retried because it has no idempotency key. Download retries reuse deterministic R2 keys; failed attempts retain their keys until terminal cleanup, because the R2 component queues byte deletion asynchronously. Completion callbacks clean workflow history and failed-job files. Configure all four R2 variables above before enabling clips.

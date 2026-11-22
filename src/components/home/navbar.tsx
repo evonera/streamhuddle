@@ -12,12 +12,19 @@ export default function Navbar() {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
     useEffect(() => {
-        const handleScroll = () => {
-            setScrolled(window.scrollY > 20);
-        };
+        const handleScroll = () => setScrolled(window.scrollY > 20);
+        handleScroll();
         window.addEventListener("scroll", handleScroll);
         return () => window.removeEventListener("scroll", handleScroll);
     }, []);
+
+    useEffect(() => {
+        const closeOnEscape = (event: KeyboardEvent) => {
+            if (event.key === "Escape") setMobileMenuOpen(false);
+        };
+        if (mobileMenuOpen) window.addEventListener("keydown", closeOnEscape);
+        return () => window.removeEventListener("keydown", closeOnEscape);
+    }, [mobileMenuOpen]);
 
     return (
         <header
@@ -42,26 +49,31 @@ export default function Navbar() {
                 {/* Right side */}
                 <div className="hidden md:flex items-center gap-4">
                     <div className="flex items-center gap-2">
-                        <a href="https://github.com/evonera/streamhuddle" target="_blank" rel="noreferrer" className="flex items-center justify-center h-10 w-10 border border-white/10 bg-transparent text-white/50 hover:text-white hover:bg-white/5 transition-colors">
+                        <a aria-label="StreamHuddle on GitHub" href="https://github.com/evonera/streamhuddle" target="_blank" rel="noreferrer" className="flex items-center justify-center h-10 w-10 border border-border bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
                             <HugeiconsIcon icon={GithubIcon} className="w-4 h-4" />
                         </a>
 
                     </div>
-                    <Link to="/discover" className="flex items-center h-10 bg-transparent text-foreground font-mono font-bold tracking-widest uppercase px-4 text-xs hover:bg-white/5 transition-colors">
+                    <Link to="/discover" className="flex items-center h-10 bg-transparent text-foreground font-mono font-bold tracking-widest uppercase px-4 text-xs hover:bg-muted transition-colors">
                         Discover
                     </Link>
-                    <Link to="/roster" className="flex items-center h-10 bg-primary text-background font-mono font-bold tracking-widest uppercase px-6 text-xs hover:bg-primary/90 transition-colors active:scale-[0.96]">
+                    <Link to="/roster" className="flex items-center h-10 bg-primary text-primary-foreground font-mono font-bold tracking-widest uppercase px-6 text-xs hover:bg-primary/90 transition-colors active:scale-[0.96]">
                         Get Started
                     </Link>
-                    <div className="pl-2 border-l border-white/10">
+                    <div className="pl-2 border-l border-border">
                         <UserMenu />
                     </div>
                 </div>
 
                 {/* Mobile Toggle */}
-                <div className="flex md:hidden items-center gap-4">
+                <div className="flex md:hidden items-center gap-3">
+                    <UserMenu />
                     <button
-                        className="text-foreground p-1"
+                        type="button"
+                        aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+                        aria-expanded={mobileMenuOpen}
+                        aria-controls="mobile-navigation"
+                        className="text-foreground p-2 rounded-md focus-visible:outline-2 focus-visible:outline-ring"
                         onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                     >
                         {mobileMenuOpen ? <HugeiconsIcon icon={Cancel01Icon} className="w-6 h-6" /> : <HugeiconsIcon icon={Menu01Icon} className="w-6 h-6" />}
@@ -71,19 +83,19 @@ export default function Navbar() {
 
             {/* Mobile Menu */}
             {mobileMenuOpen && (
-                <div className="md:hidden absolute top-full left-0 right-0 bg-background border-b border-border/50 shadow-lg p-4 flex flex-col gap-4 animate-fade-in-up">
+                <nav id="mobile-navigation" aria-label="Mobile navigation" className="md:hidden absolute top-full left-0 right-0 bg-background border-b border-border/50 shadow-lg p-4 flex flex-col gap-4 animate-fade-in-up">
 
                     <div className="flex items-center justify-center gap-8 p-4 border-t border-border/50 mt-2">
-                        <a href="https://github.com/evonera/streamhuddle" className="text-muted-foreground hover:text-foreground"><HugeiconsIcon icon={GithubIcon} className="w-6 h-6" /></a>
+                        <a aria-label="StreamHuddle on GitHub" href="https://github.com/evonera/streamhuddle" className="text-muted-foreground hover:text-foreground"><HugeiconsIcon icon={GithubIcon} className="w-6 h-6" /></a>
 
                     </div>
-                    <Link to="/discover" className="w-full text-center bg-zinc-900 text-foreground font-mono font-bold tracking-widest uppercase px-4 py-4 text-xs hover:bg-zinc-800 transition-colors mt-2">
+                    <Link to="/discover" onClick={() => setMobileMenuOpen(false)} className="w-full text-center bg-muted text-foreground font-mono font-bold tracking-widest uppercase px-4 py-4 text-xs hover:bg-accent transition-colors mt-2">
                         Discover
                     </Link>
-                    <Link to="/roster" className="w-full text-center bg-primary text-background font-mono font-bold tracking-widest uppercase px-4 py-4 text-xs hover:bg-primary/90 transition-colors active:scale-[0.96] mt-2">
+                    <Link to="/roster" onClick={() => setMobileMenuOpen(false)} className="w-full text-center bg-primary text-primary-foreground font-mono font-bold tracking-widest uppercase px-4 py-4 text-xs hover:bg-primary/90 transition-colors active:scale-[0.96] mt-2">
                         Get Started
                     </Link>
-                </div>
+                </nav>
             )}
         </header>
     );

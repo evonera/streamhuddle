@@ -1,6 +1,8 @@
 import { v } from "convex/values"
 
+import { internal } from "./_generated/api"
 import type { Id } from "./_generated/dataModel"
+import { internalMutation } from "./_generated/server"
 import type { MutationCtx } from "./_generated/server"
 import type { AuthUser } from "./functions"
 import { authMutation, optionalAuthQuery } from "./functions"
@@ -71,9 +73,10 @@ export const getLiveQueueMulti = optionalAuthQuery({
   args: { creatorIds: v.array(v.id("creators")) },
   handler: async (ctx, args) => {
     if (args.creatorIds.length > 30) throw new Error("A queue can include up to 30 creators.")
+    const creatorIds = [...new Set(args.creatorIds)]
     // 1. Fetch approved clips for all creators concurrently
     const allClipsNested = await Promise.all(
-      args.creatorIds.map(creatorId => 
+      creatorIds.map(creatorId =>
         ctx.db.query("clipQueue")
           .withIndex("by_creator_status_upvotes", q =>
             q.eq("creatorId", creatorId).eq("status", "approved")
@@ -118,7 +121,7 @@ export const getLiveQueueMulti = optionalAuthQuery({
     }
 
     // 4. Resolve `hasVoted` for the authenticated user using a single flat batch
-    const allSourceIds = sorted.flatMap(item => item._sourceItemIds)
+    const allSourceIds = [...new Set<Id<"clipQueue">>(sorted.flatMap(item => item._sourceItemIds))]
     const votes = await Promise.all(
       allSourceIds.map((itemId: Id<"clipQueue">) =>
         ctx.db
@@ -156,7 +159,7 @@ export const getLiveQueueMulti = optionalAuthQuery({
 /**
  * Submit a clip to a streamer's queue.
  * Deduplicates by URL: if the same clip URL already exists and is active,
- * it boosts the upvote count instead of creating a duplicate entry.
+ * it returns the existing entry without changing votes.
  */
 export const submitClip = authMutation({
   args: {
@@ -192,29 +195,21 @@ export const submitClip = authMutation({
       ? args.submitterTwitchName 
       : (ctx.user.name ?? "Anonymous")
 
-    // Rate limit: prevent chat spam from draining Convex bill
-    // If streamer is proxying for chat, use the chatter's name for the rate limit key
-    const rateLimitKey = (isStreamer && args.submitterTwitchName) 
-      ? `chat_${args.submitterTwitchName}` 
-      : ctx.user._id.toString();
-    
-    await rateLimitWithThrow(ctx, "userAction", rateLimitKey)
+    // A client-supplied chatter name is display data, not a trusted identity.
+    await rateLimitWithThrow(ctx, "userAction", ctx.user._id.toString())
 
-    // Dedup: same URL on same creator → boost upvote instead of duplicate
-    const existing = await ctx.db
-      .query("clipQueue")
-      .withIndex("by_creator_and_url", (q) =>
-        q.eq("creatorId", args.creatorId).eq("clipUrl", args.clipUrl)
-      )
-      .first()
-
-    if (existing && existing.status !== "played") {
-      await ctx.db.patch(existing._id, { upvotes: existing.upvotes + 1 })
-      return existing._id
-    }
-
-
-
+    // Check active statuses with bounded index reads. An old played entry must
+    // not hide a newer active resubmission. Votes change only in upvoteClip.
+    const matches = await Promise.all(
+      (["approved", "playing", "pending"] as const).map(status => ctx.db
+        .query("clipQueue")
+        .withIndex("by_creator_url_status", q =>
+          q.eq("creatorId", args.creatorId).eq("clipUrl", args.clipUrl).eq("status", status)
+        )
+        .first()),
+    )
+    const existing = matches.find(item => item !== null)
+    if (existing) return existing._id
     return await ctx.db.insert("clipQueue", {
       creatorId: args.creatorId,
       submitterId: ctx.user._id,
@@ -323,14 +318,29 @@ export const deleteClip = authMutation({
       throw new Error("Unauthorized: Only the streamer can delete their queue items")
     }
 
-    // Delete any associated votes to keep the database clean
+    // Votes on a popular clip are unbounded, so remove them in scheduled batches.
+    await ctx.db.delete(args.queueItemId)
+    await ctx.scheduler.runAfter(0, internal.clipQueue.deleteVotesForItem, {
+      queueItemId: args.queueItemId,
+    })
+  },
+})
+
+const VOTE_DELETE_BATCH = 500
+
+/** Delete a removed queue item's votes in bounded batches. */
+export const deleteVotesForItem = internalMutation({
+  args: { queueItemId: v.id("clipQueue") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
     const votes = await ctx.db
       .query("clipQueueVotes")
-      .withIndex("by_item", (q) => q.eq("queueItemId", args.queueItemId))
-      .collect()
-      
-    await Promise.all(votes.map(vote => ctx.db.delete(vote._id)))
-
-    await ctx.db.delete(args.queueItemId)
+      .withIndex("by_item_and_user", (q) => q.eq("queueItemId", args.queueItemId))
+      .take(VOTE_DELETE_BATCH)
+    await Promise.all(votes.map((vote) => ctx.db.delete(vote._id)))
+    if (votes.length === VOTE_DELETE_BATCH) {
+      await ctx.scheduler.runAfter(0, internal.clipQueue.deleteVotesForItem, args)
+    }
+    return null
   },
 })

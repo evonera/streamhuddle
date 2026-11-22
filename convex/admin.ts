@@ -115,8 +115,7 @@ export const addCreator = mutation({
     // Add to roster if not already there
     const existingRoster = await ctx.db
       .query("roster")
-      .withIndex("by_creator", q => q.eq("creatorId", creatorId))
-      .filter(q => q.eq(q.field("eventId"), activeEvent._id))
+      .withIndex("by_creator_and_event", q => q.eq("creatorId", creatorId).eq("eventId", activeEvent._id))
       .first();
 
     if (!existingRoster) {
@@ -143,7 +142,7 @@ export const removeCreator = mutation({
     // Delete from roster
     const rosters = await ctx.db
       .query("roster")
-      .withIndex("by_creator", q => q.eq("creatorId", args.creatorId))
+      .withIndex("by_creator_and_event", q => q.eq("creatorId", args.creatorId))
       .collect();
       
     for (const r of rosters) {

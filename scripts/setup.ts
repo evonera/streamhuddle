@@ -602,6 +602,17 @@ async function stepAuthEnv(fresh: boolean): Promise<void> {
     await convexEnvSet("BETTER_AUTH_SECRET", autoGen ? base64Secret() : pasted)
     ok(autoGen ? "generated BETTER_AUTH_SECRET" : "set BETTER_AUTH_SECRET from paste")
   }
+
+  const localEnv = await readEnvFile()
+  const localProxySecret = localEnv.get("AUTH_PROXY_SECRET")
+  const deploymentProxySecret = env.get("AUTH_PROXY_SECRET")
+  if (localProxySecret && deploymentProxySecret && localProxySecret !== deploymentProxySecret) {
+    throw new Error("AUTH_PROXY_SECRET differs between .env.local and Convex. Set matching values before rerunning setup.")
+  }
+  const proxySecret = localProxySecret || deploymentProxySecret || base64Secret()
+  if (!localProxySecret) await ensureEnvLocalLine("AUTH_PROXY_SECRET", proxySecret)
+  if (!deploymentProxySecret) await convexEnvSet("AUTH_PROXY_SECRET", proxySecret)
+  ok("AUTH_PROXY_SECRET matches the local app and Convex deployment")
 }
 
 function warnResendUnconfigured(): void {
@@ -717,10 +728,11 @@ async function printSummary(
   section("Summary")
   const [localEnv, convexEnv] = await Promise.all([readEnvFile(), convexEnvMap()])
 
-  const localKeys = ["CONVEX_DEPLOYMENT", "VITE_CONVEX_URL", "VITE_CONVEX_SITE_URL"]
+  const localKeys = ["CONVEX_DEPLOYMENT", "VITE_CONVEX_URL", "VITE_CONVEX_SITE_URL", "AUTH_PROXY_SECRET"]
   const convexKeys = [
     "SITE_URL",
     "BETTER_AUTH_SECRET",
+    "AUTH_PROXY_SECRET",
     "RESEND_API_KEY",
     "EMAIL_FROM",
     "APP_NAME",

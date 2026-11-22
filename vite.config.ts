@@ -18,6 +18,24 @@ function getConvexSiteUrl(deployment: string | undefined) {
   return `https://${projectName}.convex.site`
 }
 
+// Cloudflare Pages builds expose CF_PAGES_URL, the per-deployment URL such as
+// "https://<hash>.<project>.pages.dev". Strip the deployment label so canonical
+// links point at the project's stable "<project>.pages.dev" origin. Used only
+// when SITE_URL is not configured; set SITE_URL for a custom domain.
+function getPagesProjectUrl(pagesUrl: string | undefined) {
+  if (!pagesUrl) return undefined
+  try {
+    const { hostname } = new URL(pagesUrl)
+    const labels = hostname.split(".")
+    if (!hostname.endsWith(".pages.dev") || labels.length < 4) return undefined
+    const projectUrl = `https://${labels.slice(1).join(".")}`
+    console.warn(`⚠️  SITE_URL is not set; using Cloudflare Pages origin ${projectUrl}`)
+    return projectUrl
+  } catch {
+    return undefined
+  }
+}
+
 export default defineConfig(({ mode, command }) => {
   const env = loadEnv(mode, process.cwd(), "")
 
@@ -34,7 +52,12 @@ export default defineConfig(({ mode, command }) => {
 
   const convexUrl = env.VITE_CONVEX_URL || wranglerVars.VITE_CONVEX_URL
   const convexSiteUrl = env.VITE_CONVEX_SITE_URL || wranglerVars.VITE_CONVEX_SITE_URL || getConvexSiteUrl(env.CONVEX_DEPLOYMENT)
-  const configuredSiteUrl = env.VITE_SITE_URL || wranglerVars.VITE_SITE_URL || env.SITE_URL || wranglerVars.SITE_URL
+  const configuredSiteUrl =
+    env.VITE_SITE_URL ||
+    wranglerVars.VITE_SITE_URL ||
+    env.SITE_URL ||
+    wranglerVars.SITE_URL ||
+    getPagesProjectUrl(env.CF_PAGES_URL)
   if (mode === "production" && !configuredSiteUrl) {
     throw new Error("❌ Build failed: VITE_SITE_URL or SITE_URL must be set for production builds.")
   }

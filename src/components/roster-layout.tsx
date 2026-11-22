@@ -33,7 +33,6 @@ import VolumeMute01Icon from "@hugeicons/core-free-icons/VolumeMute01Icon"
 import Search01Icon from "@hugeicons/core-free-icons/Search01Icon"
 import Search02Icon from "@hugeicons/core-free-icons/Search02Icon"
 import Share01Icon from "@hugeicons/core-free-icons/Share01Icon"
-import Tv01Icon from "@hugeicons/core-free-icons/Tv01Icon"
 import Maximize01Icon from "@hugeicons/core-free-icons/Maximize01Icon"
 import Delete02Icon from "@hugeicons/core-free-icons/Delete02Icon"
 import FloppyDiskIcon from "@hugeicons/core-free-icons/FloppyDiskIcon"
@@ -44,10 +43,10 @@ import { Button } from "@/components/ui/button"
 import { useConvexAuth } from 'convex/react'
 import Video01Icon from "@hugeicons/core-free-icons/Video01Icon"
 import { ClipModal } from "./clip/ClipModal"
-import { authClient } from "@/lib/auth-client"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { MultiClipQueueWidget } from "./clip-queue/ClipQueueWidget"
 import { RosterCreatorRow } from "./roster-creator-row"
+import { RosterDialog } from "./roster-dialog"
 import { pauseAllTwitch, playAllTwitch, setAllTwitchQuality } from "@/components/player/twitch-registry"
 import { parseStreamsParam, MAX_GRID_STREAMS } from "@/lib/streams-param"
 import type { Id } from "@convex/_generated/dataModel"
@@ -125,8 +124,8 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
   const [selectedLanguage, setSelectedLanguage] = useState<string | undefined>()
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>()
   const [layoutPickerOpen, setLayoutPickerOpen] = useState(false)
+  const [mobileControlsOpen, setMobileControlsOpen] = useState(false)
   const [layoutSearch, setLayoutSearch] = useState("")
-  const layoutPickerRef = useRef<HTMLDivElement>(null)
 
   const [activeLayoutId, setActiveLayoutId] = useState<string | null>(initialListId || null)
   const [activeStreams, setActiveStreams] = useState<Array<StreamData>>([])
@@ -197,9 +196,10 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
 
   const handleDndCancel = () => setDragOverlayLabel(null)
   
-  // User isPro check (via BetterAuth or Convex)
-  const { data: session } = authClient.useSession()
-  const isPro = (session?.user as any)?.isPro || false
+  // Pro lives on the app users row (set by the payments webhook), not on the
+  // Better Auth session user, so read it from Convex.
+  const me = useQuery(api.users.getMe)
+  const isPro = me?.isPro ?? false
 
   useEffect(() => {
     // Load saved prefs first on every viewport: the persistence effect writes
@@ -250,17 +250,6 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
     }
   }
 
-  // Close layout picker on outside click
-  useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      if (layoutPickerRef.current && !layoutPickerRef.current.contains(e.target as Node)) {
-        setLayoutPickerOpen(false)
-      }
-    }
-    if (layoutPickerOpen) document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [layoutPickerOpen])
-  
   const [theaterMode, setTheaterMode] = useState(false)
 
   useEffect(() => {
@@ -697,21 +686,18 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
       onDragEnd={handleDndEnd}
       onDragCancel={handleDndCancel}
     >
-    <div className="flex flex-col md:flex-row w-full h-screen md:p-2 gap-2 bg-background overflow-hidden relative">
+    <div className="flex flex-col md:flex-row w-full h-dvh md:p-2 gap-2 bg-background overflow-hidden relative">
       
       {/* Mobile Notice & Navbar */}
       <div className="md:hidden flex flex-col w-full shrink-0 z-10">
-        <div className="bg-yellow-500/20 border-b border-yellow-500/50 text-yellow-200 text-[10px] sm:text-xs p-1.5 text-center flex items-center justify-center gap-2">
-          <HugeiconsIcon icon={Tv01Icon} size={14} />
-          Computer recommended for the best experience!
-        </div>
         {!theaterMode && (
           <div className="flex items-center justify-between p-2 bg-card border-b border-border shadow-sm">
-            <button onClick={() => setLeftSidebarOpen(true)} className="p-1.5 bg-zinc-800/80 hover:bg-zinc-700 rounded text-foreground transition-colors">
+            <button type="button" aria-label="Open roster sidebar" aria-expanded={leftSidebarOpen} onClick={() => setLeftSidebarOpen(true)} className="p-2 bg-muted hover:bg-accent rounded text-foreground transition-colors">
               <HugeiconsIcon icon={PanelLeftOpenIcon} size={18} />
             </button>
-            <div className="font-bold text-sm tracking-tight text-foreground/90">StreamHuddle</div>
-            <button onClick={() => setRightSidebarOpen(true)} className="p-1.5 bg-zinc-800/80 hover:bg-zinc-700 rounded text-foreground transition-colors">
+            <Link to="/" className="font-bold text-sm tracking-tight text-foreground/90">StreamHuddle</Link>
+            <Button type="button" size="sm" variant="outline" aria-expanded={mobileControlsOpen} aria-controls="roster-controls" onClick={() => setMobileControlsOpen(open => !open)}>Controls</Button>
+            <button type="button" aria-label="Open chat and clips sidebar" aria-expanded={rightSidebarOpen} onClick={() => setRightSidebarOpen(true)} className="p-2 bg-muted hover:bg-accent rounded text-foreground transition-colors">
               <HugeiconsIcon icon={PanelRightOpenIcon} size={18} />
             </button>
           </div>
@@ -722,10 +708,10 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
       {leftSidebarOpen && !theaterMode && (
         <>
           <button type="button" aria-label="Close roster sidebar" className="md:hidden fixed inset-0 appearance-none border-0 p-0 cursor-pointer bg-black/60 backdrop-blur-sm z-[60]" onClick={() => setLeftSidebarOpen(false)} />
-          <div className="fixed md:relative top-0 left-0 md:top-auto md:left-auto z-[70] md:z-40 w-[85vw] max-w-[320px] md:w-80 shrink-0 h-full md:h-[calc(100vh-1rem)] flex flex-col gap-4 bg-card border-r md:border border-border md:rounded-xl p-4 shadow-2xl md:shadow-xl">
+          <div className="fixed md:relative top-0 left-0 md:top-auto md:left-auto z-[70] md:z-40 w-[85vw] max-w-[320px] md:w-80 shrink-0 h-full md:h-[calc(100dvh-1rem)] flex flex-col gap-4 bg-card border-r md:border border-border md:rounded-xl p-4 shadow-2xl md:shadow-xl">
           <div className="flex items-center justify-between pb-2 border-b border-border">
             <h2 className="font-bold text-foreground">Roster</h2>
-            <button onClick={() => setLeftSidebarOpen(false)} className="text-muted-foreground hover:text-foreground">
+            <button type="button" aria-label="Close roster sidebar" onClick={() => setLeftSidebarOpen(false)} className="text-muted-foreground hover:text-foreground">
               <HugeiconsIcon icon={PanelLeftCloseIcon} size={20} />
             </button>
           </div>
@@ -735,6 +721,7 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
               <HugeiconsIcon icon={Search01Icon} className="absolute left-2.5 top-2 h-4 w-4 text-muted-foreground" />
               <Input
                 type="text"
+                aria-label="Search roster creators"
                 placeholder="Search streamer..."
                 className="pl-8 h-8 text-xs bg-background"
                 value={searchQuery}
@@ -743,7 +730,7 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
             </div>
             <div className="grid grid-cols-2 gap-2">
               <Select value={selectedCategory || "all"} onValueChange={(v) => setSelectedCategory(v === "all" ? undefined : (v as string))}>
-                <SelectTrigger className="h-8 text-xs bg-background">
+                <SelectTrigger aria-label="Creator category" className="h-8 text-xs bg-background">
                   <SelectValue placeholder="Category" />
                 </SelectTrigger>
                 <SelectContent>
@@ -759,7 +746,7 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
               </Select>
 
               <Select value={selectedLanguage || "all"} onValueChange={(v) => setSelectedLanguage(v === "all" ? undefined : (v as string))}>
-                <SelectTrigger className="h-8 text-xs bg-background">
+                <SelectTrigger aria-label="Creator language" className="h-8 text-xs bg-background">
                   <SelectValue placeholder="Language" />
                 </SelectTrigger>
                 <SelectContent>
@@ -791,14 +778,14 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
       )}
 
       {/* Main Canvas Area */}
-      <div className="flex-1 flex flex-col gap-4 min-w-0 h-full md:h-[calc(100vh-1rem)] p-2 md:p-0">
+      <div className="flex-1 flex flex-col gap-2 md:gap-4 min-w-0 min-h-0 md:h-[calc(100dvh-1rem)] p-2 md:p-0">
         
         {/* Sleek Toolbar */}
         {!theaterMode && (
-          <div className="hidden md:flex items-center justify-between bg-card/50 backdrop-blur-md border border-border rounded-xl px-4 py-2 shrink-0 shadow-sm overflow-x-auto no-scrollbar gap-4">
-          <div className="flex items-center gap-3">
+          <div id="roster-controls" aria-label="Roster controls" className={cn("flex flex-wrap max-md:max-h-[45dvh] max-md:overflow-y-auto items-center justify-between bg-card/50 backdrop-blur-md border border-border rounded-xl px-3 md:px-4 py-2 shrink-0 shadow-sm gap-3", !mobileControlsOpen && "max-md:hidden")}>
+          <div className="flex flex-wrap items-center gap-2">
             {!leftSidebarOpen && (
-              <button onClick={() => setLeftSidebarOpen(true)} className="text-muted-foreground hover:text-foreground">
+              <button type="button" aria-label="Open roster sidebar" onClick={() => setLeftSidebarOpen(true)} className="hidden md:block text-muted-foreground hover:text-foreground">
                 <HugeiconsIcon icon={PanelLeftOpenIcon} size={20} />
               </button>
             )}
@@ -808,7 +795,7 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
               aria-label="Home"
               className={cn(
                 buttonVariants({ variant: "ghost", size: "icon" }),
-                "h-8 w-8 [&_svg]:size-4 hidden sm:flex text-muted-foreground hover:text-foreground"
+                "h-8 w-8 [&_svg]:size-4 text-muted-foreground hover:text-foreground"
               )}
             >
               <HugeiconsIcon icon={Home01Icon} strokeWidth={2} />
@@ -819,7 +806,7 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
               aria-label="Discover"
               className={cn(
                 buttonVariants({ variant: "ghost", size: "icon" }),
-                "h-8 w-8 [&_svg]:size-4 hidden sm:flex text-muted-foreground hover:text-foreground"
+                "h-8 w-8 [&_svg]:size-4 text-muted-foreground hover:text-foreground"
               )}
             >
               <HugeiconsIcon icon={Search02Icon} strokeWidth={2} />
@@ -827,13 +814,13 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
             
             <div className="h-4 w-px bg-border mx-1 hidden sm:block"></div>
             
-            <div className="hidden md:flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {/* Clip Feature Button */}
               <Button 
                 onClick={() => setClipModalOpen(true)}
                 size="sm"
                 variant="outline"
-                className="h-8 gap-1.5 text-xs border-purple-500/30 text-purple-400 hover:text-purple-300 hover:bg-purple-500/10"
+                className="h-8 gap-1.5 text-xs"
                 title="Create a Clip"
               >
                 <HugeiconsIcon icon={Video01Icon} className="w-3.5 h-3.5" /> Clip
@@ -862,6 +849,7 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
                   variant="outline"
                   className="h-8 w-8 p-0"
                   title="Share StreamList"
+                  aria-label="Share StreamList"
                 >
                   <HugeiconsIcon icon={Share01Icon} className="w-4 h-4" />
                 </Button>
@@ -875,6 +863,7 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
                   variant="ghost"
                   className="h-8 w-8 p-0 text-muted-foreground hover:text-red-400 hover:bg-red-400/10"
                   title="Clear all streams"
+                  aria-label="Clear all streams"
                 >
                   <HugeiconsIcon icon={Delete02Icon} className="w-4 h-4" />
                 </Button>
@@ -949,6 +938,15 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
           </div>
 
           {/* Grid Size Selector */}
+          <div className="lg:hidden">
+            <Select value={String(gridSize)} onValueChange={value => { if (value) setGridSize(value === "auto" ? "auto" : Number(value)) }}>
+              <SelectTrigger aria-label="Grid size" className="h-8 text-xs"><SelectValue>{gridSize === "auto" ? "Auto grid" : `${gridSize} cells`}</SelectValue></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="auto">Auto grid</SelectItem>
+                {[2, 4, 6, 8, 12, 16, 18, 20, 24, 30].map(size => <SelectItem key={size} value={String(size)}>{size} cells</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="hidden lg:flex shrink-0 items-center gap-1 bg-zinc-900/50 rounded-lg p-1 border border-border mx-2">
             <span className="text-[10px] text-muted-foreground px-2 font-bold tracking-wider">{activeStreams.length} / {MAX_GRID_STREAMS}</span>
             {(["auto", 2, 4, 6, 8, 12, 16, 18, 20, 24, 30] as const).map(size => (
@@ -966,9 +964,9 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
             ))}
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             {/* Searchable StreamList Picker */}
-            <div className="relative" ref={layoutPickerRef}>
+            <div className="relative">
               <button
                 onClick={() => { setLayoutPickerOpen(o => !o); setLayoutSearch("") }}
                 className={cn(
@@ -985,14 +983,14 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
                 <svg className={cn("w-3 h-3 shrink-0 transition-transform", layoutPickerOpen && "rotate-180")} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6"/></svg>
               </button>
 
-              {layoutPickerOpen && (
-                <div className="absolute right-0 top-full mt-1 z-[999] w-56 bg-zinc-950 border border-zinc-800 rounded-md shadow-xl overflow-hidden">
+                <RosterDialog open={layoutPickerOpen} onClose={() => setLayoutPickerOpen(false)} title="Load a StreamList" description="Choose a saved layout or find one from the community.">
                   {/* Search input */}
                   <div className="p-2 border-b border-zinc-800">
                     <div className="relative">
                       <HugeiconsIcon icon={Search01Icon} className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500" />
                       <input
                         type="text"
+                        aria-label="Search saved layouts"
                         placeholder="Search layouts..."
                         value={layoutSearch}
                         onChange={e => setLayoutSearch(e.target.value)}
@@ -1053,8 +1051,7 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
                       })()
                     )}
                   </div>
-                </div>
-              )}
+                </RosterDialog>
             </div>
             
             <div className="h-4 w-px bg-border mx-1"></div>
@@ -1065,6 +1062,7 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
               }}
               className="text-muted-foreground hover:text-foreground flex items-center justify-center w-8 h-8 rounded-md hover:bg-accent"
               title="Enter Zen Mode"
+              aria-label="Enter Zen Mode"
             >
               <HugeiconsIcon icon={Maximize01Icon} size={18} />
             </button>
@@ -1075,8 +1073,8 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
 
             {!rightSidebarOpen && (
               <>
-                <div className="h-4 w-px bg-border mx-1"></div>
-                <button onClick={() => setRightSidebarOpen(true)} className="text-muted-foreground hover:text-foreground">
+                <div className="hidden md:block h-4 w-px bg-border mx-1"></div>
+                <button type="button" aria-label="Open chat and clips sidebar" onClick={() => setRightSidebarOpen(true)} className="hidden md:block text-muted-foreground hover:text-foreground">
                   <HugeiconsIcon icon={PanelRightOpenIcon} size={20} />
                 </button>
               </>
@@ -1086,7 +1084,7 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
         )}
         
         {/* The Grid */}
-        <div className="flex-1 rounded-xl overflow-hidden border border-border shadow-2xl bg-background relative">
+        <div className="flex-1 min-h-0 rounded-xl overflow-hidden border border-border shadow-2xl bg-background relative">
           <StreamGrid
             streams={activeStreams}
             gridSize={gridSize}
@@ -1110,65 +1108,52 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
             onStartTour={() => { setTourStep(0); setTourOpen(true) }}
           />
           
-          {addStreamDialog.isOpen && (
-            <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-              <div className="bg-zinc-950 border border-zinc-800 p-6 rounded-xl w-[400px] shadow-2xl flex flex-col gap-4">
-                <div className="flex justify-between items-center">
-                  <h3 className="font-semibold text-lg">Add Custom Stream</h3>
-                  <button onClick={() => setAddStreamDialog({ isOpen: false })} className="text-muted-foreground hover:text-foreground">✕</button>
-                </div>
-                <p className="text-sm text-muted-foreground">Paste a Twitch, Kick, or YouTube URL to add it to this slot.</p>
-                <div className="flex gap-2">
-                  <Input 
-                    placeholder="Paste Twitch/YouTube URL here..."
-                    value={customUrlInput}
-                    onChange={(e) => setCustomUrlInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        handleAddCustomStream(customUrlInput, addStreamDialog.gridIndex);
-                        setAddStreamDialog({isOpen: false});
-                      }
-                    }}
-                    className="bg-muted border-border"
-                  />
-                  <Button onClick={() => {
-                    if (customUrlInput) {
-                      handleAddCustomStream(customUrlInput, addStreamDialog.gridIndex);
-                      setAddStreamDialog({ isOpen: false });
-                    }
-                  }}>Add</Button>
-                </div>
-              </div>
-            </div>
-          )}
+          <RosterDialog
+            open={addStreamDialog.isOpen}
+            onClose={() => setAddStreamDialog({ isOpen: false })}
+            title="Add a stream"
+            description="Paste a Twitch, Kick, or YouTube URL to add it to this slot."
+          >
+            <form className="flex gap-2" onSubmit={event => {
+              event.preventDefault()
+              if (!customUrlInput.trim()) return
+              handleAddCustomStream(customUrlInput.trim(), addStreamDialog.gridIndex)
+              setAddStreamDialog({ isOpen: false })
+            }}>
+              <Input
+                aria-label="Stream URL"
+                placeholder="Paste a stream URL..."
+                required
+                value={customUrlInput}
+                onChange={event => setCustomUrlInput(event.target.value)}
+                className="min-w-0 bg-muted border-border"
+              />
+              <Button type="submit">Add</Button>
+            </form>
+          </RosterDialog>
 
-          {/* Save Layout Dialog */}
-          {saveDialogOpen && (
-            <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-              <div className="bg-zinc-950 border border-zinc-800 p-6 rounded-xl w-[400px] shadow-2xl flex flex-col gap-4">
-                <div className="flex justify-between items-center">
-                  <h3 className="font-semibold text-lg">Save Layout</h3>
-                  <button onClick={() => setSaveDialogOpen(false)} className="text-muted-foreground hover:text-foreground">✕</button>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Give your layout a name. Only roster creators (not custom URLs) will be saved.
-                </p>
-                <Input
-                  placeholder="e.g. Night Stream, Study Session..."
-                  value={saveLayoutName}
-                  onChange={(e) => setSaveLayoutName(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') void handleConfirmSave() }}
-                  className="bg-muted border-border"
-                />
-                <div className="flex gap-2 justify-end">
-                  <Button variant="ghost" onClick={() => setSaveDialogOpen(false)}>Cancel</Button>
-                  <Button onClick={handleConfirmSave} disabled={isSaving}>
-                    {isSaving ? "Saving..." : "Save Layout"}
-                  </Button>
-                </div>
+          <RosterDialog
+            open={saveDialogOpen}
+            onClose={() => setSaveDialogOpen(false)}
+            title="Save layout"
+            description="Give your layout a name. Only roster creators (not custom URLs) will be saved."
+          >
+            <form className="flex flex-col gap-4" onSubmit={event => { event.preventDefault(); if (!isSaving) void handleConfirmSave() }}>
+              <Input
+                aria-label="Layout name"
+                placeholder="e.g. Night Stream, Study Session..."
+                required
+                maxLength={30}
+                value={saveLayoutName}
+                onChange={event => setSaveLayoutName(event.target.value)}
+                className="bg-muted border-border"
+              />
+              <div className="flex gap-2 justify-end">
+                <Button type="button" variant="ghost" onClick={() => setSaveDialogOpen(false)}>Cancel</Button>
+                <Button type="submit" disabled={isSaving}>{isSaving ? "Saving..." : "Save layout"}</Button>
               </div>
-            </div>
-          )}
+            </form>
+          </RosterDialog>
 
           {clipModalOpen && (
             <ClipModal 
@@ -1190,7 +1175,7 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
 
           {/* Escape Theater Mode Overlay */}
           {theaterMode && (
-            <div className="absolute top-4 right-4 opacity-0 hover:opacity-100 transition-opacity z-50">
+            <div className="absolute top-4 right-4 md:opacity-0 md:hover:opacity-100 focus-within:opacity-100 transition-opacity z-50">
               <Button onClick={() => setTheaterMode(false)} variant="secondary" className="bg-background/50 backdrop-blur hover:bg-background/80">
                 Exit Theater Mode (ESC)
               </Button>
@@ -1203,14 +1188,14 @@ export function RosterLayout({ initialListId, autoLoadAll, initialStreamsParam }
       {rightSidebarOpen && !theaterMode && (
         <>
           <button type="button" aria-label="Close chat and clips sidebar" className="md:hidden fixed inset-0 appearance-none border-0 p-0 cursor-pointer bg-black/60 backdrop-blur-sm z-[60]" onClick={() => setRightSidebarOpen(false)} />
-          <div className="fixed md:relative top-0 right-0 md:top-auto md:right-auto z-[70] md:z-40 w-[85vw] max-w-[340px] md:w-80 shrink-0 h-full md:h-[calc(100vh-1rem)] flex flex-col bg-card border-l md:border border-border md:rounded-xl shadow-2xl md:shadow-xl overflow-hidden">
+          <div className="fixed md:relative top-0 right-0 md:top-auto md:right-auto z-[70] md:z-40 w-[85vw] max-w-[340px] md:w-80 shrink-0 h-full md:h-[calc(100dvh-1rem)] flex flex-col bg-card border-l md:border border-border md:rounded-xl shadow-2xl md:shadow-xl overflow-hidden">
             <Tabs defaultValue="chat" className="flex flex-col h-full">
               <div className="flex items-center justify-between p-2 border-b border-border bg-card/80 backdrop-blur shrink-0">
                 <TabsList className="bg-zinc-900 border border-border">
                   <TabsTrigger value="chat" className="text-xs px-3">Chat</TabsTrigger>
                   <TabsTrigger value="queue" className="text-xs px-3">Clips</TabsTrigger>
                 </TabsList>
-                <button onClick={() => setRightSidebarOpen(false)} className="text-muted-foreground hover:text-foreground mr-1">
+                <button type="button" aria-label="Close chat and clips sidebar" onClick={() => setRightSidebarOpen(false)} className="text-muted-foreground hover:text-foreground mr-1">
                   <HugeiconsIcon icon={PanelRightCloseIcon} size={18} />
                 </button>
               </div>

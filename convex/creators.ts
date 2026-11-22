@@ -1,5 +1,6 @@
 import { v } from "convex/values"
 import { query } from "./_generated/server"
+import { normalizeUsername } from "./constants"
 
 /**
  * Look up a creator by platform and username.
@@ -19,7 +20,7 @@ export const getByUsername = query({
     return await ctx.db
       .query("creators")
       .withIndex("by_platform_and_username", (q) =>
-        q.eq("platform", args.platform).eq("username", args.username)
+        q.eq("platform", args.platform).eq("username", normalizeUsername(args.platform, args.username))
       )
       .first()
   },

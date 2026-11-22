@@ -120,8 +120,6 @@ function ProfileContent({ preloadedUser }: { preloadedUser: PreloadedUser }) {
   const { data: layouts } = useQuery(api.roster.getUserLayouts)
   const { data: hasPassword } = useQuery(api.auth.hasPassword)
   const updateProfile = useMutation(api.users.updateProfile)
-  const generateUploadUrl = useMutation(api.users.generateAvatarUploadUrl)
-  const updateAvatar = useMutation(api.users.updateAvatar)
   const deleteAvatarMutation = useMutation(api.users.deleteAvatar)
   const getCustomerPortal = useAction(api.payments.getCustomerPortal)
 
@@ -385,8 +383,8 @@ function ProfileContent({ preloadedUser }: { preloadedUser: PreloadedUser }) {
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) return
-    if (!file.type.startsWith("image/")) {
-      setError("Please select an image file")
+    if (!["image/jpeg", "image/png", "image/webp", "image/gif"].includes(file.type)) {
+      setError("Please select a JPEG, PNG, WebP, or GIF image")
       return
     }
     if (file.size > 5 * 1024 * 1024) {
@@ -396,15 +394,14 @@ function ProfileContent({ preloadedUser }: { preloadedUser: PreloadedUser }) {
     setIsUploadingAvatar(true)
     setError(null)
     try {
-      const uploadUrl = await generateUploadUrl()
-      const result = await fetch(uploadUrl, {
+      const { data } = await authClient.convex.token()
+      if (!data?.token) throw new Error("Please sign in again to upload an avatar")
+      const result = await fetch(`${import.meta.env.VITE_CONVEX_SITE_URL}/api/avatar`, {
         method: "POST",
-        headers: { "Content-Type": file.type },
+        headers: { "Content-Type": file.type, Authorization: `Bearer ${data.token}` },
         body: file,
       })
-      if (!result.ok) throw new Error("Failed to upload image")
-      const { storageId } = await result.json()
-      await updateAvatar({ storageId })
+      if (!result.ok) throw new Error(await result.text())
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to upload avatar")
     } finally {

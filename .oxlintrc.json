@@ -24,7 +24,7 @@
       }
     }
   },
-  "ignorePatterns": ["**/routeTree.gen.ts", "**/coverage/**", "convex/_generated/**"],
+  "ignorePatterns": ["**/routeTree.gen.ts", "**/coverage/**", "convex/_generated/**", ".claude/skills/**"],
   "options": {
     "reportUnusedDisableDirectives": "error",
     "typeAware": true

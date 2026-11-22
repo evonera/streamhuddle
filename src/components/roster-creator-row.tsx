@@ -2,6 +2,7 @@ import { useDraggable } from "@dnd-kit/core"
 import { HugeiconsIcon } from "@hugeicons/react"
 import Tv01Icon from "@hugeicons/core-free-icons/Tv01Icon"
 import Message01Icon from "@hugeicons/core-free-icons/Message01Icon"
+import DragDropVerticalIcon from "@hugeicons/core-free-icons/DragDropVerticalIcon"
 
 type Creator = {
   _id: string
@@ -12,12 +13,45 @@ type Creator = {
   viewerCount?: number | null
 }
 
-/**
- * One sidebar roster row. The Stream/Chat buttons work three ways:
- * click to toggle, drag onto a grid slot to place, keyboard-focusable.
- * dnd-kit's pointer sensor only starts a drag after movement, so clicks
- * pass through untouched.
- */
+function RosterAction({ creator, type, active, onAdd }: {
+  creator: Creator
+  type: "stream" | "chat"
+  active: boolean
+  onAdd: (creator: Creator, type: "stream" | "chat") => void
+}) {
+  const drag = useDraggable({
+    id: `sidebar:${creator._id}:${type}`,
+    data: { source: "sidebar", creatorId: creator._id, cellType: type, label: `${creator.username} ${type}` },
+  })
+  return (
+    <div ref={drag.setNodeRef} className={`flex-1 min-w-0 flex rounded border border-border ${active ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+      <button
+        type="button"
+        onClick={() => onAdd(creator, type)}
+        aria-label={`${active ? "Remove" : "Add"} ${creator.username} ${type}`}
+        aria-pressed={active}
+        className="flex-1 flex items-center justify-center gap-1 p-2 text-xs transition-colors hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+      >
+        <HugeiconsIcon icon={type === "stream" ? Tv01Icon : Message01Icon} size={14} />
+        {type === "stream" ? "Stream" : "Chat"}
+      </button>
+      <button
+        type="button"
+        ref={drag.setActivatorNodeRef}
+        {...drag.listeners}
+        {...drag.attributes}
+        aria-label={`Drag ${creator.username} ${type} to a grid slot`}
+        title={`Drag ${type} to a grid slot`}
+        style={{ touchAction: "none" }}
+        className="shrink-0 flex items-center justify-center w-8 border-l border-border cursor-grab active:cursor-grabbing hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+      >
+        <HugeiconsIcon icon={DragDropVerticalIcon} size={14} />
+      </button>
+    </div>
+  )
+}
+
+/** Primary buttons toggle cells; separate handles support mouse, touch, and keyboard dragging. */
 export function RosterCreatorRow({
   creator,
   isStreamActive,
@@ -29,18 +63,6 @@ export function RosterCreatorRow({
   isChatActive: boolean
   onAdd: (creator: Creator, type: "stream" | "chat", targetGridIndex?: number) => void
 }) {
-  const streamDrag = useDraggable({
-    id: `sidebar:${creator._id}:stream`,
-    data: { source: "sidebar", creatorId: creator._id, cellType: "stream", label: creator.username },
-  })
-  const chatDrag = useDraggable({
-    id: `sidebar:${creator._id}:chat`,
-    data: { source: "sidebar", creatorId: creator._id, cellType: "chat", label: `${creator.username} Chat` },
-  })
-
-  const btnBase =
-    "flex-1 flex items-center justify-center gap-1 p-1.5 rounded text-xs transition-colors cursor-grab active:cursor-grabbing"
-
   return (
     <div
       className={`p-2 rounded-lg border relative transition-all ${
@@ -59,36 +81,8 @@ export function RosterCreatorRow({
         </div>
       </div>
       <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/50">
-        <button
-          ref={streamDrag.setNodeRef}
-          {...streamDrag.listeners}
-          {...streamDrag.attributes}
-          style={{ touchAction: "pan-y" }}
-          onClick={() => onAdd(creator, "stream")}
-          title="Add stream (or drag to a grid slot)"
-          className={`${btnBase} ${
-            isStreamActive
-              ? 'bg-primary text-primary-foreground'
-              : 'bg-zinc-800/50 hover:bg-zinc-800 text-muted-foreground'
-          }`}
-        >
-          <HugeiconsIcon icon={Tv01Icon} size={14} /> Stream
-        </button>
-        <button
-          ref={chatDrag.setNodeRef}
-          {...chatDrag.listeners}
-          {...chatDrag.attributes}
-          style={{ touchAction: "pan-y" }}
-          onClick={() => onAdd(creator, "chat")}
-          title="Add chat (or drag to a grid slot)"
-          className={`${btnBase} ${
-            isChatActive
-              ? 'bg-primary text-primary-foreground'
-              : 'bg-zinc-800/50 hover:bg-zinc-800 text-muted-foreground'
-          }`}
-        >
-          <HugeiconsIcon icon={Message01Icon} size={14} /> Chat
-        </button>
+        <RosterAction creator={creator} type="stream" active={isStreamActive} onAdd={onAdd} />
+        <RosterAction creator={creator} type="chat" active={isChatActive} onAdd={onAdd} />
       </div>
       {creator.isLive ? (
         <div className="absolute top-2 right-2 flex flex-col items-end pointer-events-none">

@@ -27,3 +27,5 @@ For a local Convex backend, run `bun run setup:local`. Review the prompts before
 Open `http://localhost:3000` after setup. Use `bun run convex:env` to inspect the development deployment variables and `npx convex env set NAME VALUE` to change one. Use the `--prod` flag only when intentionally changing the production deployment.
 
 See [ENV.md](ENV.md) for the variable inventory and [DEPLOY.md](DEPLOY.md) for Cloudflare Pages configuration.
+
+For Lifetime Pro checkout and payment webhooks, follow [BILLING.md](BILLING.md), including the existing-purchase reconciliation notes.

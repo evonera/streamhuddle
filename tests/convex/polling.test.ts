@@ -1,8 +1,8 @@
 // @vitest-environment edge-runtime
-import { describe, expect, test } from "vitest"
+import { afterEach, describe, expect, test, vi } from "vitest"
 import { convexTest } from "convex-test"
 
-import { internal } from "../../convex/_generated/api"
+import { api, internal } from "../../convex/_generated/api"
 import { diffLiveStatuses, viewerCountChanged } from "../../convex/polling"
 import schema from "../../convex/schema"
 
@@ -140,5 +140,75 @@ describe("poll state + commitLiveStatuses", () => {
     })
     expect(await t.query(internal.polling.getPollState, {})).toBeNull()
     expect(await t.query(internal.polling.getUpcomingTargets, {})).toBeNull()
+  })
+})
+
+describe("Twitch outage handling", () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  test("a failed Helix chunk does not mark live creators offline", async () => {
+    const t = setup()
+    const { alice } = await seed(t)
+    await t.run(async (ctx) => {
+      await ctx.db.insert("twitchTokens", { token: "app-token", expiresAt: Date.now() + 3_600_000 })
+    })
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("rate limited", { status: 429 })))
+
+    await t.action(internal.polling.pollAllPlatforms, {})
+
+    const creator = await t.run((ctx) => ctx.db.get(alice))
+    expect(creator?.isLive).toBe(true)
+    expect(creator?.viewerCount).toBe(1000)
+  })
+
+  test("fetchTwitchStreams reports the logins of failed chunks", async () => {
+    const t = setup()
+    await t.run(async (ctx) => {
+      await ctx.db.insert("twitchTokens", { token: "app-token", expiresAt: Date.now() + 3_600_000 })
+    })
+    const logins = Array.from({ length: 60 }, (_, i) => `user${i}`)
+    let call = 0
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        call++ === 0
+          ? Response.json({ data: [{ user_login: "user1", viewer_count: 5, title: "t" }] })
+          : new Response("boom", { status: 500 }),
+      ),
+    )
+
+    const result = await t.action(internal.twitch.fetchTwitchStreams, { logins })
+    expect(result.streams).toHaveLength(1)
+    expect(result.failedLogins).toEqual(logins.slice(50))
+  })
+})
+
+describe("creator username casing", () => {
+  test("normalizeCreatorUsernames lowercases rows and getByUsername is case-insensitive", async () => {
+    const t = setup()
+    const id = await t.run((ctx) =>
+      ctx.db.insert("creators", { platform: "twitch", username: "KaiCenat" }),
+    )
+    await t.run((ctx) => ctx.db.insert("creators", { platform: "custom", username: "https://Example.com/Live" }))
+
+    const result = await t.mutation(internal.seed.normalizeCreatorUsernames, {})
+    expect(result).toEqual({ fixed: 1, conflicts: [], isDone: true })
+
+    const found = await t.query(api.creators.getByUsername, { platform: "twitch", username: "KAICENAT" })
+    expect(found?._id).toBe(id)
+    expect(found?.username).toBe("kaicenat")
+    const custom = await t.query(api.creators.getByUsername, { platform: "custom", username: "https://Example.com/Live" })
+    expect(custom?.username).toBe("https://Example.com/Live")
+  })
+
+  test("a mixed-case row with an existing lowercase twin is reported, not merged", async () => {
+    const t = setup()
+    await t.run(async (ctx) => {
+      await ctx.db.insert("creators", { platform: "twitch", username: "xqc" })
+      await ctx.db.insert("creators", { platform: "twitch", username: "xQc" })
+    })
+    const result = await t.mutation(internal.seed.normalizeCreatorUsernames, {})
+    expect(result.fixed).toBe(0)
+    expect(result.conflicts).toHaveLength(1)
   })
 })

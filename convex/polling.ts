@@ -213,9 +213,12 @@ export const pollAllPlatforms = internalAction({
     // Twitch: one batched Helix call (chunked by 50 inside fetchTwitchStreams).
     if (state.twitch.length > 0) {
       try {
-        const streams = await ctx.runAction(internal.twitch.fetchTwitchStreams, { logins: state.twitch });
+        const { streams, failedLogins } = await ctx.runAction(internal.twitch.fetchTwitchStreams, { logins: state.twitch });
         const streamMap = new Map(streams.map((s: any) => [String(s.user_login).toLowerCase(), s]));
+        // A failed chunk means unknown status, not offline: leave those creators as they are.
+        const failed = new Set(failedLogins);
         for (const username of state.twitch) {
+          if (failed.has(username)) continue;
           const stream = streamMap.get(username.toLowerCase());
           results.push({
             platform: "twitch",
